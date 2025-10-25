@@ -1,0 +1,163 @@
+openapi: 3.0.0
+info:
+  title: Flotio
+  version: 1.0.0
+  description: ''
+servers:
+  - url: '{{base_uri}}'
+  - url: ''
+paths:
+  /auth/register:
+    post:
+      summary: Register
+      tags:
+        - Auth
+      responses: {}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+  /auth/login:
+    post:
+      summary: Login
+      tags:
+        - Auth
+      responses: {}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+  /auth/@me:
+    get:
+      summary: Get User
+      tags:
+        - Auth
+      responses: {}
+    put:
+      summary: Update User
+      tags:
+        - Auth
+      responses: {}
+  /github:
+    get:
+      summary: github Connection
+      tags:
+        - Auth
+      parameters:
+        - name: action
+          in: query
+          required: false
+          schema:
+            deprecated: false
+      responses: {}
+  /:
+    get:
+      summary: Get all keys Env
+      tags:
+        - Projects
+        - envs
+      responses: {}
+    post:
+      summary: Set env or multiple env
+      tags:
+        - Projects
+        - envs
+      responses: {}
+    delete:
+      summary: Del env
+      tags:
+        - Projects
+        - envs
+      responses: {}
+    put:
+      summary: Update env
+      tags:
+        - Projects
+        - envs
+      responses: {}
+  /project/{id}/build:
+    post:
+      summary: Start new build
+      tags:
+        - Projects
+        - builds
+      responses: {}
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          deprecated: false
+  /project:
+    get:
+      summary: Get Projects
+      tags:
+        - Projects
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses: {}
+    post:
+      summary: Create Project
+      tags:
+        - Projects
+      responses: {}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                git_repo:
+                  type: string
+  /project/{id}:
+    get:
+      summary: Get Project
+      tags:
+        - Projects
+      responses: {}
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          deprecated: false
+    put:
+      summary: Update Project
+      tags:
+        - Projects
+      responses: {}
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                git_repo:
+                  type: string
+    delete:
+      summary: Delete Project
+      tags:
+        - Projects
+      responses: {}
