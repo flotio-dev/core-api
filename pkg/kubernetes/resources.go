@@ -14,6 +14,12 @@ import (
 
 // CreateConfigMapForEnvFiles creates a ConfigMap containing environment files for a build
 func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
+	// Check if database is initialized
+	if db.DB == nil {
+		// No database connection, skip environment files
+		return "", nil
+	}
+
 	// Fetch environment files from database
 	var envs []db.Env
 	if err := db.DB.Where("project_id = ? AND type = ?", projectID, "file").Find(&envs).Error; err != nil {
@@ -78,6 +84,12 @@ func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, p
 
 // CreateSecretForKeystore creates a Secret containing the keystore and credentials
 func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
+	// Check if database is initialized
+	if db.DB == nil {
+		// No database connection, skip keystore
+		return "", nil
+	}
+
 	// Fetch active keystore from database
 	var keystore db.Keystore
 	if err := db.DB.Where("project_id = ? AND is_active = ?", projectID, true).First(&keystore).Error; err != nil {

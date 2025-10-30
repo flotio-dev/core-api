@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script pour construire et publier l'image Docker de build Flutter
+# Script pour construire et publier l'image podman de build Flutter
 
 set -e
 
@@ -22,9 +22,9 @@ echo -e "${BLUE}Flutter Build Image Builder${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Vérifier que Docker est installé
-if ! command -v docker &> /dev/null; then
-    echo -e "${RED}Error: Docker is not installed${NC}"
+# Vérifier que podman est installé
+if ! command -v podman-remote-static-linux_amd64 &> /dev/null; then
+    echo -e "${RED}Error: podman is not installed${NC}"
     exit 1
 fi
 
@@ -54,15 +54,15 @@ if [ ! -f "build.sh" ]; then
 fi
 
 # Build de l'image
-echo -e "${YELLOW}Building Docker image...${NC}"
-docker build \
+echo -e "${YELLOW}Building podman image...${NC}"
+podman-remote-static-linux_amd64 build \
     -f "$DOCKERFILE" \
     -t "$FULL_IMAGE_NAME" \
     --progress=plain \
     .
 
 if [ $? -ne 0 ]; then
-    echo -e "${RED}Error: Docker build failed${NC}"
+    echo -e "${RED}Error: podman build failed${NC}"
     exit 1
 fi
 
@@ -70,7 +70,7 @@ echo -e "${GREEN}✓ Image built successfully${NC}"
 echo ""
 
 # Afficher les informations sur l'image
-IMAGE_SIZE=$(docker images "$FULL_IMAGE_NAME" --format "{{.Size}}")
+IMAGE_SIZE=$(podman-remote-static-linux_amd64 images "$FULL_IMAGE_NAME" --format "{{.Size}}")
 echo -e "${GREEN}Image Information:${NC}"
 echo "  Name: $FULL_IMAGE_NAME"
 echo "  Size: $IMAGE_SIZE"
@@ -85,13 +85,13 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     # Login au registry si nécessaire
     if [ -n "$REGISTRY" ] && [ -n "$DOCKER_USERNAME" ] && [ -n "$DOCKER_PASSWORD" ]; then
         echo "Logging in to registry..."
-        echo "$DOCKER_PASSWORD" | docker login "$REGISTRY" -u "$DOCKER_USERNAME" --password-stdin
+        echo "$DOCKER_PASSWORD" | podman login "$REGISTRY" -u "$DOCKER_USERNAME" --password-stdin
     fi
 
-    docker push "$FULL_IMAGE_NAME"
+    podman-remote-static-linux_amd64 push "$FULL_IMAGE_NAME"
 
     if [ $? -ne 0 ]; then
-        echo -e "${RED}Error: Docker push failed${NC}"
+        echo -e "${RED}Error: podman push failed${NC}"
         exit 1
     fi
 
