@@ -65,7 +65,7 @@ RUN git clone https://github.com/flutter/flutter.git -b ${FLUTTER_VERSION} $FLUT
 WORKDIR /workspace
 
 # Copy build script
-COPY build.sh /usr/local/bin/build.sh
+COPY build/build.sh /usr/local/bin/build.sh
 RUN chmod +x /usr/local/bin/build.sh
 
 # Set entrypoint
