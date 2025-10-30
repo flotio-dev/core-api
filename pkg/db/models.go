@@ -53,13 +53,29 @@ type Log struct {
 	Timestamp  int64  `json:"timestamp"` // Unix timestamp
 }
 
-// Env model
+// Env model - supports both environment variables and files
 type Env struct {
 	gorm.Model
 	ProjectID uint    `json:"project_id"`
 	Project   Project `json:"project"`
-	Key       string  `json:"key"`
-	Value     string  `json:"value"`
+	Key       string  `json:"key"`       // Variable name or file identifier
+	Value     string  `json:"value"`     // Variable value or file content (base64 for binary)
+	Type      string  `json:"type"`      // "env" for environment variable, "file" for file
+	Path      string  `json:"path"`      // Target path for files (e.g., "android/app/google-services.json")
+	IsBase64  bool    `json:"is_base64"` // True if Value is base64 encoded (for binary files)
+}
+
+// Keystore model - stores Android signing credentials
+type Keystore struct {
+	gorm.Model
+	ProjectID     uint    `json:"project_id"`
+	Project       Project `json:"project"`
+	Name          string  `json:"name"`           // Friendly name
+	KeystoreFile  string  `json:"keystore_file"`  // Base64 encoded keystore file
+	StorePassword string  `json:"store_password"` // Encrypted
+	KeyAlias      string  `json:"key_alias"`
+	KeyPassword   string  `json:"key_password"` // Encrypted
+	IsActive      bool    `json:"is_active"`    // Only one active keystore per project
 }
 
 type Organization struct {

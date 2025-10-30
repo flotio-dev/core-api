@@ -204,11 +204,42 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Platform string `json:"platform,omitempty"` // e.g., android, ios
+		Platform       string `json:"platform,omitempty"`        // e.g., android, ios, web
+		BuildMode      string `json:"build_mode,omitempty"`      // release, debug, profile
+		BuildTarget    string `json:"build_target,omitempty"`    // apk, aab, ios, web
+		FlutterChannel string `json:"flutter_channel,omitempty"` // stable, beta, dev
+		GitBranch      string `json:"git_branch,omitempty"`      // branch to build
+		GitUsername    string `json:"git_username,omitempty"`    // for private repos
+		GitPassword    string `json:"git_password,omitempty"`    // for private repos
 	}
 	if err := utils.ReadJSON(r, &req); err != nil {
-		// If no body, use default
+		// If no body, use defaults
 		req.Platform = "android"
+		req.BuildMode = "release"
+		req.BuildTarget = "apk"
+		req.FlutterChannel = "stable"
+		req.GitBranch = "main"
+	}
+
+	// Set defaults for empty fields
+	if req.Platform == "" {
+		req.Platform = "android"
+	}
+	if req.BuildMode == "" {
+		req.BuildMode = "release"
+	}
+	if req.BuildTarget == "" {
+		if req.Platform == "android" {
+			req.BuildTarget = "apk"
+		} else {
+			req.BuildTarget = req.Platform
+		}
+	}
+	if req.FlutterChannel == "" {
+		req.FlutterChannel = "stable"
+	}
+	if req.GitBranch == "" {
+		req.GitBranch = "main"
 	}
 
 	var project db.Project
@@ -233,7 +264,19 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Start the build process by creating a Kubernetes pod
-	if err := kubernetes.CreateBuildPod(build.ID, project, req.Platform); err != nil {
+	buildConfig := kubernetes.BuildConfig{
+		BuildID:        build.ID,
+		Project:        project,
+		Platform:       req.Platform,
+		BuildMode:      req.BuildMode,
+		BuildTarget:    req.BuildTarget,
+		FlutterChannel: req.FlutterChannel,
+		GitBranch:      req.GitBranch,
+		GitUsername:    req.GitUsername,
+		GitPassword:    req.GitPassword,
+	}
+
+	if err := kubernetes.CreateBuildPod(buildConfig); err != nil {
 		// If pod creation fails, update build status to failed
 		build.Status = "failed"
 		db.DB.Save(&build)
