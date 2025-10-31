@@ -24,6 +24,23 @@ RUN apt-get update && apt-get install -y \
     openjdk-${JAVA_VERSION}-jdk \
     wget \
     ca-certificates \
+    # Additional libraries for Flutter/Android builds
+    clang \
+    cmake \
+    ninja-build \
+    pkg-config \
+    libgtk-3-dev \
+    liblzma-dev \
+    libstdc++6 \
+    # Libraries for certain Flutter plugins
+    libglib2.0-0 \
+    libglib2.0-dev \
+    libsqlite3-0 \
+    libsqlite3-dev \
+    # For file operations and compression
+    file \
+    # For build performance
+    ccache \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Java environment
@@ -61,12 +78,29 @@ RUN git clone https://github.com/flutter/flutter.git -b ${FLUTTER_VERSION} $FLUT
     flutter config --no-analytics && \
     flutter precache
 
+# Configure Gradle for better performance
+ENV GRADLE_USER_HOME=/opt/gradle
+RUN mkdir -p $GRADLE_USER_HOME && \
+    echo "org.gradle.daemon=true" >> $GRADLE_USER_HOME/gradle.properties && \
+    echo "org.gradle.parallel=true" >> $GRADLE_USER_HOME/gradle.properties && \
+    echo "org.gradle.caching=true" >> $GRADLE_USER_HOME/gradle.properties && \
+    echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> $GRADLE_USER_HOME/gradle.properties
+
+# Create non-root user
+RUN groupadd -r flutter -g 1000 && \
+    useradd -r -u 1000 -g flutter -m -s /bin/bash flutter && \
+    chown -R flutter:flutter $FLUTTER_HOME $ANDROID_HOME $GRADLE_USER_HOME
+
 # Create work directory
 WORKDIR /workspace
+RUN chown flutter:flutter /workspace
 
 # Copy build script
 COPY build/build.sh /usr/local/bin/build.sh
 RUN chmod +x /usr/local/bin/build.sh
+
+# Switch to non-root user
+USER flutter
 
 # Set entrypoint
 ENTRYPOINT ["/usr/local/bin/build.sh"]
