@@ -67,8 +67,14 @@ fi
 
 # Step 2: Switch Flutter channel if needed
 echo -e "${GREEN}[2/7] Setting Flutter channel to $FLUTTER_CHANNEL...${NC}"
-flutter channel "$FLUTTER_CHANNEL"
-flutter upgrade
+CURRENT_CHANNEL=$(flutter channel | grep '^\*' | awk '{print $2}')
+if [ "$CURRENT_CHANNEL" != "$FLUTTER_CHANNEL" ]; then
+    echo "  Switching from $CURRENT_CHANNEL to $FLUTTER_CHANNEL"
+    flutter channel "$FLUTTER_CHANNEL"
+    flutter upgrade
+else
+    echo "  Already on $FLUTTER_CHANNEL channel, skipping upgrade"
+fi
 
 # Step 3: Process environment files
 echo -e "${GREEN}[3/7] Processing environment files...${NC}"

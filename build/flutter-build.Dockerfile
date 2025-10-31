@@ -96,9 +96,8 @@ RUN git clone --depth 1 --single-branch https://github.com/flutter/flutter.git -
     flutter config --no-analytics && \
     # Only precache for Android to save space
     flutter precache --android --no-ios --no-web --no-linux --no-windows --no-macos && \
-    # Clean up Flutter cache and unnecessary files
-    rm -rf $FLUTTER_HOME/.git \
-    && rm -rf $FLUTTER_HOME/bin/cache/artifacts/ios* \
+    # Clean up Flutter cache and unnecessary files (but keep .git for flutter channel command)
+    rm -rf $FLUTTER_HOME/bin/cache/artifacts/ios* \
     && rm -rf $FLUTTER_HOME/bin/cache/artifacts/macos* \
     && rm -rf $FLUTTER_HOME/bin/cache/artifacts/linux* \
     && rm -rf $FLUTTER_HOME/bin/cache/artifacts/windows* \
