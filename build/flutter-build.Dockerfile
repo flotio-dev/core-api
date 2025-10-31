@@ -1,6 +1,6 @@
 # Flutter Build Container - Production Ready (Optimized)
 # Includes Android SDK, Java, Flutter and all necessary build tools
-# Multi-stage build for reduced image size
+# Multi-architecture support (amd64/arm64)
 
 FROM ubuntu:22.04 AS builder
 
@@ -13,6 +13,10 @@ ENV ANDROID_SDK_VERSION=9477386
 ENV ANDROID_BUILD_TOOLS_VERSION=34.0.0
 ENV ANDROID_PLATFORMS_VERSION=34
 ENV JAVA_VERSION=17
+
+# Detect architecture for Android SDK
+ARG TARGETARCH
+ENV TARGETARCH=${TARGETARCH}
 
 # Install base dependencies (minimal set + build essentials)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -48,10 +52,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/tmp/*
 
 # Set Java environment
-ENV JAVA_HOME=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-${TARGETARCH}
 ENV PATH=$PATH:$JAVA_HOME/bin
 
-# Install Android SDK
+# Install Android SDK (architecture-aware)
 ENV ANDROID_HOME=/opt/android-sdk
 ENV ANDROID_SDK_ROOT=$ANDROID_HOME
 ENV PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS_VERSION}
