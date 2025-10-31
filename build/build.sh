@@ -65,7 +65,7 @@ else
     echo "  Working directory: /workspace/repo"
 fi
 
-Step 2: Switch Flutter channel if needed
+# Step 2: Switch Flutter channel if needed
 echo -e "${GREEN}[2/7] Setting Flutter channel to $FLUTTER_CHANNEL...${NC}"
 CURRENT_CHANNEL=$(flutter channel | grep '^\*' | awk '{print $2}')
 if [ "$CURRENT_CHANNEL" != "$FLUTTER_CHANNEL" ]; then
