@@ -1,7 +1,8 @@
-# Flutter Build Container - Production Ready
+# Flutter Build Container - Production Ready (Optimized)
 # Includes Android SDK, Java, Flutter and all necessary build tools
+# Multi-stage build for reduced image size
 
-FROM ubuntu:22.04
+FROM ubuntu:22.04 AS builder
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
@@ -13,15 +14,15 @@ ENV ANDROID_BUILD_TOOLS_VERSION=34.0.0
 ENV ANDROID_PLATFORMS_VERSION=34
 ENV JAVA_VERSION=17
 
-# Install base dependencies
-RUN apt-get update && apt-get install -y \
+# Install base dependencies (minimal set + build essentials)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     unzip \
     xz-utils \
     zip \
     libglu1-mesa \
-    openjdk-${JAVA_VERSION}-jdk \
+    openjdk-${JAVA_VERSION}-jdk-headless \
     wget \
     ca-certificates \
     # Additional libraries for Flutter/Android builds
@@ -29,19 +30,22 @@ RUN apt-get update && apt-get install -y \
     cmake \
     ninja-build \
     pkg-config \
-    libgtk-3-dev \
-    liblzma-dev \
+    libgtk-3-0 \
+    liblzma5 \
     libstdc++6 \
     # Libraries for certain Flutter plugins
     libglib2.0-0 \
-    libglib2.0-dev \
     libsqlite3-0 \
+    libgtk-3-dev \
     libsqlite3-dev \
-    # For file operations and compression
+    # For file operations
     file \
     # For build performance
     ccache \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/tmp/*
 
 # Set Java environment
 ENV JAVA_HOME=/usr/lib/jvm/java-${JAVA_VERSION}-openjdk-amd64
@@ -55,28 +59,50 @@ ENV PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-too
 RUN mkdir -p $ANDROID_HOME/cmdline-tools && \
     cd $ANDROID_HOME/cmdline-tools && \
     wget -q https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip && \
-    unzip commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip && \
+    unzip -q commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip && \
     rm commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip && \
-    mv cmdline-tools latest
+    mv cmdline-tools latest && \
+    # Clean up unnecessary files
+    rm -rf $ANDROID_HOME/cmdline-tools/latest/NOTICE.txt
 
-# Accept licenses and install Android components
+# Accept licenses and install Android components (minimal set)
 RUN yes | sdkmanager --licenses && \
-    sdkmanager "platform-tools" \
+    sdkmanager --install \
+    "platform-tools" \
     "platforms;android-${ANDROID_PLATFORMS_VERSION}" \
     "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
-    "extras;google;google_play_services" \
-    "extras;google;m2repository" \
-    "extras;android;m2repository" \
-    "ndk;25.1.8937393"
+    "ndk;25.1.8937393" && \
+    # Clean up Android SDK to reduce size
+    rm -rf $ANDROID_HOME/tools \
+    && rm -rf $ANDROID_HOME/emulator \
+    && rm -rf $ANDROID_HOME/system-images \
+    && rm -rf $ANDROID_HOME/sources \
+    && rm -rf $ANDROID_HOME/ndk/*/prebuilt/android-* \
+    && rm -rf $ANDROID_HOME/ndk/*/simpleperf \
+    && rm -rf $ANDROID_HOME/ndk/*/shader-tools \
+    && find $ANDROID_HOME -name "*.jar.orig" -delete \
+    && find $ANDROID_HOME -name "*.zip" -delete
 
 # Install Flutter
 ENV FLUTTER_HOME=/opt/flutter
 ENV PATH=$PATH:$FLUTTER_HOME/bin
 
-RUN git clone https://github.com/flutter/flutter.git -b ${FLUTTER_VERSION} $FLUTTER_HOME && \
+RUN git clone --depth 1 --single-branch https://github.com/flutter/flutter.git -b ${FLUTTER_VERSION} $FLUTTER_HOME && \
     flutter doctor -v && \
     flutter config --no-analytics && \
-    flutter precache
+    # Only precache for Android to save space
+    flutter precache --android --no-ios --no-web --no-linux --no-windows --no-macos && \
+    # Clean up Flutter cache and unnecessary files
+    rm -rf $FLUTTER_HOME/.git \
+    && rm -rf $FLUTTER_HOME/bin/cache/artifacts/ios* \
+    && rm -rf $FLUTTER_HOME/bin/cache/artifacts/macos* \
+    && rm -rf $FLUTTER_HOME/bin/cache/artifacts/linux* \
+    && rm -rf $FLUTTER_HOME/bin/cache/artifacts/windows* \
+    && rm -rf $FLUTTER_HOME/bin/cache/artifacts/fuchsia* \
+    && rm -rf $FLUTTER_HOME/examples \
+    && rm -rf $FLUTTER_HOME/dev/benchmarks \
+    && find $FLUTTER_HOME -name "*.md" -type f -delete \
+    && find $FLUTTER_HOME -name "*.txt" -type f -delete
 
 # Configure Gradle for better performance
 ENV GRADLE_USER_HOME=/opt/gradle
@@ -85,6 +111,15 @@ RUN mkdir -p $GRADLE_USER_HOME && \
     echo "org.gradle.parallel=true" >> $GRADLE_USER_HOME/gradle.properties && \
     echo "org.gradle.caching=true" >> $GRADLE_USER_HOME/gradle.properties && \
     echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError" >> $GRADLE_USER_HOME/gradle.properties
+
+# Final cleanup to reduce image size
+RUN apt-get autoremove -y \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/* \
+    && rm -rf /var/cache/* \
+    && rm -rf /root/.cache \
+    && journalctl --vacuum-time=1s 2>/dev/null || true
 
 # Create non-root user
 RUN groupadd -r flutter -g 1000 && \
