@@ -107,11 +107,6 @@ RUN git clone --depth 1 --single-branch https://github.com/flutter/flutter.git -
     && find $FLUTTER_HOME -name "*.md" -type f -delete \
     && find $FLUTTER_HOME -name "*.txt" -type f -delete
 
-# Install FVM (Flutter Version Management) for flexible version switching
-RUN curl -fsSL https://fvm.app/install.sh | bash && \
-    echo 'export PATH="$HOME/.pub-cache/bin:$PATH"' >> /root/.bashrc && \
-    export PATH="$HOME/.pub-cache/bin:$PATH"
-
 # Configure Gradle for better performance
 ENV GRADLE_USER_HOME=/opt/gradle
 RUN mkdir -p $GRADLE_USER_HOME && \
@@ -133,6 +128,16 @@ RUN apt-get autoremove -y \
 RUN groupadd -r flutter -g 1000 && \
     useradd -r -u 1000 -g flutter -m -s /bin/bash flutter && \
     chown -R flutter:flutter $FLUTTER_HOME $ANDROID_HOME $GRADLE_USER_HOME
+
+# Switch to non-root user for FVM installation
+USER flutter
+
+# Install FVM (Flutter Version Management) as non-root user
+RUN curl -fsSL https://fvm.app/install.sh | bash || true
+ENV PATH="/home/flutter/.pub-cache/bin:$PATH"
+
+# Switch back to configure workspace
+USER root
 
 # Create work directory
 WORKDIR /workspace
