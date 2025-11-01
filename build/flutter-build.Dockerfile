@@ -107,6 +107,11 @@ RUN git clone --depth 1 --single-branch https://github.com/flutter/flutter.git -
     && find $FLUTTER_HOME -name "*.md" -type f -delete \
     && find $FLUTTER_HOME -name "*.txt" -type f -delete
 
+# Install FVM (Flutter Version Management) for flexible version switching
+RUN curl -fsSL https://fvm.app/install.sh | bash && \
+    echo 'export PATH="$HOME/.pub-cache/bin:$PATH"' >> /root/.bashrc && \
+    export PATH="$HOME/.pub-cache/bin:$PATH"
+
 # Configure Gradle for better performance
 ENV GRADLE_USER_HOME=/opt/gradle
 RUN mkdir -p $GRADLE_USER_HOME && \

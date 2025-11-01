@@ -31,8 +31,8 @@ func main() {
 
 	// Create a mock project (no database)
 	testProject := db.Project{
-		Name:        "Flutter Japanese Restaurant (Test)",
-		GitRepo:     "https://github.com/SinaSys/flutter_japanese_restaurant_app.git",
+		Name:        "Test Application (Test)",
+		GitRepo:     "https://github.com/flotio-dev/test_apk.git",
 		BuildFolder: ".",
 	}
 
@@ -44,7 +44,7 @@ func main() {
 		BuildMode:      "release",
 		BuildTarget:    "apk",
 		FlutterChannel: "stable",
-		GitBranch:      "master",
+		GitBranch:      "main",
 		GitUsername:    "",
 		GitPassword:    "",
 	}
