@@ -98,16 +98,15 @@ RUN git clone https://github.com/flutter/flutter.git -b ${FLUTTER_VERSION} $FLUT
     flutter config --no-analytics && \
     # Only precache for Android to save space
     flutter precache --android --no-ios --no-web --no-linux --no-windows --no-macos && \
-    # Clean up Flutter cache and unnecessary files (but keep .git for flutter channel command)
+    # Clean up Flutter cache and unnecessary files (but keep essential build files)
     rm -rf $FLUTTER_HOME/bin/cache/artifacts/ios* \
     && rm -rf $FLUTTER_HOME/bin/cache/artifacts/macos* \
     && rm -rf $FLUTTER_HOME/bin/cache/artifacts/linux* \
     && rm -rf $FLUTTER_HOME/bin/cache/artifacts/windows* \
     && rm -rf $FLUTTER_HOME/bin/cache/artifacts/fuchsia* \
     && rm -rf $FLUTTER_HOME/examples \
-    && rm -rf $FLUTTER_HOME/dev/benchmarks \
-    && find $FLUTTER_HOME -name "*.md" -type f -delete \
-    && find $FLUTTER_HOME -name "*.txt" -type f -delete
+    && rm -rf $FLUTTER_HOME/dev/benchmarks
+    # Keep .git, gradle scripts (CMakeLists.txt), and essential build files
 
 # Configure Gradle for better performance
 ENV GRADLE_USER_HOME=/opt/gradle
