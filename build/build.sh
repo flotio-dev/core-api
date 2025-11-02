@@ -185,7 +185,9 @@ install_compatible_flutter() {
     else
         echo "  ✓ Successfully installed compatible Flutter/Dart version"
     fi
-}# Run version detection
+}
+
+# Run version detection
 detect_flutter_version
 
 # Step 3: Process environment files
