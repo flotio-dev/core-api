@@ -91,7 +91,9 @@ RUN yes | sdkmanager --licenses && \
 ENV FLUTTER_HOME=/opt/flutter
 ENV PATH=$PATH:$FLUTTER_HOME/bin
 
-RUN git clone --depth 1 --single-branch https://github.com/flutter/flutter.git -b ${FLUTTER_VERSION} $FLUTTER_HOME && \
+RUN git clone https://github.com/flutter/flutter.git -b ${FLUTTER_VERSION} $FLUTTER_HOME && \
+    cd $FLUTTER_HOME && \
+    git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" && \
     flutter doctor -v && \
     flutter config --no-analytics && \
     # Only precache for Android to save space

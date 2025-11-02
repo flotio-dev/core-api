@@ -117,59 +117,75 @@ detect_flutter_version() {
 install_compatible_flutter() {
     local required_dart_version=$1
 
-    # Use FVM (Flutter Version Management) if available, otherwise use git
+    echo "  Preparing Flutter repository for channel switching..."
+    cd $FLUTTER_HOME
+
+    # Ensure we can fetch all branches
+    git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+    git fetch origin --depth=1 stable beta master 2>/dev/null || git fetch origin stable beta master
+
+    # Get current channel or default to stable
+    CURRENT_CHANNEL=$(flutter channel 2>/dev/null | grep '^\*' | awk '{print $2}' || echo "stable")
+    if [ -z "$CURRENT_CHANNEL" ] || [ "$CURRENT_CHANNEL" = "*" ]; then
+        echo "  No channel detected, switching to stable first..."
+        git checkout origin/stable
+        flutter channel stable
+        CURRENT_CHANNEL="stable"
+    fi
+
+    echo "  Current channel: $CURRENT_CHANNEL"
+    cd - > /dev/null
+
+    # Use FVM (Flutter Version Management) if available
     if command -v fvm &> /dev/null; then
         echo "  Using FVM to install compatible Flutter version..."
         # FVM can automatically select the right version
-        fvm install
-        fvm use
-    else
-        echo "  Attempting to upgrade Flutter to get compatible Dart version..."
-
-        # First, try upgrading on current channel
-        flutter upgrade
-
-        UPDATED_DART_VERSION=$(dart --version 2>&1 | grep -oP 'Dart SDK version: \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
-        echo "  Updated Dart version: $UPDATED_DART_VERSION"
-
-        # If still not compatible, try switching to a different channel
-        if [ "$(printf '%s\n' "$required_dart_version" "$UPDATED_DART_VERSION" | sort -V | head -n1)" != "$required_dart_version" ]; then
-            echo "  Trying beta channel for newer Dart version..."
-            if flutter channel | grep -q "beta"; then
-                flutter channel beta
-                flutter upgrade
-
-                BETA_DART_VERSION=$(dart --version 2>&1 | grep -oP 'Dart SDK version: \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
-                echo "  Beta channel Dart version: $BETA_DART_VERSION"
-
-                # If beta still not enough, try master
-                if [ "$(printf '%s\n' "$required_dart_version" "$BETA_DART_VERSION" | sort -V | head -n1)" != "$required_dart_version" ]; then
-                    echo "  Trying master channel for latest Dart version..."
-                    if flutter channel | grep -q "master"; then
-                        flutter channel master
-                        flutter upgrade
-                    fi
-                fi
-            fi
+        if fvm install 2>/dev/null && fvm use 2>/dev/null; then
+            echo "  ✓ FVM configured successfully"
+            return 0
         fi
+        echo "  FVM not configured for this project, falling back to flutter upgrade"
+    fi
 
-        FINAL_DART_VERSION=$(dart --version 2>&1 | grep -oP 'Dart SDK version: \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
-        echo "  Final Dart version: $FINAL_DART_VERSION"
+    echo "  Attempting to upgrade Flutter to get compatible Dart version..."
 
-        if [ "$(printf '%s\n' "$required_dart_version" "$FINAL_DART_VERSION" | sort -V | head -n1)" != "$required_dart_version" ]; then
-            echo -e "${RED}  ✗ Could not find compatible Flutter/Dart version${NC}"
-            echo -e "${RED}  Required Dart: $required_dart_version, Available: $FINAL_DART_VERSION${NC}"
-            echo ""
-            echo "  Suggestion: Update your Dockerfile to use a newer Flutter version or"
-            echo "  specify FLUTTER_VERSION environment variable with a compatible version."
-            exit 1
-        else
-            echo "  ✓ Successfully installed compatible Flutter/Dart version"
+    # First, try upgrading on current channel
+    flutter upgrade --force
+
+    UPDATED_DART_VERSION=$(dart --version 2>&1 | grep -oP 'Dart SDK version: \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
+    echo "  Updated Dart version: $UPDATED_DART_VERSION"
+
+    # If still not compatible, try switching to a different channel
+    if [ "$(printf '%s\n' "$required_dart_version" "$UPDATED_DART_VERSION" | sort -V | head -n1)" != "$required_dart_version" ]; then
+        echo "  Trying beta channel for newer Dart version..."
+        flutter channel beta
+        flutter upgrade --force
+
+        BETA_DART_VERSION=$(dart --version 2>&1 | grep -oP 'Dart SDK version: \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
+        echo "  Beta channel Dart version: $BETA_DART_VERSION"
+
+        # If beta still not enough, try master
+        if [ "$(printf '%s\n' "$required_dart_version" "$BETA_DART_VERSION" | sort -V | head -n1)" != "$required_dart_version" ]; then
+            echo "  Trying master channel for latest Dart version..."
+            flutter channel master
+            flutter upgrade --force
         fi
     fi
-}
 
-# Run version detection
+    FINAL_DART_VERSION=$(dart --version 2>&1 | grep -oP 'Dart SDK version: \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
+    echo "  Final Dart version: $FINAL_DART_VERSION"
+
+    if [ "$(printf '%s\n' "$required_dart_version" "$FINAL_DART_VERSION" | sort -V | head -n1)" != "$required_dart_version" ]; then
+        echo -e "${RED}  ✗ Could not find compatible Flutter/Dart version${NC}"
+        echo -e "${RED}  Required Dart: $required_dart_version, Available: $FINAL_DART_VERSION${NC}"
+        echo ""
+        echo "  Suggestion: Update your Dockerfile to use a newer Flutter version or"
+        echo "  specify FLUTTER_VERSION environment variable with a compatible version."
+        exit 1
+    else
+        echo "  ✓ Successfully installed compatible Flutter/Dart version"
+    fi
+}# Run version detection
 detect_flutter_version
 
 # Step 3: Process environment files
