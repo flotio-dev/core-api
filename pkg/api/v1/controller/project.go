@@ -27,7 +27,7 @@ func ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user db.User
-	if err := db.DB.Where("keycloak_id = ?", *userInfo.Sub).First(&user).Error; err != nil {
+	if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
@@ -52,7 +52,7 @@ func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user db.User
-	if err := db.DB.Where("keycloak_id = ?", *userInfo.Sub).First(&user).Error; err != nil {
+	if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
@@ -102,7 +102,7 @@ func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var project db.Project
-	if err := db.DB.Preload("Builds").Preload("Envs").Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Sub).First(&project).Error; err != nil {
+	if err := db.DB.Preload("Builds").Preload("Envs").Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
@@ -139,7 +139,7 @@ func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var project db.Project
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Sub).First(&project).Error; err != nil {
+	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
@@ -182,7 +182,7 @@ func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Sub).Delete(&db.Project{}).Error; err != nil {
+	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Delete(&db.Project{}).Error; err != nil {
 		http.Error(w, "Failed to delete project", http.StatusInternalServerError)
 		return
 	}
@@ -243,7 +243,7 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var project db.Project
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Sub).First(&project).Error; err != nil {
+	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
@@ -311,7 +311,7 @@ func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var build db.Build
-	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Sub).First(&build).Error; err != nil {
+	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Build not found", http.StatusNotFound)
 			return
@@ -344,7 +344,7 @@ func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var builds []db.Build
-	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Sub).Find(&builds).Error; err != nil {
+	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&builds).Error; err != nil {
 		http.Error(w, "Failed to fetch builds", http.StatusInternalServerError)
 		return
 	}
@@ -373,7 +373,7 @@ func BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the build belongs to the user's project
 	var build db.Build
-	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Sub).First(&build).Error; err != nil {
+	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Build not found", http.StatusNotFound)
 			return

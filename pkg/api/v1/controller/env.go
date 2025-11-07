@@ -28,7 +28,7 @@ func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var envs []db.Env
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Sub).Find(&envs).Error; err != nil {
+	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&envs).Error; err != nil {
 		http.Error(w, "Failed to fetch envs", http.StatusInternalServerError)
 		return
 	}
@@ -60,7 +60,7 @@ func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify project ownership
 	var project db.Project
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Sub).First(&project).Error; err != nil {
+	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
@@ -104,7 +104,7 @@ func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var env db.Env
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Sub).First(&env).Error; err != nil {
+	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Env not found", http.StatusNotFound)
 			return
@@ -146,7 +146,7 @@ func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var env db.Env
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Sub).First(&env).Error; err != nil {
+	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Env not found", http.StatusNotFound)
 			return
@@ -186,7 +186,7 @@ func EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Sub).Delete(&db.Env{}).Error; err != nil {
+	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).Delete(&db.Env{}).Error; err != nil {
 		http.Error(w, "Failed to delete env", http.StatusInternalServerError)
 		return
 	}
