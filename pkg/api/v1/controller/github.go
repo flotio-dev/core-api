@@ -3,13 +3,10 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
-	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/go-github/v76/github"
 	"golang.org/x/oauth2"
 	githubOAuth "golang.org/x/oauth2/github"
@@ -17,6 +14,10 @@ import (
 
 	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
 	db "github.com/flotio-dev/api/pkg/db"
+
+	"context"
+
+	"github.com/bradleyfalzon/ghinstallation/v2"
 )
 
 type GithubController struct {
@@ -109,12 +110,10 @@ func handleInstallation(action string, installationID, targetID int64, accountLo
 	}
 }
 
-// Payload attendu depuis le front après le callback GitHub
 type PostInstallationPayload struct {
 	InstallationID int64 `json:"installation_id"`
 }
 
-// Handler pour lier l'installation GitHub à l'utilisateur interne
 func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r *http.Request) {
 	userInfo := middleware.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -138,7 +137,6 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
-	// Stocke l'installation dans la DB
 	installation := db.GithubInstallation{
 		InstallationID: payload.InstallationID,
 		UserID:         &userInfo.DB.ID,
@@ -152,7 +150,6 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
-	// Réponse
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"status":          "ok",
@@ -160,152 +157,149 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 	})
 }
 
-// GenerateGithubAppJWT génère un JWT signé par ta GitHub App
-func GenerateGithubAppJWT() (string, error) {
-	appID := os.Getenv("GITHUB_APP_ID")
-	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
-
-	keyData, err := os.ReadFile(privateKeyPath)
-	if err != nil {
-		return "", fmt.Errorf("cannot read private key: %w", err)
-	}
-
-	key, err := jwt.ParseRSAPrivateKeyFromPEM(keyData)
-	if err != nil {
-		return "", fmt.Errorf("invalid private key: %w", err)
-	}
-
-	now := time.Now().UTC()
-	claims := jwt.MapClaims{
-		"iat": now.Unix(),
-		"exp": now.Add(10 * time.Minute).Unix(), // valide 10 min
-		"iss": appID,                            // ID de ton app GitHub
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	signedToken, err := token.SignedString(key)
-	if err != nil {
-		return "", fmt.Errorf("failed to sign JWT: %w", err)
-	}
-
-	return signedToken, nil
-}
-
-// GenerateInstallationAccessToken génère un access token pour une installation donnée
-func GenerateInstallationAccessToken(installationID int64) (string, error) {
-	appToken, err := GenerateGithubAppJWT()
-	if err != nil {
-		return "", err
-	}
-
-	url := fmt.Sprintf("https://api.github.com/app/installations/%d/access_tokens", installationID)
-	req, err := http.NewRequest("POST", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", appToken))
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("failed to create access token: %s", string(body))
-	}
-
-	var result struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
-	}
-
-	return result.Token, nil
-}
-
 func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
-	if userInfo == nil {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// 🔹 Pagination optionnelle
-	page := r.URL.Query().Get("page")
-	perPage := r.URL.Query().Get("per_page")
-
-	if page == "" {
-		page = "1"
-	}
-	if perPage == "" {
-		perPage = "50"
-	}
-
-	// 🔹 Récupérer l'installation_id depuis la DB avec GORM
 	var installation struct {
 		InstallationID int64 `gorm:"column:installation_id"`
 	}
-	err := db.DB.Table("github_installations").
+	if err := db.DB.
+		Table("github_installations").
 		Select("installation_id").
-		Where("user_id = ?", userInfo.DB.ID).
-		Limit(1).
-		Scan(&installation).Error
-
-	if err != nil || installation.InstallationID == 0 {
+		Where("user_id = ?", user.DB.ID).
+		First(&installation).Error; err != nil || installation.InstallationID == 0 {
 		http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
 		return
 	}
 
-	// 🔹 Générer le token d'installation GitHub App
-	token, err := GenerateInstallationAccessToken(installation.InstallationID)
+	appIDStr := os.Getenv("GITHUB_APP_ID")
+	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
+
+	appID, err := strconv.ParseInt(appIDStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Erreur génération token GitHub", http.StatusInternalServerError)
+		http.Error(w, "GITHUB_APP_ID invalide", http.StatusInternalServerError)
 		return
 	}
 
-	// 🔹 Construire la requête GitHub API
-	url := fmt.Sprintf("https://api.github.com/installation/repositories?page=%s&per_page=%s", page, perPage)
-
-	client := &http.Client{}
-	req, _ := http.NewRequest("GET", url, nil)
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := client.Do(req)
+	tr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appID, installation.InstallationID, privateKeyPath)
 	if err != nil {
-		http.Error(w, "Erreur lors de la requête GitHub", http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("Erreur GitHub API: %s", resp.Status), resp.StatusCode)
+		http.Error(w, fmt.Sprintf("Erreur création transport GitHub: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// 🔹 Décoder la réponse GitHub
-	var githubResp struct {
-		TotalCount   int                      `json:"total_count"`
-		Repositories []map[string]interface{} `json:"repositories"`
-	}
+	client := github.NewClient(&http.Client{Transport: tr})
 
-	if err := json.NewDecoder(resp.Body).Decode(&githubResp); err != nil {
-		http.Error(w, "Erreur décodage réponse GitHub", http.StatusInternalServerError)
+	reposResponse, _, err := client.Apps.ListRepos(context.Background(), &github.ListOptions{PerPage: 50})
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Erreur GitHub API: %v", err), http.StatusBadGateway)
 		return
 	}
 
-	// 🔹 Réponse JSON finale
+	var repos []map[string]interface{}
+	for _, repo := range reposResponse.Repositories {
+		repos = append(repos, map[string]interface{}{
+			"id":        repo.GetID(),
+			"owner":     repo.GetOwner().GetLogin(),
+			"name":      repo.GetName(),
+			"full_name": repo.GetFullName(),
+			"private":   repo.GetPrivate(),
+		})
+	}
+
+	json.NewEncoder(w).Encode(repos)
+}
+
+func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	owner := r.URL.Query().Get("owner")
+	repo := r.URL.Query().Get("repo")
+	if owner == "" || repo == "" {
+		http.Error(w, "owner et repo sont requis", http.StatusBadRequest)
+		return
+	}
+
+	var installation struct {
+		InstallationID int64 `gorm:"column:installation_id"`
+	}
+	if err := db.DB.Table("github_installations").
+		Select("installation_id").
+		Where("user_id = ?", user.DB.ID).
+		First(&installation).Error; err != nil || installation.InstallationID == 0 {
+		http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
+		return
+	}
+
+	appIDStr := os.Getenv("GITHUB_APP_ID")
+	appID, err := strconv.ParseInt(appIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "GITHUB_APP_ID invalide", http.StatusInternalServerError)
+		return
+	}
+
+	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
+	if privateKeyPath == "" {
+		http.Error(w, "GITHUB_APP_PRIVATE_KEY_PATH manquant", http.StatusInternalServerError)
+		return
+	}
+
+	itr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appID, privateKeyPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Erreur création transport App: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	tr := ghinstallation.NewFromAppsTransport(itr, installation.InstallationID)
+	client := github.NewClient(&http.Client{Transport: tr})
+
+	var fetchTree func(path string) ([]map[string]interface{}, error)
+	fetchTree = func(path string) ([]map[string]interface{}, error) {
+		_, directoryContents, _, err := client.Repositories.GetContents(context.Background(), owner, repo, path, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		tree := []map[string]interface{}{}
+		for _, c := range directoryContents {
+			if c.GetType() != "dir" {
+				continue
+			}
+			item := map[string]interface{}{
+				"name": c.GetName(),
+				"path": c.GetPath(),
+				"type": c.GetType(),
+				"url":  c.GetHTMLURL(),
+			}
+			subTree, err := fetchTree(c.GetPath())
+			if err != nil {
+				return nil, err
+			}
+			if len(subTree) > 0 {
+				item["children"] = subTree
+			}
+			tree = append(tree, item)
+		}
+		return tree, nil
+	}
+
+	tree, err := fetchTree("")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Erreur récupération arborescence: %v", err), http.StatusBadGateway)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"page":         page,
-		"per_page":     perPage,
-		"total_count":  githubResp.TotalCount,
-		"repositories": githubResp.Repositories,
+		"owner": owner,
+		"repo":  repo,
+		"tree":  tree,
 	})
 }

@@ -65,7 +65,8 @@ func Router() http.Handler {
 	githubController := controller.NewGithubController([]byte(os.Getenv("GITHUB_WEBHOOK_SECRET")))
 	protected.HandleFunc("/github/webhooks", githubController.HandleWebhook)
 	protected.HandleFunc("/github/post-installation", githubController.HandleGithubPostInstallation)
-	protected.HandleFunc("/github/repos", githubController.HandleGithubGetRepositories)
+	protected.HandleFunc("/github/repos", githubController.HandleGithubGetRepositories).Methods("GET")
+	protected.HandleFunc("/github/repo", githubController.HandleGithubRepoTree).Methods("GET")
 
 	return r
 }
