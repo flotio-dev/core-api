@@ -8,7 +8,7 @@ import (
 type User struct {
 	gorm.Model
 	KeycloakID         string    `gorm:"uniqueIndex" json:"keycloak_id"`
-	GithubID           string    `gorm:"uniqueIndex" json:"github_id"`
+	GithubID           *string   `json:"github_id"`
 	Email              string    `gorm:"uniqueIndex" json:"email"`
 	Username           string    `json:"username"`
 	GithubAccessToken  string    `json:"github_access_token"`

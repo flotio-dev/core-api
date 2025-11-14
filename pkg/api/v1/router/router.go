@@ -67,6 +67,8 @@ func Router() http.Handler {
 	protected.HandleFunc("/github/post-installation", githubController.HandleGithubPostInstallation)
 	protected.HandleFunc("/github/repos", githubController.HandleGithubGetRepositories).Methods("GET")
 	protected.HandleFunc("/github/repo", githubController.HandleGithubRepoTree).Methods("GET")
+	// Check whether the authenticated user has installed the GitHub App
+	protected.HandleFunc("/github/installations", githubController.HandleGithubCheckInstallation).Methods("GET")
 
 	return r
 }

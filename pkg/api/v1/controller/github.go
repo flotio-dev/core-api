@@ -2,6 +2,7 @@ package controller
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/google/go-github/v76/github"
 	"golang.org/x/oauth2"
 	githubOAuth "golang.org/x/oauth2/github"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
@@ -302,4 +304,29 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		"repo":  repo,
 		"tree":  tree,
 	})
+}
+
+// HandleGithubCheckInstallation checks whether the authenticated user has
+// an installation linked to their account. Returns 200 with the installation
+// or 404 if none is found.
+// GET /app/installations
+func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+	if user == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var installation db.GithubInstallation
+	if err := db.DB.Where("user_id = ?", user.DB.ID).First(&installation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
+			return
+		}
+		http.Error(w, fmt.Sprintf("DB error: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(installation)
 }
