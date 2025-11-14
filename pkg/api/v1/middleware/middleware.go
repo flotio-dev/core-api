@@ -6,10 +6,16 @@ import (
 	"os"
 
 	"github.com/Nerzal/gocloak/v13"
+	db "github.com/flotio-dev/api/pkg/db"
 	utils "github.com/flotio-dev/api/pkg/utils"
 )
 
 type contextKey string
+
+type UserContext struct {
+	Keycloak *gocloak.UserInfo
+	DB       *db.User
+}
 
 const userContextKey contextKey = "user"
 
@@ -33,16 +39,32 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Cherche l'utilisateur correspondant dans la DB
+		var user db.User
+		if err := db.DB.Where("keycloak_id = ?", userInfo.Sub).First(&user).Error; err != nil {
+			// Si pas trouvé par keycloak_id, essaie avec email
+			if err := db.DB.Where("email = ?", userInfo.Email).First(&user).Error; err != nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// Combine les infos
+		combined := &UserContext{
+			Keycloak: userInfo,
+			DB:       &user,
+		}
+
 		// Add user info to context
-		ctxWithUser := context.WithValue(r.Context(), userContextKey, userInfo)
+		ctxWithUser := context.WithValue(r.Context(), userContextKey, combined)
 		r = r.WithContext(ctxWithUser)
 
 		next.ServeHTTP(w, r)
 	})
 }
 
-func GetUserFromContext(ctx context.Context) *gocloak.UserInfo {
-	if user, ok := ctx.Value(userContextKey).(*gocloak.UserInfo); ok {
+func GetUserFromContext(ctx context.Context) *UserContext {
+	if user, ok := ctx.Value(userContextKey).(*UserContext); ok {
 		return user
 	}
 	return nil

@@ -222,7 +222,7 @@ func MePutHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Update user
 	userUpdate := &gocloak.User{
-		ID:       userInfo.Sub,
+		ID:       userInfo.Keycloak.Sub,
 		Email:    updateData.Email,
 		Username: updateData.Username,
 	}
@@ -234,7 +234,7 @@ func MePutHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Persist changes to local DB as well (e.g., email)
 	var dbUser db.User
-	if err := db.DB.Where("keycloak_id = ?", *userInfo.Sub).First(&dbUser).Error; err != nil {
+	if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&dbUser).Error; err != nil {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
@@ -334,7 +334,7 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Store tokens in DB
 		var user db.User
-		if err := db.DB.Where("keycloak_id = ?", *userInfo.Sub).First(&user).Error; err != nil {
+		if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
@@ -351,7 +351,7 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 	case "list-repo":
 		// Get user's GitHub repos using stored token
 		var user db.User
-		if err := db.DB.Where("keycloak_id = ?", *userInfo.Sub).First(&user).Error; err != nil {
+		if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
@@ -395,7 +395,7 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Get user's GitHub token
 		var user db.User
-		if err := db.DB.Where("keycloak_id = ?", *userInfo.Sub).First(&user).Error; err != nil {
+		if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
 			return
 		}
