@@ -1,9 +1,8 @@
 name: Build and Deploy via GitOps
 
 on:
-  # 1) Pipeline déclenché seulement si des fichiers importants changent
   push:
-    branches:
+    branches: 
       - main
       - dev
     paths:
@@ -14,18 +13,8 @@ on:
       - 'go.sum'
       - 'openapi.yaml'
       - '.env.example'
-
-  # 2) Pipeline ignoré si uniquement des fichiers non essentiels changent
-  push:
-    branches:
-      - main
-      - dev
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.github/**'
-      - 'build/**/*.md'
-      - 'build/test_build_android_app.go'
+      - 'build/flutter-build.Dockerfile'
+      - 'build/build-image.sh'
 
   pull_request:
     branches: [ "main" ]
