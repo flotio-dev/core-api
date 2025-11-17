@@ -1,8 +1,9 @@
 name: Build and Deploy via GitOps
 
 on:
+  # 1) Pipeline déclenché seulement si des fichiers importants changent
   push:
-    branches: 
+    branches:
       - main
       - dev
     paths:
@@ -14,13 +15,18 @@ on:
       - 'openapi.yaml'
       - '.env.example'
 
+  # 2) Pipeline ignoré si uniquement des fichiers non essentiels changent
+  push:
+    branches:
+      - main
+      - dev
     paths-ignore:
       - '**/*.md'
-      - 'README.md'
       - 'docs/**'
       - '.github/**'
       - 'build/**/*.md'
       - 'build/test_build_android_app.go'
+
   pull_request:
     branches: [ "main" ]
     paths:
@@ -30,7 +36,7 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'openapi.yaml'
-      - '.env.example'
+
 env:
   REGISTRY: ghcr.io
 
