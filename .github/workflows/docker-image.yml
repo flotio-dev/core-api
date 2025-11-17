@@ -99,7 +99,7 @@ jobs:
 
       - name: Update deployment
         run: |
-          FILE="manifest/core-api/deploy-front.yaml"
+          FILE="manifest/core-api/deploy-core-api.yaml"
           sed -i "s|image: .*|image: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}|g" $FILE
 
       - name: Commit & push
