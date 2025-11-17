@@ -2,10 +2,35 @@ name: Build and Deploy via GitOps
 
 on:
   push:
-    branches: [ "main", "dev" ]
+    branches: 
+      - main
+      - dev
+    paths:
+      - 'cmd/**'
+      - 'pkg/**'
+      - 'Dockerfile'
+      - 'go.mod'
+      - 'go.sum'
+      - 'openapi.yaml'
+      - '.env.example'
+
+    paths-ignore:
+      - '**/*.md'
+      - 'README.md'
+      - 'docs/**'
+      - '.github/**'
+      - 'build/**/*.md'
+      - 'build/test_build_android_app.go'
   pull_request:
     branches: [ "main" ]
-
+    paths:
+      - 'cmd/**'
+      - 'pkg/**'
+      - 'Dockerfile'
+      - 'go.mod'
+      - 'go.sum'
+      - 'openapi.yaml'
+      - '.env.example'
 env:
   REGISTRY: ghcr.io
 
