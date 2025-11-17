@@ -1,0 +1,112 @@
+name: Build and Deploy via GitOps
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  REGISTRY: ghcr.io
+
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  
+
+      - name: Determine next version
+        id: version
+        if: github.event_name == 'push'
+        run: |
+          latest=$(git tag --sort=-v:refname | head -n 1)
+
+          if [[ -z "$latest" ]]; then
+            latest="0.0"
+          fi
+
+          major=$(echo $latest | cut -d. -f1)
+          minor=$(echo $latest | cut -d. -f2)
+
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            major=$((major + 1))
+            minor=0
+          else
+            minor=$((minor + 1))
+          fi
+
+          new="$major.$minor"
+
+          echo "version=$new" >> $GITHUB_OUTPUT
+
+      - name: Create Git tag
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git tag "${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.version }}"
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        if: github.event_name == 'push'
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+
+
+  update-gitops:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Generate token from GitHub App
+        id: app-token
+        uses: tibdex/github-app-token@v1
+        with:
+          app_id: ${{ secrets.GH_APP_ID }}
+          private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: flotio-dev/k8s_config
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Update deployment
+        run: |
+          FILE="manifest/core-api/deploy-front.yaml"
+          sed -i "s|image: .*|image: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}|g" $FILE
+
+      - name: Commit & push
+        run: |
+          cd manifest
+          git config user.email "actions@github.com"
+          git config user.name "ArgoCD Sync Bot"
+          git add .
+          git commit -m "Deploy version ${{ needs.build.outputs.version }}"
+          git push https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/flotio-dev/k8s_config.git HEAD:main
