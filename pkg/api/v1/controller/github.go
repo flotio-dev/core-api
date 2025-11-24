@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,12 +10,12 @@ import (
 	"github.com/google/go-github/v76/github"
 	"golang.org/x/oauth2"
 	githubOAuth "golang.org/x/oauth2/github"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
 	payload "github.com/flotio-dev/api/pkg/api/v1/model/payload"
 	response "github.com/flotio-dev/api/pkg/api/v1/model/response"
+	service "github.com/flotio-dev/api/pkg/api/v1/service"
 	db "github.com/flotio-dev/api/pkg/db"
 	utils "github.com/flotio-dev/api/pkg/utils"
 
@@ -29,6 +28,7 @@ type GithubController struct {
 	appID            int64
 	privateKeyPath   string
 	appTransport     *ghinstallation.AppsTransport
+	Service          *service.GithubService
 }
 
 type GithubControllerOption func(*GithubController)
@@ -58,7 +58,7 @@ func NewGithubController() *GithubController {
 		panic(err)
 	}
 
-	return &GithubController{
+	c := &GithubController{
 		webhookSecretKey: []byte(os.Getenv("GITHUB_WEBHOOK_SECRET")),
 		oauthConfig: &oauth2.Config{
 			ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
@@ -71,6 +71,11 @@ func NewGithubController() *GithubController {
 		privateKeyPath: privateKeyPath,
 		appTransport:   appTransport,
 	}
+
+	// Initialise le service après avoir créé le controller
+	c.Service = service.NewGithubService(db.DB, c.clientForInstallation)
+
+	return c
 }
 
 func (c *GithubController) clientForInstallation(installationID int64) (*github.Client, error) {
@@ -156,10 +161,6 @@ func handleInstallation(action string, installationID, targetID int64, accountLo
 	}
 }
 
-type PostInstallationPayload struct {
-	InstallationID int64 `json:"installation_id"`
-}
-
 // HandleGithubPostInstallation godoc
 // @Summary      Enregistre ou met à jour une installation GitHub pour l'utilisateur authentifié
 // @Description  Reçoit l'ID d'installation GitHub et l'associe à l'utilisateur actuel
@@ -190,31 +191,16 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 	}
 
 	var payload payload.PostInstallationPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.InstallationID == 0 {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			Status:  utils.StatusInvalidArgs,
-			Message: "Invalid JSON payload",
+			Message: "Invalid or missing payload",
 		})
 		return
 	}
 
-	if payload.InstallationID == 0 {
-		utils.RespondWithError(w, &utils.ResponseOptions{
-			Status:  utils.StatusInvalidArgs,
-			Message: "Missing required fields",
-		})
-		return
-	}
-
-	installation := db.GithubInstallation{
-		InstallationID: payload.InstallationID,
-		UserID:         &userInfo.DB.ID,
-	}
-
-	if err := db.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "installation_id"}},
-		UpdateAll: true,
-	}).Create(&installation).Error; err != nil {
+	err := c.Service.SaveInstallation(userInfo.DB.ID, payload.InstallationID, "", "", 0)
+	if err != nil {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			Status:  utils.StatusInternalError,
 			Message: fmt.Sprintf("DB error: %v", err),
@@ -222,10 +208,9 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
-	responseData := response.PostInstallationResponse{
+	utils.RespondWithSuccess(w, &response.PostInstallationResponse{
 		InstallationID: payload.InstallationID,
-	}
-	utils.RespondWithSuccess(w, &responseData, nil)
+	}, nil)
 }
 
 // @Summary      Get GitHub Repositories
@@ -245,14 +230,8 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 		return
 	}
 
-	var installation struct {
-		InstallationID int64 `gorm:"column:installation_id"`
-	}
-	if err := db.DB.
-		Table("github_installations").
-		Select("installation_id").
-		Where("user_id = ?", user.DB.ID).
-		First(&installation).Error; err != nil || installation.InstallationID == 0 {
+	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	if err != nil || inst == nil {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			HTTPCode: http.StatusNotFound,
 			Message:  "Installation GitHub introuvable",
@@ -260,16 +239,7 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 		return
 	}
 
-	client, err := c.clientForInstallation(installation.InstallationID)
-	if err != nil {
-		utils.RespondWithError(w, &utils.ResponseOptions{
-			HTTPCode: http.StatusInternalServerError,
-			Message:  "Erreur création client GitHub",
-		})
-		return
-	}
-
-	reposResp, _, err := client.Apps.ListRepos(r.Context(), &github.ListOptions{PerPage: 50})
+	repos, err := c.Service.ListRepositories(r.Context(), inst.InstallationID)
 	if err != nil {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			HTTPCode: http.StatusBadGateway,
@@ -278,9 +248,9 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 		return
 	}
 
-	var repos []response.GithubRepository
-	for _, repo := range reposResp.Repositories {
-		repos = append(repos, response.GithubRepository{
+	var out []response.GithubRepository
+	for _, repo := range repos {
+		out = append(out, response.GithubRepository{
 			ID:       repo.GetID(),
 			Owner:    repo.GetOwner().GetLogin(),
 			Name:     repo.GetName(),
@@ -290,8 +260,8 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 	}
 
 	utils.RespondWithSuccess(w, &response.GithubRepositoriesResponse{
-		Repositories: repos,
-	}, &utils.ResponseOptions{})
+		Repositories: out,
+	}, nil)
 }
 
 // GetRepoTree godoc
@@ -319,7 +289,6 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		Owner: r.URL.Query().Get("owner"),
 		Repo:  r.URL.Query().Get("repo"),
 	}
-
 	if query.Owner == "" || query.Repo == "" {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			Status:  utils.StatusInvalidArgs,
@@ -328,13 +297,8 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	var installation struct {
-		InstallationID int64 `gorm:"column:installation_id"`
-	}
-	if err := db.DB.Table("github_installations").
-		Select("installation_id").
-		Where("user_id = ?", user.DB.ID).
-		First(&installation).Error; err != nil || installation.InstallationID == 0 {
+	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	if err != nil || inst == nil {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			Status:  utils.StatusNotFound,
 			Message: "Installation GitHub introuvable",
@@ -342,46 +306,7 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	client, err := c.clientForInstallation(installation.InstallationID)
-	if err != nil {
-		utils.RespondWithError(w, &utils.ResponseOptions{
-			Status:  utils.StatusInternalError,
-			Message: "Erreur création client GitHub",
-		})
-		return
-	}
-
-	var fetchTree func(path string) ([]response.GithubRepoTreeItem, error)
-	fetchTree = func(path string) ([]response.GithubRepoTreeItem, error) {
-		_, directoryContents, _, err := client.Repositories.GetContents(r.Context(), query.Owner, query.Repo, path, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		var tree []response.GithubRepoTreeItem
-		for _, c := range directoryContents {
-			if c.GetType() != "dir" {
-				continue
-			}
-			item := response.GithubRepoTreeItem{
-				Name: c.GetName(),
-				Path: c.GetPath(),
-				Type: c.GetType(),
-				URL:  c.GetHTMLURL(),
-			}
-			subTree, err := fetchTree(c.GetPath())
-			if err != nil {
-				return nil, err
-			}
-			if len(subTree) > 0 {
-				item.Children = subTree
-			}
-			tree = append(tree, item)
-		}
-		return tree, nil
-	}
-
-	tree, err := fetchTree("")
+	tree, err := c.Service.GetRepoTree(r.Context(), inst.InstallationID, query.Owner, query.Repo)
 	if err != nil {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			Status:  utils.StatusBadRequest,
@@ -390,13 +315,21 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	responseData := response.GithubTreeResponse{
-		Owner: query.Owner,
-		Repo:  query.Repo,
-		Tree:  tree,
+	var out []response.GithubRepoTreeItem
+	for _, item := range tree {
+		out = append(out, response.GithubRepoTreeItem{
+			Name: item.GetName(),
+			Path: item.GetPath(),
+			Type: item.GetType(),
+			URL:  item.GetHTMLURL(),
+		})
 	}
 
-	utils.RespondWithSuccess(w, &responseData, nil)
+	utils.RespondWithSuccess(w, &response.GithubTreeResponse{
+		Owner: query.Owner,
+		Repo:  query.Repo,
+		Tree:  out,
+	}, nil)
 }
 
 // CheckInstallation godoc
@@ -418,34 +351,32 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 		return
 	}
 
-	var installation db.GithubInstallation
-	if err := db.DB.Where("user_id = ?", user.DB.ID).First(&installation).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			utils.RespondWithError(w, &utils.ResponseOptions{
-				Status:  utils.StatusNotFound,
-				Message: "Installation GitHub introuvable",
-			})
-			return
-		}
+	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	if err != nil {
 		utils.RespondWithError(w, &utils.ResponseOptions{
 			Status:  utils.StatusInternalError,
 			Message: fmt.Sprintf("DB error: %v", err),
 		})
 		return
 	}
+	if inst == nil {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusNotFound,
+			Message: "Installation GitHub introuvable",
+		})
+		return
+	}
 
-	responseData := response.GithubInstallationResponse{
-		ID: installation.ID,
+	utils.RespondWithSuccess(w, &response.GithubInstallationResponse{
+		ID: inst.ID,
 		UserID: func() uint {
-			if installation.UserID != nil {
-				return *installation.UserID
+			if inst.UserID != nil {
+				return *inst.UserID
 			}
 			return 0
 		}(),
-		InstallationID: installation.InstallationID,
-		AccountLogin:   installation.AccountLogin,
-		AccountType:    installation.AccountType,
-	}
-
-	utils.RespondWithSuccess(w, &responseData, nil)
+		InstallationID: inst.InstallationID,
+		AccountLogin:   inst.AccountLogin,
+		AccountType:    inst.AccountType,
+	}, nil)
 }
