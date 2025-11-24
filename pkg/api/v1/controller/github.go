@@ -25,11 +25,40 @@ import (
 type GithubController struct {
 	webhookSecretKey []byte
 	oauthConfig      *oauth2.Config
+	appID            int64
+	privateKeyPath   string
+	appTransport     *ghinstallation.AppsTransport
 }
 
-func NewGithubController(secret []byte) *GithubController {
+type GithubControllerOption func(*GithubController)
+
+func WithWebhookSecret(secret []byte) GithubControllerOption {
+	return func(c *GithubController) {
+		c.webhookSecretKey = secret
+	}
+}
+
+func WithOAuthConfig(cfg *oauth2.Config) GithubControllerOption {
+	return func(c *GithubController) {
+		c.oauthConfig = cfg
+	}
+}
+
+func NewGithubController() *GithubController {
+	appID, _ := strconv.ParseInt(os.Getenv("GITHUB_APP_ID"), 10, 64)
+	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
+
+	appTransport, err := ghinstallation.NewAppsTransportKeyFromFile(
+		http.DefaultTransport,
+		appID,
+		privateKeyPath,
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	return &GithubController{
-		webhookSecretKey: secret,
+		webhookSecretKey: []byte(os.Getenv("GITHUB_WEBHOOK_SECRET")),
 		oauthConfig: &oauth2.Config{
 			ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 			ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
@@ -37,7 +66,21 @@ func NewGithubController(secret []byte) *GithubController {
 			Scopes:       []string{"user", "repo"},
 			Endpoint:     githubOAuth.Endpoint,
 		},
+		appID:          appID,
+		privateKeyPath: privateKeyPath,
+		appTransport:   appTransport,
 	}
+}
+
+func (c *GithubController) clientForInstallation(installationID int64) (*github.Client, error) {
+	if c.appTransport == nil {
+		return nil, fmt.Errorf("appTransport not initialized")
+	}
+
+	tr := ghinstallation.NewFromAppsTransport(c.appTransport, installationID)
+
+	client := github.NewClient(&http.Client{Transport: tr})
+	return client, nil
 }
 
 func (c *GithubController) HandleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -178,22 +221,11 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 		return
 	}
 
-	appIDStr := os.Getenv("GITHUB_APP_ID")
-	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
-
-	appID, err := strconv.ParseInt(appIDStr, 10, 64)
+	client, err := c.clientForInstallation(installation.InstallationID)
 	if err != nil {
-		http.Error(w, "GITHUB_APP_ID invalide", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Erreur création client GitHub: %v", err), http.StatusInternalServerError)
 		return
 	}
-
-	tr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appID, installation.InstallationID, privateKeyPath)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur création transport GitHub: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	client := github.NewClient(&http.Client{Transport: tr})
 
 	reposResponse, _, err := client.Apps.ListRepos(context.Background(), &github.ListOptions{PerPage: 50})
 	if err != nil {
@@ -240,27 +272,11 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	appIDStr := os.Getenv("GITHUB_APP_ID")
-	appID, err := strconv.ParseInt(appIDStr, 10, 64)
+	client, err := c.clientForInstallation(installation.InstallationID)
 	if err != nil {
-		http.Error(w, "GITHUB_APP_ID invalide", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Erreur création client GitHub: %v", err), http.StatusInternalServerError)
 		return
 	}
-
-	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
-	if privateKeyPath == "" {
-		http.Error(w, "GITHUB_APP_PRIVATE_KEY_PATH manquant", http.StatusInternalServerError)
-		return
-	}
-
-	itr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appID, privateKeyPath)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur création transport App: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	tr := ghinstallation.NewFromAppsTransport(itr, installation.InstallationID)
-	client := github.NewClient(&http.Client{Transport: tr})
 
 	var fetchTree func(path string) ([]map[string]interface{}, error)
 	fetchTree = func(path string) ([]map[string]interface{}, error) {
