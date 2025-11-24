@@ -12,6 +12,10 @@ import (
 	"github.com/flotio-dev/api/pkg/db"
 )
 
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer {token}"
 func main() {
 	godotenv.Load()
 

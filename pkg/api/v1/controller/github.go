@@ -15,9 +15,10 @@ import (
 	"gorm.io/gorm/clause"
 
 	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
+	payload "github.com/flotio-dev/api/pkg/api/v1/model/payload"
+	response "github.com/flotio-dev/api/pkg/api/v1/model/response"
 	db "github.com/flotio-dev/api/pkg/db"
-
-	"context"
+	utils "github.com/flotio-dev/api/pkg/utils"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 )
@@ -159,26 +160,49 @@ type PostInstallationPayload struct {
 	InstallationID int64 `json:"installation_id"`
 }
 
+// HandleGithubPostInstallation godoc
+// @Summary      Enregistre ou met à jour une installation GitHub pour l'utilisateur authentifié
+// @Description  Reçoit l'ID d'installation GitHub et l'associe à l'utilisateur actuel
+// @Tags         github
+// @Accept       json
+// @Produce      json
+// @Param        payload body payload.PostInstallationPayload true "Installation payload"
+// @Success      200  {object} response.PostInstallationResponse
+// @Failure      400  {object} response.APIErrorResponse
+// @Router       /github/post-installation [post]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r *http.Request) {
 	userInfo := middleware.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusUnauthorized,
+			Message: "Unauthorized",
+		})
 		return
 	}
 
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusMethodNotAllowed,
+			Message: "Method not allowed",
+		})
 		return
 	}
 
-	var payload PostInstallationPayload
+	var payload payload.PostInstallationPayload
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInvalidArgs,
+			Message: "Invalid JSON payload",
+		})
 		return
 	}
 
 	if payload.InstallationID == 0 {
-		http.Error(w, "Missing required fields", http.StatusBadRequest)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInvalidArgs,
+			Message: "Missing required fields",
+		})
 		return
 	}
 
@@ -191,21 +215,33 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		Columns:   []clause.Column{{Name: "installation_id"}},
 		UpdateAll: true,
 	}).Create(&installation).Error; err != nil {
-		http.Error(w, fmt.Sprintf("DB error: %v", err), http.StatusInternalServerError)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInternalError,
+			Message: fmt.Sprintf("DB error: %v", err),
+		})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":          "ok",
-		"installation_id": strconv.FormatInt(payload.InstallationID, 10),
-	})
+	responseData := response.PostInstallationResponse{
+		InstallationID: payload.InstallationID,
+	}
+	utils.RespondWithSuccess(w, &responseData, nil)
 }
 
+// @Summary      Get GitHub Repositories
+// @Description  Liste les repos accessibles pour l'installation GitHub de l'utilisateur
+// @Tags         github
+// @Produce      json
+// @Success      200  {object} response.GithubRepositoriesResponse
+// @Failure      400  {object} response.APIErrorResponse
+// @Router       /github/repos [get]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			HTTPCode: http.StatusUnauthorized,
+		})
 		return
 	}
 
@@ -217,47 +253,78 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 		Select("installation_id").
 		Where("user_id = ?", user.DB.ID).
 		First(&installation).Error; err != nil || installation.InstallationID == 0 {
-		http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			HTTPCode: http.StatusNotFound,
+			Message:  "Installation GitHub introuvable",
+		})
 		return
 	}
 
 	client, err := c.clientForInstallation(installation.InstallationID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur création client GitHub: %v", err), http.StatusInternalServerError)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			HTTPCode: http.StatusInternalServerError,
+			Message:  "Erreur création client GitHub",
+		})
 		return
 	}
 
-	reposResponse, _, err := client.Apps.ListRepos(context.Background(), &github.ListOptions{PerPage: 50})
+	reposResp, _, err := client.Apps.ListRepos(r.Context(), &github.ListOptions{PerPage: 50})
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur GitHub API: %v", err), http.StatusBadGateway)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			HTTPCode: http.StatusBadGateway,
+			Message:  "Erreur GitHub API",
+		})
 		return
 	}
 
-	var repos []map[string]interface{}
-	for _, repo := range reposResponse.Repositories {
-		repos = append(repos, map[string]interface{}{
-			"id":        repo.GetID(),
-			"owner":     repo.GetOwner().GetLogin(),
-			"name":      repo.GetName(),
-			"full_name": repo.GetFullName(),
-			"private":   repo.GetPrivate(),
+	var repos []response.GithubRepository
+	for _, repo := range reposResp.Repositories {
+		repos = append(repos, response.GithubRepository{
+			ID:       repo.GetID(),
+			Owner:    repo.GetOwner().GetLogin(),
+			Name:     repo.GetName(),
+			FullName: repo.GetFullName(),
+			Private:  repo.GetPrivate(),
 		})
 	}
 
-	json.NewEncoder(w).Encode(repos)
+	utils.RespondWithSuccess(w, &response.GithubRepositoriesResponse{
+		Repositories: repos,
+	}, &utils.ResponseOptions{})
 }
 
+// GetRepoTree godoc
+// @Summary      Récupère l'arborescence d'un repo GitHub
+// @Description  Retourne l'arborescence complète des dossiers d'un dépôt GitHub
+// @Tags         github
+// @Produce      json
+// @Param owner query string true "Owner du repo"
+// @Param repo query string true "Nom du repo"
+// @Success      200  {object} response.GithubTreeResponse
+// @Failure      400  {object} response.APIErrorResponse
+// @Router       /github/repo [get]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusUnauthorized,
+			Message: "Unauthorized",
+		})
 		return
 	}
 
-	owner := r.URL.Query().Get("owner")
-	repo := r.URL.Query().Get("repo")
-	if owner == "" || repo == "" {
-		http.Error(w, "owner et repo sont requis", http.StatusBadRequest)
+	query := payload.GithubRepoTreeQuery{
+		Owner: r.URL.Query().Get("owner"),
+		Repo:  r.URL.Query().Get("repo"),
+	}
+
+	if query.Owner == "" || query.Repo == "" {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInvalidArgs,
+			Message: "owner et repo sont requis",
+		})
 		return
 	}
 
@@ -268,40 +335,46 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		Select("installation_id").
 		Where("user_id = ?", user.DB.ID).
 		First(&installation).Error; err != nil || installation.InstallationID == 0 {
-		http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusNotFound,
+			Message: "Installation GitHub introuvable",
+		})
 		return
 	}
 
 	client, err := c.clientForInstallation(installation.InstallationID)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur création client GitHub: %v", err), http.StatusInternalServerError)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInternalError,
+			Message: "Erreur création client GitHub",
+		})
 		return
 	}
 
-	var fetchTree func(path string) ([]map[string]interface{}, error)
-	fetchTree = func(path string) ([]map[string]interface{}, error) {
-		_, directoryContents, _, err := client.Repositories.GetContents(context.Background(), owner, repo, path, nil)
+	var fetchTree func(path string) ([]response.GithubRepoTreeItem, error)
+	fetchTree = func(path string) ([]response.GithubRepoTreeItem, error) {
+		_, directoryContents, _, err := client.Repositories.GetContents(r.Context(), query.Owner, query.Repo, path, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		tree := []map[string]interface{}{}
+		var tree []response.GithubRepoTreeItem
 		for _, c := range directoryContents {
 			if c.GetType() != "dir" {
 				continue
 			}
-			item := map[string]interface{}{
-				"name": c.GetName(),
-				"path": c.GetPath(),
-				"type": c.GetType(),
-				"url":  c.GetHTMLURL(),
+			item := response.GithubRepoTreeItem{
+				Name: c.GetName(),
+				Path: c.GetPath(),
+				Type: c.GetType(),
+				URL:  c.GetHTMLURL(),
 			}
 			subTree, err := fetchTree(c.GetPath())
 			if err != nil {
 				return nil, err
 			}
 			if len(subTree) > 0 {
-				item["children"] = subTree
+				item.Children = subTree
 			}
 			tree = append(tree, item)
 		}
@@ -310,39 +383,69 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 
 	tree, err := fetchTree("")
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur récupération arborescence: %v", err), http.StatusBadGateway)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusBadRequest,
+			Message: "Repo vide ou introuvable",
+		})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"owner": owner,
-		"repo":  repo,
-		"tree":  tree,
-	})
+	responseData := response.GithubTreeResponse{
+		Owner: query.Owner,
+		Repo:  query.Repo,
+		Tree:  tree,
+	}
+
+	utils.RespondWithSuccess(w, &responseData, nil)
 }
 
-// HandleGithubCheckInstallation checks whether the authenticated user has
-// an installation linked to their account. Returns 200 with the installation
-// or 404 if none is found.
-// GET /app/installations
+// CheckInstallation godoc
+// @Summary      Vérifie si l'utilisateur a une installation GitHub
+// @Description  Retourne l'installation GitHub liée à l'utilisateur authentifié
+// @Tags         github
+// @Produce      json
+// @Success      200  {object} response.GithubInstallationResponse
+// @Failure      400  {object} response.APIErrorResponse "Bad request"
+// @Router       /github/installations [get]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusUnauthorized,
+			Message: "Unauthorized",
+		})
 		return
 	}
 
 	var installation db.GithubInstallation
 	if err := db.DB.Where("user_id = ?", user.DB.ID).First(&installation).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
+			utils.RespondWithError(w, &utils.ResponseOptions{
+				Status:  utils.StatusNotFound,
+				Message: "Installation GitHub introuvable",
+			})
 			return
 		}
-		http.Error(w, fmt.Sprintf("DB error: %v", err), http.StatusInternalServerError)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInternalError,
+			Message: fmt.Sprintf("DB error: %v", err),
+		})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(installation)
+	responseData := response.GithubInstallationResponse{
+		ID: installation.ID,
+		UserID: func() uint {
+			if installation.UserID != nil {
+				return *installation.UserID
+			}
+			return 0
+		}(),
+		InstallationID: installation.InstallationID,
+		AccountLogin:   installation.AccountLogin,
+		AccountType:    installation.AccountType,
+	}
+
+	utils.RespondWithSuccess(w, &responseData, nil)
 }
