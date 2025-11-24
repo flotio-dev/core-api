@@ -3,7 +3,9 @@ package router
 import (
 	"net/http"
 
+	_ "github.com/flotio-dev/api/docs/api"
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	controller "github.com/flotio-dev/api/pkg/api/v1/controller"
 	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
@@ -11,6 +13,8 @@ import (
 
 func Router() http.Handler {
 	r := mux.NewRouter()
+
+	r.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
 
 	// Public auth routes
 	r.HandleFunc("/auth/register", controller.RegisterHandler).Methods("POST")
