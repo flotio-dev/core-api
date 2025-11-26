@@ -7,7 +7,7 @@ import (
 
 	"github.com/flotio-dev/api/pkg/api/v1/service"
 	"github.com/flotio-dev/api/pkg/db"
-	"github.com/google/go-github/v76/github"
+	"github.com/google/go-github/v79/github"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
