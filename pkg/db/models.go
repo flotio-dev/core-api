@@ -22,9 +22,11 @@ type User struct {
 type Project struct {
 	gorm.Model
 	Name           string  `json:"name"`
-	GitRepo        string  `json:"git_repo"`
-	BuildFolder    string  `json:"build_folder"`
-	FlutterVersion string  `json:"flutter_version"`
+	GitRepo        *string `json:"git_repo,omitempty"`
+	BuildFolder    *string `json:"build_folder,omitempty"`
+	FlutterVersion *string `json:"flutter_version,omitempty"`
+	GitUsername    *string `json:"git_username,omitempty"`
+	GitToken       *string `json:"git_token,omitempty"`
 	UserID         uint    `json:"user_id"`
 	User           User    `json:"user"`
 	Builds         []Build `gorm:"foreignKey:ProjectID" json:"builds"`

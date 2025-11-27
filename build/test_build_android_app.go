@@ -32,8 +32,8 @@ func main() {
 	// Create a mock project (no database)
 	testProject := db.Project{
 		Name:        "Test Application (Test)",
-		GitRepo:     "https://github.com/flotio-dev/test_apk.git",
-		BuildFolder: ".",
+		GitRepo:     &[]string{"https://github.com/flotio-dev/test_apk.git"}[0],
+		BuildFolder: &[]string{"."}[0],
 	}
 
 	// Configure the build
@@ -53,7 +53,16 @@ func main() {
 	log.Println("Build Configuration:")
 	log.Printf("  Build ID: %d\n", buildConfig.BuildID)
 	log.Printf("  Project: %s\n", buildConfig.Project.Name)
-	log.Printf("  Git Repo: %s\n", buildConfig.Project.GitRepo)
+	gitRepo := ""
+	if buildConfig.Project.GitRepo != nil {
+		gitRepo = *buildConfig.Project.GitRepo
+	}
+	log.Printf("  Git Repo: %s\n", gitRepo)
+	buildFolder := ""
+	if buildConfig.Project.BuildFolder != nil {
+		buildFolder = *buildConfig.Project.BuildFolder
+	}
+	log.Printf("  Build Folder: %s\n", buildFolder)
 	log.Printf("  Platform: %s\n", buildConfig.Platform)
 	log.Printf("  Build Mode: %s\n", buildConfig.BuildMode)
 	log.Printf("  Build Target: %s\n", buildConfig.BuildTarget)
