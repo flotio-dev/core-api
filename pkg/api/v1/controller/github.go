@@ -2,22 +2,22 @@ package controller
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 
-	"github.com/google/go-github/v76/github"
+	"github.com/google/go-github/v79/github"
 	"golang.org/x/oauth2"
 	githubOAuth "golang.org/x/oauth2/github"
-	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
 	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
+	payload "github.com/flotio-dev/api/pkg/api/v1/model/payload"
+	response "github.com/flotio-dev/api/pkg/api/v1/model/response"
+	service "github.com/flotio-dev/api/pkg/api/v1/service"
 	db "github.com/flotio-dev/api/pkg/db"
-
-	"context"
+	utils "github.com/flotio-dev/api/pkg/utils"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 )
@@ -25,11 +25,41 @@ import (
 type GithubController struct {
 	webhookSecretKey []byte
 	oauthConfig      *oauth2.Config
+	appID            int64
+	privateKeyPath   string
+	appTransport     *ghinstallation.AppsTransport
+	Service          *service.GithubService
 }
 
-func NewGithubController(secret []byte) *GithubController {
-	return &GithubController{
-		webhookSecretKey: secret,
+type GithubControllerOption func(*GithubController)
+
+func WithWebhookSecret(secret []byte) GithubControllerOption {
+	return func(c *GithubController) {
+		c.webhookSecretKey = secret
+	}
+}
+
+func WithOAuthConfig(cfg *oauth2.Config) GithubControllerOption {
+	return func(c *GithubController) {
+		c.oauthConfig = cfg
+	}
+}
+
+func NewGithubController() *GithubController {
+	appID, _ := strconv.ParseInt(os.Getenv("GITHUB_APP_ID"), 10, 64)
+	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
+
+	appTransport, err := ghinstallation.NewAppsTransportKeyFromFile(
+		http.DefaultTransport,
+		appID,
+		privateKeyPath,
+	)
+	if err != nil {
+		panic(err)
+	}
+
+	c := &GithubController{
+		webhookSecretKey: []byte(os.Getenv("GITHUB_WEBHOOK_SECRET")),
 		oauthConfig: &oauth2.Config{
 			ClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 			ClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
@@ -37,7 +67,26 @@ func NewGithubController(secret []byte) *GithubController {
 			Scopes:       []string{"user", "repo"},
 			Endpoint:     githubOAuth.Endpoint,
 		},
+		appID:          appID,
+		privateKeyPath: privateKeyPath,
+		appTransport:   appTransport,
 	}
+
+	// Initialise le service après avoir créé le controller
+	c.Service = service.NewGithubService(db.DB, c.clientForInstallation)
+
+	return c
+}
+
+func (c *GithubController) clientForInstallation(installationID int64) (*github.Client, error) {
+	if c.appTransport == nil {
+		return nil, fmt.Errorf("appTransport not initialized")
+	}
+
+	tr := ghinstallation.NewFromAppsTransport(c.appTransport, installationID)
+
+	client := github.NewClient(&http.Client{Transport: tr})
+	return client, nil
 }
 
 func (c *GithubController) HandleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -112,221 +161,222 @@ func handleInstallation(action string, installationID, targetID int64, accountLo
 	}
 }
 
-type PostInstallationPayload struct {
-	InstallationID int64 `json:"installation_id"`
-}
-
+// HandleGithubPostInstallation godoc
+// @Summary      Enregistre ou met à jour une installation GitHub pour l'utilisateur authentifié
+// @Description  Reçoit l'ID d'installation GitHub et l'associe à l'utilisateur actuel
+// @Tags         github
+// @Accept       json
+// @Produce      json
+// @Param        payload body payload.PostInstallationPayload true "Installation payload"
+// @Success      200  {object} response.PostInstallationResponse
+// @Failure      400  {object} response.APIErrorResponse
+// @Router       /github/post-installation [post]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r *http.Request) {
 	userInfo := middleware.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusUnauthorized,
+			Message: "Unauthorized",
+		})
 		return
 	}
 
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusMethodNotAllowed,
+			Message: "Method not allowed",
+		})
 		return
 	}
 
-	var payload PostInstallationPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+	var payload payload.PostInstallationPayload
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil || payload.InstallationID == 0 {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInvalidArgs,
+			Message: "Invalid or missing payload",
+		})
 		return
 	}
 
-	if payload.InstallationID == 0 {
-		http.Error(w, "Missing required fields", http.StatusBadRequest)
+	err := c.Service.SaveInstallation(userInfo.DB.ID, payload.InstallationID, "", "", 0)
+	if err != nil {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInternalError,
+			Message: fmt.Sprintf("DB error: %v", err),
+		})
 		return
 	}
 
-	installation := db.GithubInstallation{
+	utils.RespondWithSuccess(w, &response.PostInstallationResponse{
 		InstallationID: payload.InstallationID,
-		UserID:         &userInfo.DB.ID,
-	}
-
-	if err := db.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "installation_id"}},
-		UpdateAll: true,
-	}).Create(&installation).Error; err != nil {
-		http.Error(w, fmt.Sprintf("DB error: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":          "ok",
-		"installation_id": strconv.FormatInt(payload.InstallationID, 10),
-	})
+	}, nil)
 }
 
+// @Summary      Get GitHub Repositories
+// @Description  Liste les repos accessibles pour l'installation GitHub de l'utilisateur
+// @Tags         github
+// @Produce      json
+// @Success      200  {object} response.GithubRepositoriesResponse
+// @Failure      400  {object} response.APIErrorResponse
+// @Router       /github/repos [get]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			HTTPCode: http.StatusUnauthorized,
+		})
 		return
 	}
 
-	var installation struct {
-		InstallationID int64 `gorm:"column:installation_id"`
-	}
-	if err := db.DB.
-		Table("github_installations").
-		Select("installation_id").
-		Where("user_id = ?", user.DB.ID).
-		First(&installation).Error; err != nil || installation.InstallationID == 0 {
-		http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
+	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	if err != nil || inst == nil {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			HTTPCode: http.StatusNotFound,
+			Message:  "Installation GitHub introuvable",
+		})
 		return
 	}
 
-	appIDStr := os.Getenv("GITHUB_APP_ID")
-	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
-
-	appID, err := strconv.ParseInt(appIDStr, 10, 64)
+	repos, err := c.Service.ListRepositories(r.Context(), inst.InstallationID)
 	if err != nil {
-		http.Error(w, "GITHUB_APP_ID invalide", http.StatusInternalServerError)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			HTTPCode: http.StatusBadGateway,
+			Message:  "Erreur GitHub API",
+		})
 		return
 	}
 
-	tr, err := ghinstallation.NewKeyFromFile(http.DefaultTransport, appID, installation.InstallationID, privateKeyPath)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur création transport GitHub: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	client := github.NewClient(&http.Client{Transport: tr})
-
-	reposResponse, _, err := client.Apps.ListRepos(context.Background(), &github.ListOptions{PerPage: 50})
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur GitHub API: %v", err), http.StatusBadGateway)
-		return
-	}
-
-	var repos []map[string]interface{}
-	for _, repo := range reposResponse.Repositories {
-		repos = append(repos, map[string]interface{}{
-			"id":        repo.GetID(),
-			"owner":     repo.GetOwner().GetLogin(),
-			"name":      repo.GetName(),
-			"full_name": repo.GetFullName(),
-			"private":   repo.GetPrivate(),
+	var out []response.GithubRepository
+	for _, repo := range repos {
+		out = append(out, response.GithubRepository{
+			ID:       repo.GetID(),
+			Owner:    repo.GetOwner().GetLogin(),
+			Name:     repo.GetName(),
+			FullName: repo.GetFullName(),
+			Private:  repo.GetPrivate(),
 		})
 	}
 
-	json.NewEncoder(w).Encode(repos)
+	utils.RespondWithSuccess(w, &response.GithubRepositoriesResponse{
+		Repositories: out,
+	}, nil)
 }
 
+// GetRepoTree godoc
+// @Summary      Récupère l'arborescence d'un repo GitHub
+// @Description  Retourne l'arborescence complète des dossiers d'un dépôt GitHub
+// @Tags         github
+// @Produce      json
+// @Param owner query string true "Owner du repo"
+// @Param repo query string true "Nom du repo"
+// @Success      200  {object} response.GithubTreeResponse
+// @Failure      400  {object} response.APIErrorResponse
+// @Router       /github/repo [get]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusUnauthorized,
+			Message: "Unauthorized",
+		})
 		return
 	}
 
-	owner := r.URL.Query().Get("owner")
-	repo := r.URL.Query().Get("repo")
-	if owner == "" || repo == "" {
-		http.Error(w, "owner et repo sont requis", http.StatusBadRequest)
+	query := payload.GithubRepoTreeQuery{
+		Owner: r.URL.Query().Get("owner"),
+		Repo:  r.URL.Query().Get("repo"),
+	}
+	if query.Owner == "" || query.Repo == "" {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInvalidArgs,
+			Message: "owner et repo sont requis",
+		})
 		return
 	}
 
-	var installation struct {
-		InstallationID int64 `gorm:"column:installation_id"`
-	}
-	if err := db.DB.Table("github_installations").
-		Select("installation_id").
-		Where("user_id = ?", user.DB.ID).
-		First(&installation).Error; err != nil || installation.InstallationID == 0 {
-		http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
+	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	if err != nil || inst == nil {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusNotFound,
+			Message: "Installation GitHub introuvable",
+		})
 		return
 	}
 
-	appIDStr := os.Getenv("GITHUB_APP_ID")
-	appID, err := strconv.ParseInt(appIDStr, 10, 64)
+	tree, err := c.Service.GetRepoTree(r.Context(), inst.InstallationID, query.Owner, query.Repo)
 	if err != nil {
-		http.Error(w, "GITHUB_APP_ID invalide", http.StatusInternalServerError)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusBadRequest,
+			Message: "Repo vide ou introuvable",
+		})
 		return
 	}
 
-	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
-	if privateKeyPath == "" {
-		http.Error(w, "GITHUB_APP_PRIVATE_KEY_PATH manquant", http.StatusInternalServerError)
-		return
+	var out []response.GithubRepoTreeItem
+	for _, item := range tree {
+		out = append(out, response.GithubRepoTreeItem{
+			Name: item.GetName(),
+			Path: item.GetPath(),
+			Type: item.GetType(),
+			URL:  item.GetHTMLURL(),
+		})
 	}
 
-	itr, err := ghinstallation.NewAppsTransportKeyFromFile(http.DefaultTransport, appID, privateKeyPath)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur création transport App: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	tr := ghinstallation.NewFromAppsTransport(itr, installation.InstallationID)
-	client := github.NewClient(&http.Client{Transport: tr})
-
-	var fetchTree func(path string) ([]map[string]interface{}, error)
-	fetchTree = func(path string) ([]map[string]interface{}, error) {
-		_, directoryContents, _, err := client.Repositories.GetContents(context.Background(), owner, repo, path, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		tree := []map[string]interface{}{}
-		for _, c := range directoryContents {
-			if c.GetType() != "dir" {
-				continue
-			}
-			item := map[string]interface{}{
-				"name": c.GetName(),
-				"path": c.GetPath(),
-				"type": c.GetType(),
-				"url":  c.GetHTMLURL(),
-			}
-			subTree, err := fetchTree(c.GetPath())
-			if err != nil {
-				return nil, err
-			}
-			if len(subTree) > 0 {
-				item["children"] = subTree
-			}
-			tree = append(tree, item)
-		}
-		return tree, nil
-	}
-
-	tree, err := fetchTree("")
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Erreur récupération arborescence: %v", err), http.StatusBadGateway)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"owner": owner,
-		"repo":  repo,
-		"tree":  tree,
-	})
+	utils.RespondWithSuccess(w, &response.GithubTreeResponse{
+		Owner: query.Owner,
+		Repo:  query.Repo,
+		Tree:  out,
+	}, nil)
 }
 
-// HandleGithubCheckInstallation checks whether the authenticated user has
-// an installation linked to their account. Returns 200 with the installation
-// or 404 if none is found.
-// GET /app/installations
+// CheckInstallation godoc
+// @Summary      Vérifie si l'utilisateur a une installation GitHub
+// @Description  Retourne l'installation GitHub liée à l'utilisateur authentifié
+// @Tags         github
+// @Produce      json
+// @Success      200  {object} response.GithubInstallationResponse
+// @Failure      400  {object} response.APIErrorResponse "Bad request"
+// @Router       /github/installations [get]
+// @Security     BearerAuth
 func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
 	if user == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusUnauthorized,
+			Message: "Unauthorized",
+		})
 		return
 	}
 
-	var installation db.GithubInstallation
-	if err := db.DB.Where("user_id = ?", user.DB.ID).First(&installation).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			http.Error(w, "Installation GitHub introuvable", http.StatusNotFound)
-			return
-		}
-		http.Error(w, fmt.Sprintf("DB error: %v", err), http.StatusInternalServerError)
+	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	if err != nil {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusInternalError,
+			Message: fmt.Sprintf("DB error: %v", err),
+		})
+		return
+	}
+	if inst == nil {
+		utils.RespondWithError(w, &utils.ResponseOptions{
+			Status:  utils.StatusNotFound,
+			Message: "Installation GitHub introuvable",
+		})
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(installation)
+	utils.RespondWithSuccess(w, &response.GithubInstallationResponse{
+		ID: inst.ID,
+		UserID: func() uint {
+			if inst.UserID != nil {
+				return *inst.UserID
+			}
+			return 0
+		}(),
+		InstallationID: inst.InstallationID,
+		AccountLogin:   inst.AccountLogin,
+		AccountType:    inst.AccountType,
+	}, nil)
 }

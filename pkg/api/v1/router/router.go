@@ -1,11 +1,11 @@
 package router
 
 import (
-	"fmt"
 	"net/http"
-	"os"
 
+	_ "github.com/flotio-dev/api/docs/api"
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	controller "github.com/flotio-dev/api/pkg/api/v1/controller"
 	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
@@ -13,6 +13,8 @@ import (
 
 func Router() http.Handler {
 	r := mux.NewRouter()
+
+	r.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
 
 	// Public auth routes
 	r.HandleFunc("/auth/register", controller.RegisterHandler).Methods("POST")
@@ -61,13 +63,11 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id}/build/{buildId}/download", controller.BuildDownloadHandler).Methods("GET")
 
 	// Github routes
-	fmt.Printf("Webhook secret: '%s'\n", os.Getenv("GITHUB_WEBHOOK_SECRET"))
-	githubController := controller.NewGithubController([]byte(os.Getenv("GITHUB_WEBHOOK_SECRET")))
+	githubController := controller.NewGithubController()
 	protected.HandleFunc("/github/webhooks", githubController.HandleWebhook)
 	protected.HandleFunc("/github/post-installation", githubController.HandleGithubPostInstallation)
 	protected.HandleFunc("/github/repos", githubController.HandleGithubGetRepositories).Methods("GET")
 	protected.HandleFunc("/github/repo", githubController.HandleGithubRepoTree).Methods("GET")
-	// Check whether the authenticated user has installed the GitHub App
 	protected.HandleFunc("/github/installations", githubController.HandleGithubCheckInstallation).Methods("GET")
 
 	return r
