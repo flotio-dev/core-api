@@ -82,7 +82,6 @@ type Project struct {
 	BuildFolder    *string   `json:"build_folder,omitempty"`
 	FlutterVersion *string   `json:"flutter_version,omitempty"`
 	GitUsername    *string   `json:"git_username,omitempty"`
-	GitToken       *string   `json:"git_token,omitempty"`
 	UserID         uint      `json:"user_id"`
 }
 
@@ -109,7 +108,6 @@ func convertDBProject(p db.Project) Project {
 		BuildFolder:    p.BuildFolder,
 		FlutterVersion: p.FlutterVersion,
 		GitUsername:    p.GitUsername,
-		GitToken:       p.GitToken,
 		UserID:         p.UserID,
 	}
 }
