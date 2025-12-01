@@ -19,6 +19,10 @@ func ReadJSON(r *http.Request, v interface{}) error {
 }
 
 func WriteErrorJSON(w http.ResponseWriter, message string, status int) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	WriteJSON(w, map[string]string{"error": message})
+	if err := json.NewEncoder(w).Encode(map[string]string{"error": message}); err != nil {
+		log.Printf("Error encoding error JSON: %v", err)
+		// Don't call http.Error here since we've already written the status code
+	}
 }
