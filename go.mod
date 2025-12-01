@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
-	github.com/google/go-github/v76 v76.0.0
+	github.com/google/go-github/v79 v79.0.0
 	github.com/gorilla/mux v1.8.1
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/joho/godotenv v1.5.1
@@ -36,7 +36,6 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.25.3 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/google/go-github/v75 v75.0.0 // indirect
-	github.com/google/go-github/v79 v79.0.0 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
