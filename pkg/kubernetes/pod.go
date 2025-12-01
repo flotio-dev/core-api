@@ -23,7 +23,6 @@ type BuildConfig struct {
 	FlutterChannel string // stable, beta, dev
 	GitBranch      string
 	GitUsername    string
-	GitPassword    string
 	GitToken       string
 }
 
