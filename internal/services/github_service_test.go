@@ -1,23 +1,23 @@
-package service_test
+package services
 
 import (
 	"context"
 	"errors"
 	"testing"
 
-	"github.com/flotio-dev/api/pkg/api/v1/service"
-	"github.com/flotio-dev/api/pkg/db"
 	"github.com/google/go-github/v79/github"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 )
 
 func setupTestDB(t *testing.T) *gorm.DB {
 	gormDB, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	assert.NoError(t, err)
 
-	assert.NoError(t, gormDB.AutoMigrate(&db.GithubInstallation{}))
+	assert.NoError(t, gormDB.AutoMigrate(&dbEngine.GithubInstallation{}))
 
 	return gormDB
 }
@@ -29,7 +29,7 @@ func mockClientFactory(_ int64) (*github.Client, error) {
 func TestSaveAndGetInstallation(t *testing.T) {
 	gormDB := setupTestDB(t)
 
-	svc := service.NewGithubService(gormDB, mockClientFactory)
+	svc := NewGithubService(gormDB, mockClientFactory)
 
 	err := svc.SaveInstallation(1, 12345, "user_login", "User", 56789)
 	assert.NoError(t, err)
@@ -50,7 +50,7 @@ func TestGetRepoTree_Error(t *testing.T) {
 		return nil, errors.New("client error")
 	}
 
-	svc := service.NewGithubService(gormDB, clientFactory)
+	svc := NewGithubService(gormDB, clientFactory)
 
 	tree, err := svc.GetRepoTree(context.Background(), 12345, "owner", "repo")
 	assert.Error(t, err)
@@ -64,7 +64,7 @@ func TestListRepositories_Error(t *testing.T) {
 		return nil, errors.New("client error")
 	}
 
-	svc := service.NewGithubService(gormDB, clientFactory)
+	svc := NewGithubService(gormDB, clientFactory)
 
 	repos, err := svc.ListRepositories(context.Background(), 12345)
 	assert.Error(t, err)

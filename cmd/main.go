@@ -8,8 +8,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 
-	router "github.com/flotio-dev/api/pkg/api/v1/router"
-	"github.com/flotio-dev/api/pkg/db"
+	api "github.com/flotio-dev/api/internal/api"
+	db "github.com/flotio-dev/api/internal/engines/db"
 )
 
 // @securityDefinitions.apikey BearerAuth
@@ -22,7 +22,7 @@ func main() {
 	db.InitDB()
 
 	log.Println("Starting Flotio API server")
-	r := router.Router()
+	r := api.Router()
 	log.Println("Router configured")
 
 	c := cors.New(cors.Options{

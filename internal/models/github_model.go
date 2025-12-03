@@ -1,4 +1,21 @@
-package response
+package models
+
+// REQUEST
+
+type GithubPostInstallationRequest struct {
+	InstallationID int64 `json:"installation_id" example:"123456789"`
+}
+
+type GithubRepoTreeQuery struct {
+	Owner string `json:"owner" example:"flotio-dev"`
+	Repo  string `json:"repo" example:"api"`
+}
+
+type PostInstallationRequest struct {
+	InstallationID int64 `json:"installation_id" example:"12345678"`
+}
+
+// RESPONSE
 
 type GithubRepository struct {
 	ID       int64  `json:"id" example:"123456"`

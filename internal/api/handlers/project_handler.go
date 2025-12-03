@@ -1,4 +1,4 @@
-package controller
+package handlers
 
 import (
 	"context"
@@ -8,14 +8,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/flotio-dev/api/pkg/db"
-	"github.com/flotio-dev/api/pkg/kubernetes"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 
-	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
-	utils "github.com/flotio-dev/api/pkg/utils"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	keycloakEngine "github.com/flotio-dev/api/internal/engines/keycloak"
+	kubernetesEngine "github.com/flotio-dev/api/internal/engines/kubernetes"
+	helpers "github.com/flotio-dev/api/internal/helpers"
+	services "github.com/flotio-dev/api/internal/services"
 )
 
 // Response structs for API documentation
@@ -98,7 +99,7 @@ type Build struct {
 }
 
 // Conversion functions
-func convertDBProject(p db.Project) Project {
+func convertDBProject(p dbEngine.Project) Project {
 	return Project{
 		ID:             p.ID,
 		CreatedAt:      p.CreatedAt,
@@ -112,7 +113,7 @@ func convertDBProject(p db.Project) Project {
 	}
 }
 
-func convertDBBuild(b db.Build) Build {
+func convertDBBuild(b dbEngine.Build) Build {
 	return Build{
 		ID:          b.ID,
 		CreatedAt:   b.CreatedAt,
@@ -126,7 +127,7 @@ func convertDBBuild(b db.Build) Build {
 	}
 }
 
-func convertDBProjects(projects []db.Project) []Project {
+func convertDBProjects(projects []dbEngine.Project) []Project {
 	result := make([]Project, len(projects))
 	for i, p := range projects {
 		result[i] = convertDBProject(p)
@@ -134,7 +135,7 @@ func convertDBProjects(projects []db.Project) []Project {
 	return result
 }
 
-func convertDBBuilds(builds []db.Build) []Build {
+func convertDBBuilds(builds []dbEngine.Build) []Build {
 	result := make([]Build, len(builds))
 	for i, b := range builds {
 		result[i] = convertDBBuild(b)
@@ -155,29 +156,29 @@ func convertDBBuilds(builds []db.Build) []Build {
 //	@Failure		500	{object}	map[string]string
 //	@Router			/projects [get]
 func ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var user db.User
-	if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
+	var user dbEngine.User
+	if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			utils.WriteErrorJSON(w, "User not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
 			return
 		}
-		utils.WriteErrorJSON(w, "Failed to fetch user", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch user", http.StatusInternalServerError)
 		return
 	}
 
-	var projects []db.Project
-	if err := db.DB.Where("user_id = ?", user.ID).Find(&projects).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to fetch projects", http.StatusInternalServerError)
+	var projects []dbEngine.Project
+	if err := dbEngine.DB.Where("user_id = ?", user.ID).Find(&projects).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to fetch projects", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, ProjectsResponse{Projects: convertDBProjects(projects)})
+	helpers.WriteJSON(w, ProjectsResponse{Projects: convertDBProjects(projects)})
 }
 
 // ProjectCreateHandler godoc
@@ -195,29 +196,29 @@ func ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/projects [post]
 func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var user db.User
-	if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
+	var user dbEngine.User
+	if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			utils.WriteErrorJSON(w, "User not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
 			return
 		}
-		utils.WriteErrorJSON(w, "Failed to fetch user", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch user", http.StatusInternalServerError)
 		return
 	}
 
 	var req ProjectCreateRequest
-	if err := utils.ReadJSON(r, &req); err != nil {
-		utils.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
+	if err := helpers.ReadJSON(r, &req); err != nil {
+		helpers.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	project := db.Project{
+	project := dbEngine.Project{
 		Name:           req.Name,
 		GitRepo:        req.GitRepo,
 		BuildFolder:    req.BuildFolder,
@@ -227,12 +228,12 @@ func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 		UserID:         user.ID,
 	}
 
-	if err := db.DB.Create(&project).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to create project", http.StatusInternalServerError)
+	if err := dbEngine.DB.Create(&project).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to create project", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
+	helpers.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
 }
 
 // ProjectGetHandler godoc
@@ -250,30 +251,30 @@ func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	map[string]string
 //	@Router			/projects/{id} [get]
 func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
 		return
 	}
 
-	var project db.Project
-	if err := db.DB.Preload("Builds").Preload("Envs").Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	var project dbEngine.Project
+	if err := dbEngine.DB.Preload("Builds").Preload("Envs").Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			utils.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
 		}
-		utils.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
+	helpers.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
 }
 
 // ProjectPutHandler godoc
@@ -292,32 +293,32 @@ func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/projects/{id} [put]
 func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
 		return
 	}
 
 	var req ProjectUpdateRequest
-	if err := utils.ReadJSON(r, &req); err != nil {
-		utils.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
+	if err := helpers.ReadJSON(r, &req); err != nil {
+		helpers.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	var project db.Project
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	var project dbEngine.Project
+	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			utils.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
 		}
-		utils.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
 		return
 	}
 
@@ -340,12 +341,12 @@ func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 		project.GitToken = req.GitToken
 	}
 
-	if err := db.DB.Save(&project).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to update project", http.StatusInternalServerError)
+	if err := dbEngine.DB.Save(&project).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to update project", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
+	helpers.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
 }
 
 // ProjectDeleteHandler godoc
@@ -362,25 +363,25 @@ func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	map[string]string
 //	@Router			/projects/{id} [delete]
 func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
 		return
 	}
 
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Delete(&db.Project{}).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to delete project", http.StatusInternalServerError)
+	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Delete(&dbEngine.Project{}).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to delete project", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, DeleteResponse{Status: "deleted"})
+	helpers.WriteJSON(w, DeleteResponse{Status: "deleted"})
 }
 
 // ProjectBuildHandler godoc
@@ -399,21 +400,21 @@ func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/projects/{id}/build [post]
 func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
 		return
 	}
 
 	var req BuildRequest
-	if err := utils.ReadJSON(r, &req); err != nil {
+	if err := helpers.ReadJSON(r, &req); err != nil {
 		// If no body, use defaults
 		req.Platform = "android"
 		req.BuildMode = "release"
@@ -443,29 +444,29 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 		req.GitBranch = "main"
 	}
 
-	var project db.Project
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	var project dbEngine.Project
+	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			utils.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
 		}
-		utils.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
 		return
 	}
 
-	build := db.Build{
+	build := dbEngine.Build{
 		ProjectID: project.ID,
 		Status:    "pending",
 		Platform:  req.Platform,
 	}
 
-	if err := db.DB.Create(&build).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to create build", http.StatusInternalServerError)
+	if err := dbEngine.DB.Create(&build).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to create build", http.StatusInternalServerError)
 		return
 	}
 
 	// Start the build process by creating a Kubernetes pod
-	buildConfig := kubernetes.BuildConfig{
+	buildConfig := kubernetesEngine.BuildConfig{
 		BuildID:        build.ID,
 		Project:        project,
 		Platform:       req.Platform,
@@ -475,21 +476,24 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 		GitBranch:      req.GitBranch,
 		GitUsername:    req.GitUsername,
 		GitToken:       req.GitToken,
+		User:           *userInfo.DB,
 	}
 
-	if err := kubernetes.CreateBuildPod(buildConfig); err != nil {
+	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {
 		// If pod creation fails, update build status to failed
+		fmt.Printf("Failed to create build pod for build %d: %v\n", build.ID, err)
+
 		build.Status = "failed"
-		db.DB.Save(&build)
-		utils.WriteErrorJSON(w, "Failed to start build process", http.StatusInternalServerError)
+		dbEngine.DB.Save(&build)
+		helpers.WriteErrorJSON(w, "Failed to start build process", http.StatusInternalServerError)
 		return
 	}
 
 	// Update build status to running
 	build.Status = "running"
-	db.DB.Save(&build)
+	dbEngine.DB.Save(&build)
 
-	utils.WriteJSON(w, BuildResponse{Build: convertDBBuild(build)})
+	helpers.WriteJSON(w, BuildResponse{Build: convertDBBuild(build)})
 }
 
 // BuildCancelHandler godoc
@@ -508,41 +512,41 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/projects/{id}/builds/{buildId}/cancel [post]
 func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
 		return
 	}
 	buildID, err := strconv.Atoi(vars["buildId"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
 		return
 	}
 
-	var build db.Build
-	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
+	var build dbEngine.Build
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			utils.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 			return
 		}
-		utils.WriteErrorJSON(w, "Failed to fetch build", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch build", http.StatusInternalServerError)
 		return
 	}
 
 	build.Status = "cancelled"
-	if err := db.DB.Save(&build).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to cancel build", http.StatusInternalServerError)
+	if err := dbEngine.DB.Save(&build).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to cancel build", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, BuildResponse{Build: convertDBBuild(build)})
+	helpers.WriteJSON(w, BuildResponse{Build: convertDBBuild(build)})
 }
 
 // BuildsListHandler godoc
@@ -559,26 +563,26 @@ func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	map[string]string
 //	@Router			/projects/{id}/builds [get]
 func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
 		return
 	}
 
-	var builds []db.Build
-	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&builds).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to fetch builds", http.StatusInternalServerError)
+	var builds []dbEngine.Build
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&builds).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to fetch builds", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, BuildsResponse{Builds: convertDBBuilds(builds)})
+	helpers.WriteJSON(w, BuildsResponse{Builds: convertDBBuilds(builds)})
 }
 
 // BuildLogsHandler godoc
@@ -597,43 +601,43 @@ func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/projects/{id}/builds/{buildId}/logs [get]
 func BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
 		return
 	}
 	buildID, err := strconv.Atoi(vars["buildId"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
 		return
 	}
 
 	// Verify the build belongs to the user's project
-	var build db.Build
-	if err := db.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
+	var build dbEngine.Build
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			utils.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 			return
 		}
-		utils.WriteErrorJSON(w, "Failed to fetch build", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch build", http.StatusInternalServerError)
 		return
 	}
 
 	// Get logs from the Kubernetes pod
-	logs, err := kubernetes.GetPodLogs(uint(buildID))
+	logs, err := kubernetesEngine.GetPodLogs(uint(buildID))
 	if err != nil {
-		utils.WriteErrorJSON(w, "Failed to fetch logs", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch logs", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, LogsResponse{Logs: logs})
+	helpers.WriteJSON(w, LogsResponse{Logs: logs})
 }
 
 // BuildLogsWSHandler godoc
@@ -653,24 +657,24 @@ func BuildLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 	// Auth via query param
 	token := r.URL.Query().Get("token")
 	if token == "" {
-		utils.WriteErrorJSON(w, "Missing token", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Missing token", http.StatusUnauthorized)
 		return
 	}
 
 	// Validate token (simplified, in real app use proper validation)
-	client := utils.GetKeycloakClient()
+	client := keycloakEngine.GetKeycloakClient()
 	ctx := context.Background()
 	realm := os.Getenv("KEYCLOAK_REALM")
 	_, err := client.GetUserInfo(ctx, token, realm)
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid token", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	buildID, err := strconv.Atoi(vars["buildId"])
 	if err != nil {
-		utils.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
 		return
 	}
 
@@ -679,7 +683,7 @@ func BuildLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		utils.WriteErrorJSON(w, "Failed to upgrade", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to upgrade", http.StatusInternalServerError)
 		return
 	}
 	defer conn.Close()
@@ -687,15 +691,15 @@ func BuildLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 	// Stream logs from the Kubernetes pod
 	logChan := make(chan string, 100)
 	go func() {
-		err := kubernetes.StreamPodLogs(uint(buildID), logChan)
+		err := kubernetesEngine.StreamPodLogs(uint(buildID), logChan)
 		if err != nil {
 			fmt.Printf("Error streaming pod logs: %v\n", err)
 		}
 	}()
 
 	// Get the current max line number for this build
-	var maxLine db.Log
-	if err := db.DB.Where("build_id = ?", buildID).Order("line_number DESC").First(&maxLine).Error; err != nil {
+	var maxLine dbEngine.Log
+	if err := dbEngine.DB.Where("build_id = ?", buildID).Order("line_number DESC").First(&maxLine).Error; err != nil {
 		// If no logs exist, start from 1
 		maxLine.LineNumber = 0
 	}
@@ -703,13 +707,13 @@ func BuildLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 
 	for logLine := range logChan {
 		// Save log to database
-		logEntry := db.Log{
+		logEntry := dbEngine.Log{
 			BuildID:    uint(buildID),
 			LineNumber: lineNumber,
 			Content:    logLine,
 			Timestamp:  time.Now().Unix(),
 		}
-		if err := db.DB.Create(&logEntry).Error; err != nil {
+		if err := dbEngine.DB.Create(&logEntry).Error; err != nil {
 			fmt.Printf("Failed to save log to database: %v\n", err)
 		}
 
@@ -734,8 +738,8 @@ func BuildLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401	{object}	map[string]string
 //	@Router			/projects/{id}/builds/{buildId}/download [get]
 func BuildDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	if middleware.GetUserFromContext(r.Context()) == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+	if services.GetUserFromContext(r.Context()) == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	vars := mux.Vars(r)
