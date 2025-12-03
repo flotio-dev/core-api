@@ -1,20 +1,20 @@
-package controller
+package handlers
 
 import (
 	"net/http"
 	"strconv"
 
-	"github.com/flotio-dev/api/pkg/db"
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 
-	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
-	utils "github.com/flotio-dev/api/pkg/utils"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	helpers "github.com/flotio-dev/api/internal/helpers"
+	services "github.com/flotio-dev/api/internal/services"
 )
 
 // Env handlers
 func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -27,16 +27,16 @@ func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var envs []db.Env
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&envs).Error; err != nil {
+	var envs []dbEngine.Env
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&envs).Error; err != nil {
 		http.Error(w, "Failed to fetch envs", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, map[string]interface{}{"envs": envs})
+	helpers.WriteJSON(w, map[string]interface{}{"envs": envs})
 }
 func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -53,14 +53,14 @@ func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	}
-	if err := utils.ReadJSON(r, &req); err != nil {
+	if err := helpers.ReadJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	// Verify project ownership
-	var project db.Project
-	if err := db.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	var project dbEngine.Project
+	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
@@ -69,22 +69,22 @@ func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	env := db.Env{
+	env := dbEngine.Env{
 		ProjectID: project.ID,
 		Key:       req.Key,
 		Value:     req.Value,
 	}
 
-	if err := db.DB.Create(&env).Error; err != nil {
+	if err := dbEngine.DB.Create(&env).Error; err != nil {
 		http.Error(w, "Failed to create env", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, map[string]interface{}{"env": env})
+	helpers.WriteJSON(w, map[string]interface{}{"env": env})
 }
 
 func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -103,8 +103,8 @@ func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var env db.Env
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
+	var env dbEngine.Env
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Env not found", http.StatusNotFound)
 			return
@@ -113,11 +113,11 @@ func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, map[string]interface{}{"env": env})
+	helpers.WriteJSON(w, map[string]interface{}{"env": env})
 }
 
 func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -140,13 +140,13 @@ func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 		Key   string `json:"key"`
 		Value string `json:"value"`
 	}
-	if err := utils.ReadJSON(r, &req); err != nil {
+	if err := helpers.ReadJSON(r, &req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	var env db.Env
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
+	var env dbEngine.Env
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Env not found", http.StatusNotFound)
 			return
@@ -158,16 +158,16 @@ func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 	env.Key = req.Key
 	env.Value = req.Value
 
-	if err := db.DB.Save(&env).Error; err != nil {
+	if err := dbEngine.DB.Save(&env).Error; err != nil {
 		http.Error(w, "Failed to update env", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, map[string]interface{}{"env": env})
+	helpers.WriteJSON(w, map[string]interface{}{"env": env})
 }
 
 func EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -186,10 +186,10 @@ func EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := db.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).Delete(&db.Env{}).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).Delete(&dbEngine.Env{}).Error; err != nil {
 		http.Error(w, "Failed to delete env", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, map[string]string{"status": "deleted"})
+	helpers.WriteJSON(w, map[string]string{"status": "deleted"})
 }

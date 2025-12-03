@@ -1,4 +1,4 @@
-package response
+package models
 
 type APIResponse[T any] struct {
 	Status  string `json:"status" example:"success"`

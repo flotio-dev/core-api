@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/flotio-dev/api/pkg/db"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,14 +15,14 @@ import (
 // CreateConfigMapForEnvFiles creates a ConfigMap containing environment files for a build
 func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
 	// Check if database is initialized
-	if db.DB == nil {
+	if dbEngine.DB == nil {
 		// No database connection, skip environment files
 		return "", nil
 	}
 
 	// Fetch environment files from database
-	var envs []db.Env
-	if err := db.DB.Where("project_id = ? AND type = ?", projectID, "file").Find(&envs).Error; err != nil {
+	var envs []dbEngine.Env
+	if err := dbEngine.DB.Where("project_id = ? AND type = ?", projectID, "file").Find(&envs).Error; err != nil {
 		return "", fmt.Errorf("failed to fetch environment files: %v", err)
 	}
 
@@ -85,14 +85,14 @@ func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, p
 // CreateSecretForKeystore creates a Secret containing the keystore and credentials
 func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
 	// Check if database is initialized
-	if db.DB == nil {
+	if dbEngine.DB == nil {
 		// No database connection, skip keystore
 		return "", nil
 	}
 
 	// Fetch active keystore from database
-	var keystore db.Keystore
-	if err := db.DB.Where("project_id = ? AND is_active = ?", projectID, true).First(&keystore).Error; err != nil {
+	var keystore dbEngine.Keystore
+	if err := dbEngine.DB.Where("project_id = ? AND is_active = ?", projectID, true).First(&keystore).Error; err != nil {
 		return "", nil // No keystore configured (not an error)
 	}
 

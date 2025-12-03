@@ -1,23 +1,15 @@
-package middleware
+package api
 
 import (
 	"context"
 	"net/http"
 	"os"
 
-	"github.com/Nerzal/gocloak/v13"
-	db "github.com/flotio-dev/api/pkg/db"
-	utils "github.com/flotio-dev/api/pkg/utils"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	keycloakEngine "github.com/flotio-dev/api/internal/engines/keycloak"
+	models "github.com/flotio-dev/api/internal/models"
+	services "github.com/flotio-dev/api/internal/services"
 )
-
-type contextKey string
-
-type UserContext struct {
-	Keycloak *gocloak.UserInfo
-	DB       *db.User
-}
-
-const userContextKey contextKey = "user"
 
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +20,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 		token := authHeader[7:]
 
-		client := utils.GetKeycloakClient()
+		client := keycloakEngine.GetKeycloakClient()
 		ctx := context.Background()
 		realm := os.Getenv("KEYCLOAK_REALM")
 
@@ -40,32 +32,25 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Cherche l'utilisateur correspondant dans la DB
-		var user db.User
-		if err := db.DB.Where("keycloak_id = ?", userInfo.Sub).First(&user).Error; err != nil {
+		var user dbEngine.User
+		if err := dbEngine.DB.Where("keycloak_id = ?", userInfo.Sub).First(&user).Error; err != nil {
 			// Si pas trouvé par keycloak_id, essaie avec email
-			if err := db.DB.Where("email = ?", userInfo.Email).First(&user).Error; err != nil {
+			if err := dbEngine.DB.Where("email = ?", userInfo.Email).First(&user).Error; err != nil {
 				next.ServeHTTP(w, r)
 				return
 			}
 		}
 
 		// Combine les infos
-		combined := &UserContext{
+		combined := &models.UserContext{
 			Keycloak: userInfo,
 			DB:       &user,
 		}
 
 		// Add user info to context
-		ctxWithUser := context.WithValue(r.Context(), userContextKey, combined)
+		ctxWithUser := context.WithValue(r.Context(), services.UserContextKey, combined)
 		r = r.WithContext(ctxWithUser)
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-func GetUserFromContext(ctx context.Context) *UserContext {
-	if user, ok := ctx.Value(userContextKey).(*UserContext); ok {
-		return user
-	}
-	return nil
 }

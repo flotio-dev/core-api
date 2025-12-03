@@ -1,4 +1,4 @@
-package controller
+package handlers
 
 import (
 	"context"
@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/Nerzal/gocloak/v13"
-	middleware "github.com/flotio-dev/api/pkg/api/v1/middleware"
-	"github.com/flotio-dev/api/pkg/db"
-	utils "github.com/flotio-dev/api/pkg/utils"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	keycloakEngine "github.com/flotio-dev/api/internal/engines/keycloak"
+	helpers "github.com/flotio-dev/api/internal/helpers"
+	services "github.com/flotio-dev/api/internal/services"
 )
 
 // Response structs for API documentation
@@ -112,15 +113,15 @@ func genRandomName() (first, last string) {
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var userData RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&userData); err != nil {
-		utils.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	client := utils.GetKeycloakClient()
+	client := keycloakEngine.GetKeycloakClient()
 	ctx := context.Background()
 	token, err := getAdminToken(ctx, client)
 	if err != nil {
-		utils.WriteErrorJSON(w, "Failed to authenticate with Keycloak", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to authenticate with Keycloak", http.StatusInternalServerError)
 		return
 	}
 
@@ -157,7 +158,7 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	userID, err := client.CreateUser(ctx, token.AccessToken, realm, *user)
 	if err != nil {
 		log.Printf("CreateUser failed for %s: %v", userData.Username, err)
-		utils.WriteErrorJSON(w, "Failed to create user", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to create user", http.StatusInternalServerError)
 		return
 	}
 	log.Printf("Created Keycloak user: %s (username=%s)", userID, userData.Username)
@@ -165,18 +166,18 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	// Set password
 	err = client.SetPassword(ctx, token.AccessToken, userID, realm, userData.Password, false)
 	if err != nil {
-		utils.WriteErrorJSON(w, "Failed to set password", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to set password", http.StatusInternalServerError)
 		return
 	}
 
 	// Create user in DB
-	dbUser := db.User{
+	dbUser := dbEngine.User{
 		KeycloakID: userID,
 		Email:      userData.Email,
 		Username:   userData.Username,
 	}
-	if err := db.DB.Create(&dbUser).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to create user in database", http.StatusInternalServerError)
+	if err := dbEngine.DB.Create(&dbUser).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to create user in database", http.StatusInternalServerError)
 		return
 	}
 
@@ -188,11 +189,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// If login fails for any reason, fall back to returning a registration success message
 		log.Printf("Auto-login failed for %s: %v", userData.Username, err)
-		utils.WriteJSON(w, RegisterResponse{Status: "registered", Message: "User registered successfully. Please login."})
+		helpers.WriteJSON(w, RegisterResponse{Status: "registered", Message: "User registered successfully. Please login."})
 		return
 	}
 
-	utils.WriteJSON(w, AuthResponse{
+	helpers.WriteJSON(w, AuthResponse{
 		AccessToken:  tokenResp.AccessToken,
 		RefreshToken: tokenResp.RefreshToken,
 		ExpiresIn:    fmt.Sprintf("%d", tokenResp.ExpiresIn),
@@ -214,11 +215,11 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var creds LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
-		utils.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	client := utils.GetKeycloakClient()
+	client := keycloakEngine.GetKeycloakClient()
 	ctx := context.Background()
 	realm := os.Getenv("KEYCLOAK_REALM")
 	clientID := os.Getenv("KEYCLOAK_CLIENT_ID")
@@ -229,11 +230,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := client.Login(ctx, clientID, clientSecret, realm, creds.Username, creds.Password)
 	if err != nil {
 		log.Printf("Login failed for user %s: %v", creds.Username, err)
-		utils.WriteErrorJSON(w, "Invalid credentials", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
-	utils.WriteJSON(w, AuthResponse{
+	helpers.WriteJSON(w, AuthResponse{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		ExpiresIn:    fmt.Sprintf("%d", token.ExpiresIn),
@@ -255,11 +256,11 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	var body RefreshTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		utils.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	client := utils.GetKeycloakClient()
+	client := keycloakEngine.GetKeycloakClient()
 	ctx := context.Background()
 	realm := os.Getenv("KEYCLOAK_REALM")
 	clientID := os.Getenv("KEYCLOAK_CLIENT_ID")
@@ -268,11 +269,11 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	token, err := client.RefreshToken(ctx, body.RefreshToken, clientID, clientSecret, realm)
 	if err != nil {
 		log.Printf("Refresh token failed: %v", err)
-		utils.WriteErrorJSON(w, "Invalid refresh token", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Invalid refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	utils.WriteJSON(w, AuthResponse{
+	helpers.WriteJSON(w, AuthResponse{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
 		ExpiresIn:    fmt.Sprintf("%d", token.ExpiresIn),
@@ -280,13 +281,13 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func MeGetHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	utils.WriteJSON(w, userInfo)
+	helpers.WriteJSON(w, userInfo)
 }
 
 // MePutHandler godoc
@@ -304,25 +305,25 @@ func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/auth/me [put]
 func MePutHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	var updateData UpdateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&updateData); err != nil {
-		utils.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	client := utils.GetKeycloakClient()
+	client := keycloakEngine.GetKeycloakClient()
 	ctx := context.Background()
 	realm := os.Getenv("KEYCLOAK_REALM")
 
 	adminToken, err := getAdminToken(ctx, client)
 	if err != nil {
-		utils.WriteErrorJSON(w, "Failed to authenticate with Keycloak", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to authenticate with Keycloak", http.StatusInternalServerError)
 		return
 	}
 
@@ -334,14 +335,14 @@ func MePutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err = client.UpdateUser(ctx, adminToken.AccessToken, realm, *userUpdate)
 	if err != nil {
-		utils.WriteErrorJSON(w, "Failed to update user", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to update user", http.StatusInternalServerError)
 		return
 	}
 
 	// Persist changes to local DB as well (e.g., email)
-	var dbUser db.User
-	if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&dbUser).Error; err != nil {
-		utils.WriteErrorJSON(w, "User not found", http.StatusNotFound)
+	var dbUser dbEngine.User
+	if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&dbUser).Error; err != nil {
+		helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
 		return
 	}
 
@@ -354,12 +355,12 @@ func MePutHandler(w http.ResponseWriter, r *http.Request) {
 		dbUser.Username = *updateData.Username
 	}
 
-	if err := db.DB.Save(&dbUser).Error; err != nil {
-		utils.WriteErrorJSON(w, "Failed to update user in database", http.StatusInternalServerError)
+	if err := dbEngine.DB.Save(&dbUser).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to update user in database", http.StatusInternalServerError)
 		return
 	}
 
-	utils.WriteJSON(w, StatusResponse{Status: "updated"})
+	helpers.WriteJSON(w, StatusResponse{Status: "updated"})
 }
 
 func GithubCallbackHandler(w http.ResponseWriter, r *http.Request) {
@@ -367,7 +368,7 @@ func GithubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// It should redirect to the frontend with the code
 	code := r.URL.Query().Get("code")
 	if code == "" {
-		utils.WriteErrorJSON(w, "Missing code parameter", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Missing code parameter", http.StatusBadRequest)
 		return
 	}
 
@@ -377,9 +378,9 @@ func GithubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GithubHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := middleware.GetUserFromContext(r.Context())
+	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
-		utils.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -389,19 +390,19 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 		// Generate GitHub OAuth URL
 		clientID := os.Getenv("GITHUB_CLIENT_ID")
 		if clientID == "" {
-			utils.WriteErrorJSON(w, "GitHub client ID not configured", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "GitHub client ID not configured", http.StatusInternalServerError)
 			return
 		}
 		redirectURI := "http://localhost:8080/auth/github/callback" // API callback URL
 		scope := "repo,user"
 		url := fmt.Sprintf("https://github.com/login/oauth/authorize?client_id=%s&redirect_uri=%s&scope=%s", clientID, url.QueryEscape(redirectURI), scope)
-		utils.WriteJSON(w, GithubLoginResponse{LoginURL: url})
+		helpers.WriteJSON(w, GithubLoginResponse{LoginURL: url})
 
 	case "callback":
 		// Handle GitHub OAuth callback
 		code := r.URL.Query().Get("code")
 		if code == "" {
-			utils.WriteErrorJSON(w, "Missing code parameter", http.StatusBadRequest)
+			helpers.WriteErrorJSON(w, "Missing code parameter", http.StatusBadRequest)
 			return
 		}
 
@@ -409,7 +410,7 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 		clientID := os.Getenv("GITHUB_CLIENT_ID")
 		clientSecret := os.Getenv("GITHUB_CLIENT_SECRET")
 		if clientID == "" || clientSecret == "" {
-			utils.WriteErrorJSON(w, "GitHub client not configured", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "GitHub client not configured", http.StatusInternalServerError)
 			return
 		}
 
@@ -422,7 +423,7 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 
 		resp, err := http.PostForm(tokenURL, data)
 		if err != nil {
-			utils.WriteErrorJSON(w, "Failed to exchange code", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to exchange code", http.StatusInternalServerError)
 			return
 		}
 		defer resp.Body.Close()
@@ -434,43 +435,43 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 			RefreshToken string `json:"refresh_token,omitempty"`
 		}
 		if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-			utils.WriteErrorJSON(w, "Failed to parse token response", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to parse token response", http.StatusInternalServerError)
 			return
 		}
 
 		// Store tokens in DB
-		var user db.User
-		if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
-			utils.WriteErrorJSON(w, "User not found", http.StatusNotFound)
+		var user dbEngine.User
+		if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
+			helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
 			return
 		}
 
 		user.GithubAccessToken = tokenResp.AccessToken
 		user.GithubRefreshToken = tokenResp.RefreshToken
-		if err := db.DB.Save(&user).Error; err != nil {
-			utils.WriteErrorJSON(w, "Failed to save tokens", http.StatusInternalServerError)
+		if err := dbEngine.DB.Save(&user).Error; err != nil {
+			helpers.WriteErrorJSON(w, "Failed to save tokens", http.StatusInternalServerError)
 			return
 		}
 
-		utils.WriteJSON(w, StatusResponse{Status: "connected"})
+		helpers.WriteJSON(w, StatusResponse{Status: "connected"})
 
 	case "list-repo":
 		// Get user's GitHub repos using stored token
-		var user db.User
-		if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
-			utils.WriteErrorJSON(w, "User not found", http.StatusNotFound)
+		var user dbEngine.User
+		if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
+			helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
 			return
 		}
 
 		if user.GithubAccessToken == "" {
-			utils.WriteErrorJSON(w, "GitHub not connected", http.StatusUnauthorized)
+			helpers.WriteErrorJSON(w, "GitHub not connected", http.StatusUnauthorized)
 			return
 		}
 
 		// Make request to GitHub API
 		req, err := http.NewRequest("GET", "https://api.github.com/user/repos", nil)
 		if err != nil {
-			utils.WriteErrorJSON(w, "Failed to create request", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to create request", http.StatusInternalServerError)
 			return
 		}
 		req.Header.Set("Authorization", "token "+user.GithubAccessToken)
@@ -479,35 +480,35 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			utils.WriteErrorJSON(w, "Failed to fetch repos", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to fetch repos", http.StatusInternalServerError)
 			return
 		}
 		defer resp.Body.Close()
 
 		var repos []map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&repos); err != nil {
-			utils.WriteErrorJSON(w, "Failed to parse repos", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to parse repos", http.StatusInternalServerError)
 			return
 		}
 
-		utils.WriteJSON(w, GithubReposResponse{Repos: repos})
+		helpers.WriteJSON(w, GithubReposResponse{Repos: repos})
 
 	case "detail-repo":
 		id := r.URL.Query().Get("id")
 		if id == "" {
-			utils.WriteErrorJSON(w, "Missing id parameter", http.StatusBadRequest)
+			helpers.WriteErrorJSON(w, "Missing id parameter", http.StatusBadRequest)
 			return
 		}
 
 		// Get user's GitHub token
-		var user db.User
-		if err := db.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
-			utils.WriteErrorJSON(w, "User not found", http.StatusNotFound)
+		var user dbEngine.User
+		if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
+			helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
 			return
 		}
 
 		if user.GithubAccessToken == "" {
-			utils.WriteErrorJSON(w, "GitHub not connected", http.StatusUnauthorized)
+			helpers.WriteErrorJSON(w, "GitHub not connected", http.StatusUnauthorized)
 			return
 		}
 
@@ -515,7 +516,7 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 		apiURL := fmt.Sprintf("https://api.github.com/repositories/%s/contents", id)
 		req, err := http.NewRequest("GET", apiURL, nil)
 		if err != nil {
-			utils.WriteErrorJSON(w, "Failed to create request", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to create request", http.StatusInternalServerError)
 			return
 		}
 		req.Header.Set("Authorization", "token "+user.GithubAccessToken)
@@ -524,14 +525,14 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
-			utils.WriteErrorJSON(w, "Failed to fetch repo contents", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to fetch repo contents", http.StatusInternalServerError)
 			return
 		}
 		defer resp.Body.Close()
 
 		var contents []map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&contents); err != nil {
-			utils.WriteErrorJSON(w, "Failed to parse contents", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to parse contents", http.StatusInternalServerError)
 			return
 		}
 
@@ -545,9 +546,9 @@ func GithubHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		utils.WriteJSON(w, GithubRepoDetailResponse{RepoID: id, Folders: folders})
+		helpers.WriteJSON(w, GithubRepoDetailResponse{RepoID: id, Folders: folders})
 
 	default:
-		utils.WriteErrorJSON(w, "Invalid action", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid action", http.StatusBadRequest)
 	}
 }

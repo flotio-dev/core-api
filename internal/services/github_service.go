@@ -1,4 +1,4 @@
-package service
+package services
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/flotio-dev/api/pkg/db"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 )
 
 type GithubService struct {
@@ -25,7 +25,7 @@ func NewGithubService(db *gorm.DB, clientFactory func(int64) (*github.Client, er
 }
 
 func (s *GithubService) SaveInstallation(userID uint, installationID int64, accountLogin, accountType string, targetID int64) error {
-	inst := db.GithubInstallation{
+	inst := dbEngine.GithubInstallation{
 		InstallationID: installationID,
 		UserID:         &userID,
 		AccountLogin:   accountLogin,
@@ -39,8 +39,8 @@ func (s *GithubService) SaveInstallation(userID uint, installationID int64, acco
 	}).Create(&inst).Error
 }
 
-func (s *GithubService) GetInstallationByUser(userID uint) (*db.GithubInstallation, error) {
-	var inst db.GithubInstallation
+func (s *GithubService) GetInstallationByUser(userID uint) (*dbEngine.GithubInstallation, error) {
+	var inst dbEngine.GithubInstallation
 	err := s.DB.Where("user_id = ?", userID).First(&inst).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil

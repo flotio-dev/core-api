@@ -1,10 +1,10 @@
-package utils
+package helpers
 
 import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/flotio-dev/api/pkg/api/v1/model/response"
+	models "github.com/flotio-dev/api/internal/models"
 )
 
 type StatusType string
@@ -44,7 +44,7 @@ func RespondWithSuccess[T any](w http.ResponseWriter, data *T, opts *ResponseOpt
 		}
 	}
 
-	resp := response.APIResponse[T]{
+	resp := models.APIResponse[T]{
 		Status:  string(status),
 		Code:    httpCode,
 		Message: message,
@@ -90,7 +90,7 @@ func RespondWithError(w http.ResponseWriter, opts *ResponseOptions) {
 		}
 	}
 
-	resp := response.APIErrorResponse{
+	resp := models.APIErrorResponse{
 		Status:  string(status),
 		Code:    httpCode,
 		Message: message,
