@@ -517,6 +517,9 @@ func (c *ProjectController) ProjectBuildHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Start listening to pod logs in a goroutine
+	go kubernetesEngine.StartPodLogListener(build.ID)
+
 	// Update build status to running
 	build.Status = "running"
 	dbEngine.DB.Save(&build)
@@ -566,6 +569,12 @@ func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		helpers.WriteErrorJSON(w, "Failed to fetch build", http.StatusInternalServerError)
 		return
+	}
+
+	// Delete the Kubernetes pod
+	if err := kubernetesEngine.DeleteBuildPod(build.ID); err != nil {
+		fmt.Printf("Failed to delete build pod for build %d: %v\n", build.ID, err)
+		// Continue with cancellation even if pod deletion fails
 	}
 
 	build.Status = "cancelled"
@@ -658,11 +667,17 @@ func BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get logs from the Kubernetes pod
-	logs, err := kubernetesEngine.GetPodLogs(uint(buildID))
-	if err != nil {
+	// Get logs from the database
+	var dbLogs []dbEngine.Log
+	if err := dbEngine.DB.Where("build_id = ?", buildID).Order("line_number ASC").Find(&dbLogs).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to fetch logs", http.StatusInternalServerError)
 		return
+	}
+
+	// Convert database logs to string array
+	logs := make([]string, len(dbLogs))
+	for i, log := range dbLogs {
+		logs[i] = log.Content
 	}
 
 	helpers.WriteJSON(w, LogsResponse{Logs: logs})
