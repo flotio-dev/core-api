@@ -6,7 +6,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/flotio-dev/api/pkg/db"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -16,14 +16,15 @@ import (
 // BuildConfig contains all configuration for creating a build pod
 type BuildConfig struct {
 	BuildID        uint
-	Project        db.Project
+	Project        dbEngine.Project
 	Platform       string
 	BuildMode      string // release, debug, profile
 	BuildTarget    string // apk, aab, ios, web
 	FlutterChannel string // stable, beta, dev
 	GitBranch      string
 	GitUsername    string
-	GitPassword    string
+	GitToken       string
+	User           dbEngine.User
 }
 
 // CreateBuildPod creates a Kubernetes pod to build a Flutter application
@@ -66,9 +67,9 @@ func CreateBuildPod(config BuildConfig) error {
 	envVars := buildEnvironmentVariables(config)
 
 	// Add environment variables from database
-	if db.DB != nil {
-		var dbEnvs []db.Env
-		if err := db.DB.Where("project_id = ? AND type = ?", config.Project.ID, "env").Find(&dbEnvs).Error; err == nil {
+	if dbEngine.DB != nil {
+		var dbEnvs []dbEngine.Env
+		if err := dbEngine.DB.Where("project_id = ? AND type = ?", config.Project.ID, "env").Find(&dbEnvs).Error; err == nil {
 			for _, dbEnv := range dbEnvs {
 				envVars = append(envVars, v1.EnvVar{
 					Name:  dbEnv.Key,
@@ -221,9 +222,18 @@ func CreateBuildPod(config BuildConfig) error {
 
 // buildEnvironmentVariables creates the environment variables for the build container
 func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
+	gitRepo := ""
+	if config.Project.GitRepo != nil {
+		gitRepo = *config.Project.GitRepo
+	}
+	buildFolder := ""
+	if config.Project.BuildFolder != nil {
+		buildFolder = *config.Project.BuildFolder
+	}
+
 	envVars := []v1.EnvVar{
-		{Name: "GIT_REPO", Value: config.Project.GitRepo},
-		{Name: "BUILD_FOLDER", Value: config.Project.BuildFolder},
+		{Name: "GIT_REPO", Value: gitRepo},
+		{Name: "BUILD_FOLDER", Value: buildFolder},
 		{Name: "PLATFORM", Value: config.Platform},
 		{Name: "BUILD_ID", Value: strconv.Itoa(int(config.BuildID))},
 		{Name: "BUILD_MODE", Value: getBuildMode(config.BuildMode)},
@@ -242,8 +252,8 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 	if config.GitUsername != "" {
 		envVars = append(envVars, v1.EnvVar{Name: "GIT_USERNAME", Value: config.GitUsername})
 	}
-	if config.GitPassword != "" {
-		envVars = append(envVars, v1.EnvVar{Name: "GIT_PASSWORD", Value: config.GitPassword})
+	if config.GitToken != "" {
+		envVars = append(envVars, v1.EnvVar{Name: "GIT_TOKEN", Value: config.GitToken})
 	}
 
 	return envVars

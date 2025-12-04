@@ -1,0 +1,822 @@
+definitions:
+  controller.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  controller.Build:
+    properties:
+      apk_url:
+        type: string
+      container_id:
+        type: string
+      created_at:
+        type: string
+      duration:
+        type: integer
+      id:
+        type: integer
+      platform:
+        type: string
+      project_id:
+        type: integer
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  controller.BuildRequest:
+    properties:
+      build_mode:
+        example: release
+        type: string
+      build_target:
+        example: apk
+        type: string
+      flutter_channel:
+        example: stable
+        type: string
+      git_branch:
+        example: main
+        type: string
+      git_token:
+        example: ghp_xxx
+        type: string
+      git_username:
+        example: username
+        type: string
+      platform:
+        example: android
+        type: string
+    type: object
+  controller.BuildResponse:
+    properties:
+      build:
+        $ref: '#/definitions/controller.Build'
+    type: object
+  controller.BuildsResponse:
+    properties:
+      builds:
+        items:
+          $ref: '#/definitions/controller.Build'
+        type: array
+    type: object
+  controller.DeleteResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  controller.LoginRequest:
+    properties:
+      password:
+        example: securepassword
+        type: string
+      username:
+        example: johndoe
+        type: string
+    type: object
+  controller.LogsResponse:
+    properties:
+      logs:
+        items:
+          type: string
+        type: array
+    type: object
+  controller.Project:
+    properties:
+      build_folder:
+        type: string
+      created_at:
+        type: string
+      flutter_version:
+        type: string
+      git_repo:
+        type: string
+      git_token:
+        type: string
+      git_username:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  controller.ProjectCreateRequest:
+    properties:
+      build_folder:
+        example: .
+        type: string
+      flutter_version:
+        example: 3.19.0
+        type: string
+      git_repo:
+        example: https://github.com/user/repo.git
+        type: string
+      git_token:
+        example: ghp_xxx
+        type: string
+      git_username:
+        example: username
+        type: string
+      name:
+        example: My Flutter App
+        type: string
+    type: object
+  controller.ProjectResponse:
+    properties:
+      project:
+        $ref: '#/definitions/controller.Project'
+    type: object
+  controller.ProjectUpdateRequest:
+    properties:
+      build_folder:
+        example: .
+        type: string
+      flutter_version:
+        example: 3.19.0
+        type: string
+      git_repo:
+        example: https://github.com/user/repo.git
+        type: string
+      git_token:
+        example: ghp_xxx
+        type: string
+      git_username:
+        example: username
+        type: string
+      name:
+        example: Updated App Name
+        type: string
+    type: object
+  controller.ProjectsResponse:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/controller.Project'
+        type: array
+    type: object
+  controller.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        example: eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ...
+        type: string
+    type: object
+  controller.RegisterRequest:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      first_name:
+        example: John
+        type: string
+      last_name:
+        example: Doe
+        type: string
+      password:
+        example: securepassword
+        type: string
+      username:
+        example: johndoe
+        type: string
+    type: object
+  controller.StatusResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  controller.UpdateUserRequest:
+    properties:
+      email:
+        example: newemail@example.com
+        type: string
+      username:
+        example: newusername
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with username and password
+      parameters:
+      - description: User login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/controller.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login user
+      tags:
+      - auth
+  /auth/me:
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated user's profile information
+      parameters:
+      - description: User update data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/controller.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.StatusResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update current user profile
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Refresh access token using refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: token
+        required: true
+        schema:
+          $ref: '#/definitions/controller.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with username, email, and password
+      parameters:
+      - description: User registration data
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/controller.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register a new user
+      tags:
+      - auth
+  /projects:
+    get:
+      consumes:
+      - application/json
+      description: Get all projects for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.ProjectsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get projects
+      tags:
+      - projects
+    post:
+      consumes:
+      - application/json
+      description: Create a new project for the authenticated user
+      parameters:
+      - description: Project data
+        in: body
+        name: project
+        required: true
+        schema:
+          $ref: '#/definitions/controller.ProjectCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.ProjectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a project
+      tags:
+      - projects
+  /projects/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specific project by ID for the authenticated user
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.DeleteResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete a project
+      tags:
+      - projects
+    get:
+      consumes:
+      - application/json
+      description: Get a specific project by ID for the authenticated user
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.ProjectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get a project
+      tags:
+      - projects
+    put:
+      consumes:
+      - application/json
+      description: Update a specific project by ID for the authenticated user
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Project data
+        in: body
+        name: project
+        required: true
+        schema:
+          $ref: '#/definitions/controller.ProjectUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.ProjectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update a project
+      tags:
+      - projects
+  /projects/{id}/build:
+    post:
+      consumes:
+      - application/json
+      description: Start a build for a specific project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Build data
+        in: body
+        name: build
+        required: true
+        schema:
+          $ref: '#/definitions/controller.BuildRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.BuildResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Build a project
+      tags:
+      - projects
+  /projects/{id}/builds:
+    get:
+      consumes:
+      - application/json
+      description: Get all builds for a specific project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.BuildsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: List builds
+      tags:
+      - builds
+  /projects/{id}/builds/{buildId}/cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancel a specific build for a project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Build ID
+        in: path
+        name: buildId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.BuildResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel a build
+      tags:
+      - builds
+  /projects/{id}/builds/{buildId}/download:
+    get:
+      consumes:
+      - application/json
+      description: Download the artifact for a specific build
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Build ID
+        in: path
+        name: buildId
+        required: true
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Download build artifact
+      tags:
+      - builds
+  /projects/{id}/builds/{buildId}/logs:
+    get:
+      consumes:
+      - application/json
+      description: Get logs for a specific build
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Build ID
+        in: path
+        name: buildId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/controller.LogsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get build logs
+      tags:
+      - builds
+  /projects/{id}/builds/{buildId}/logs/ws:
+    get:
+      consumes:
+      - application/json
+      description: Stream logs for a specific build via WebSocket
+      parameters:
+      - description: Build ID
+        in: path
+        name: buildId
+        required: true
+        type: integer
+      - description: Auth token
+        in: query
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: Switching Protocols
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get build logs via WebSocket
+      tags:
+      - builds
+swagger: "2.0"

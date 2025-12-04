@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/flotio-dev/api/pkg/db"
-	"github.com/flotio-dev/api/pkg/kubernetes"
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	kubernetesEngine "github.com/flotio-dev/api/internal/engines/kubernetes"
 	"github.com/joho/godotenv"
 )
 
@@ -30,14 +30,16 @@ func main() {
 	log.Printf("✓ Test build ID: %d\n", testBuildID)
 
 	// Create a mock project (no database)
-	testProject := db.Project{
+	gitRepo := "https://github.com/flotio-dev/test_apk.git"
+	buildFolder := "."
+	testProject := dbEngine.Project{
 		Name:        "Test Application (Test)",
-		GitRepo:     "https://github.com/flotio-dev/test_apk.git",
-		BuildFolder: ".",
+		GitRepo:     &gitRepo,
+		BuildFolder: &buildFolder,
 	}
 
 	// Configure the build
-	buildConfig := kubernetes.BuildConfig{
+	buildConfig := kubernetesEngine.BuildConfig{
 		BuildID:        testBuildID,
 		Project:        testProject,
 		Platform:       "android",
@@ -46,14 +48,23 @@ func main() {
 		FlutterChannel: "stable",
 		GitBranch:      "main",
 		GitUsername:    "",
-		GitPassword:    "",
+		GitToken:       "",
 	}
 
 	log.Println()
 	log.Println("Build Configuration:")
 	log.Printf("  Build ID: %d\n", buildConfig.BuildID)
 	log.Printf("  Project: %s\n", buildConfig.Project.Name)
-	log.Printf("  Git Repo: %s\n", buildConfig.Project.GitRepo)
+	displayGitRepo := ""
+	if buildConfig.Project.GitRepo != nil {
+		displayGitRepo = *buildConfig.Project.GitRepo
+	}
+	log.Printf("  Git Repo: %s\n", displayGitRepo)
+	displayBuildFolder := ""
+	if buildConfig.Project.BuildFolder != nil {
+		displayBuildFolder = *buildConfig.Project.BuildFolder
+	}
+	log.Printf("  Build Folder: %s\n", displayBuildFolder)
 	log.Printf("  Platform: %s\n", buildConfig.Platform)
 	log.Printf("  Build Mode: %s\n", buildConfig.BuildMode)
 	log.Printf("  Build Target: %s\n", buildConfig.BuildTarget)
@@ -62,7 +73,7 @@ func main() {
 
 	// Create the Kubernetes pod
 	log.Println("Creating Kubernetes build pod...")
-	if err := kubernetes.CreateBuildPod(buildConfig); err != nil {
+	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {
 		log.Fatalf("Failed to create build pod: %v", err)
 	}
 	log.Printf("✓ Build pod created successfully: build-%d\n", testBuildID)
@@ -86,7 +97,7 @@ func monitorPodStatus(buildID uint) {
 	for {
 		select {
 		case <-ticker.C:
-			status, err := kubernetes.GetPodStatus(buildID)
+			status, err := kubernetesEngine.GetPodStatus(buildID)
 			if err != nil {
 				log.Printf("Error getting pod status: %v\n", err)
 				continue
@@ -121,7 +132,7 @@ func showPodLogs(buildID uint) {
 	log.Println("Fetching pod logs...")
 	log.Println("-------------------------------------------")
 
-	logs, err := kubernetes.GetPodLogs(buildID)
+	logs, err := kubernetesEngine.GetPodLogs(buildID)
 	if err != nil {
 		log.Printf("Warning: Failed to get pod logs: %v\n", err)
 		return
@@ -138,7 +149,7 @@ func showPodLogs(buildID uint) {
 func showArtifacts(buildID uint) {
 	log.Println("Build artifacts information:")
 
-	artifacts, err := kubernetes.GetBuildArtifacts(buildID)
+	artifacts, err := kubernetesEngine.GetBuildArtifacts(buildID)
 	if err != nil {
 		log.Printf("Warning: Failed to get artifacts: %v\n", err)
 		return
