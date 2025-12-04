@@ -17,7 +17,9 @@ on:
       - 'build/build-image.sh'
 
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - dev
     paths:
       - 'cmd/**'
       - 'pkg/**'
