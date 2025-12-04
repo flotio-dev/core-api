@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -28,6 +29,15 @@ type BuildConfig struct {
 }
 
 // CreateBuildPod creates a Kubernetes pod to build a Flutter application
+// @Summary		Create a build pod
+// @Description	Creates a Kubernetes pod to build a Flutter application with AWS S3 for artifact storage
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		config	body		BuildConfig	true	"Build configuration"
+// @Success		200
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod [post]
 func CreateBuildPod(config BuildConfig) error {
 	kubeConfig, err := getKubernetesConfig()
 	if err != nil {
@@ -41,12 +51,6 @@ func CreateBuildPod(config BuildConfig) error {
 
 	namespace := getNamespace()
 	podName := fmt.Sprintf("build-%d", config.BuildID)
-
-	// Create PVC for artifacts
-	pvcName, err := CreatePersistentVolumeClaimForArtifacts(clientset, config.BuildID, namespace)
-	if err != nil {
-		return fmt.Errorf("failed to create PVC: %v", err)
-	}
 
 	// Create ConfigMap for environment files
 	configMapName, err := CreateConfigMapForEnvFiles(clientset, config.BuildID, config.Project.ID, namespace)
@@ -80,12 +84,7 @@ func CreateBuildPod(config BuildConfig) error {
 	}
 
 	// Build volume mounts
-	volumeMounts := []v1.VolumeMount{
-		{
-			Name:      "artifacts",
-			MountPath: "/outputs",
-		},
-	}
+	volumeMounts := []v1.VolumeMount{}
 
 	// Add ConfigMap volume mount if exists
 	if configMapName != "" {
@@ -138,16 +137,7 @@ func CreateBuildPod(config BuildConfig) error {
 	}
 
 	// Build volumes
-	volumes := []v1.Volume{
-		{
-			Name: "artifacts",
-			VolumeSource: v1.VolumeSource{
-				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-					ClaimName: pvcName,
-				},
-			},
-		},
-	}
+	volumes := []v1.Volume{}
 
 	// Add ConfigMap volume if exists
 	if configMapName != "" {
@@ -239,10 +229,14 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 		{Name: "BUILD_MODE", Value: getBuildMode(config.BuildMode)},
 		{Name: "BUILD_TARGET", Value: getBuildTarget(config.Platform, config.BuildTarget)},
 		{Name: "FLUTTER_CHANNEL", Value: getFlutterChannel(config.FlutterChannel)},
-		{Name: "OUTPUT_DIR", Value: "/outputs"},
 		{Name: "ENV_FILES_DIR", Value: "/env-files"},
 		{Name: "GIT_USERNAME", Value: config.GitUsername},
 		{Name: "GIT_PASSWORD", Value: config.GitToken},
+		// AWS S3 configuration for artifact storage
+		{Name: "AWS_S3_BUCKET", Value: getAWSS3Bucket()},
+		{Name: "AWS_REGION", Value: getAWSRegion()},
+		{Name: "AWS_ACCESS_KEY_ID", Value: os.Getenv("AWS_ACCESS_KEY_ID")},
+		{Name: "AWS_SECRET_ACCESS_KEY", Value: os.Getenv("AWS_SECRET_ACCESS_KEY")},
 	}
 
 	// Add Git branch if specified
@@ -253,6 +247,16 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 	return envVars
 }
 
+// GetPodLogs retrieves logs from a build pod
+// @Summary		Get pod logs
+// @Description	Retrieves logs from a specific build pod
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID	path		int	true	"Build ID"
+// @Success		200	{array}	string
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod/{buildID}/logs [get]
 func GetPodLogs(buildID uint) ([]string, error) {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -289,6 +293,16 @@ func GetPodLogs(buildID uint) ([]string, error) {
 	return logs, nil
 }
 
+// StreamPodLogs streams logs from a build pod in real-time
+// @Summary		Stream pod logs
+// @Description	Streams logs from a specific build pod via channel
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID	path		int	true	"Build ID"
+// @Success		200
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod/{buildID}/logs/stream [get]
 func StreamPodLogs(buildID uint, logChan chan<- string) error {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -328,6 +342,15 @@ func StreamPodLogs(buildID uint, logChan chan<- string) error {
 }
 
 // GetPodStatus returns the current status of a build pod
+// @Summary		Get pod status
+// @Description	Returns the current status of a specific build pod
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID	path		int	true	"Build ID"
+// @Success		200	{string}	string
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod/{buildID}/status [get]
 func GetPodStatus(buildID uint) (string, error) {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -350,49 +373,42 @@ func GetPodStatus(buildID uint) (string, error) {
 	return string(pod.Status.Phase), nil
 }
 
-// CopyArtifactFromPod copies a build artifact from the pod to a local path
-// This can be used to retrieve APK/AAB/IPA files after build completion
-func CopyArtifactFromPod(buildID uint, artifactPath string, destinationPath string) error {
-	// Note: This is a simplified version. In production, you might want to use
-	// kubectl cp equivalent or directly access the PVC
-	// For now, we'll document that artifacts should be uploaded to object storage
-	// from within the build script itself
-	return fmt.Errorf("artifact copying should be handled by the build script uploading to object storage")
+// GetArtifactURL returns the S3 URL for a build artifact
+// @Summary		Get artifact URL
+// @Description	Returns the AWS S3 URL for a specific build artifact
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID		path		int		true	"Build ID"
+// @Param		artifactName	path		string	true	"Artifact name (e.g., app-release.apk)"
+// @Success		200	{string}	string
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod/{buildID}/artifact/{artifactName} [get]
+func GetArtifactURL(buildID uint, artifactName string) string {
+	bucket := getAWSS3Bucket()
+	region := getAWSRegion()
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/builds/%d/%s", bucket, region, buildID, artifactName)
 }
 
 // GetBuildArtifacts returns information about the artifacts produced by a build
+// @Summary		Get build artifacts
+// @Description	Returns URLs to the artifacts stored in AWS S3 for a specific build
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID	path		int	true	"Build ID"
+// @Success		200	{object}	map[string]string
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod/{buildID}/artifacts [get]
 func GetBuildArtifacts(buildID uint) (map[string]string, error) {
-	config, err := getKubernetesConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create clientset: %v", err)
-	}
-
-	podName := fmt.Sprintf("build-%d", buildID)
-	namespace := getNamespace()
-
-	// Read build-info.json from the pod
-	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
-		Container: "build",
-	})
-
-	logStream, err := req.Stream(context.TODO())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get logs: %v", err)
-	}
-	defer logStream.Close()
-
-	// In a real implementation, you would:
-	// 1. Mount the PVC to another pod to read the artifacts
-	// 2. Or have the build script upload artifacts to S3/MinIO/GCS
-	// 3. Return URLs to the artifacts
+	bucket := getAWSS3Bucket()
+	region := getAWSRegion()
+	baseURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/builds/%d", bucket, region, buildID)
 
 	artifacts := make(map[string]string)
-	artifacts["status"] = "Build artifacts should be retrieved from object storage"
+	artifacts["apk"] = fmt.Sprintf("%s/app-release.apk", baseURL)
+	artifacts["aab"] = fmt.Sprintf("%s/app-release.aab", baseURL)
+	artifacts["build_info"] = fmt.Sprintf("%s/build-info.json", baseURL)
 
 	return artifacts, nil
 }
@@ -465,4 +481,28 @@ func getFlutterChannel(channel string) string {
 		return "stable"
 	}
 	return channel
+}
+
+// getAWSS3Bucket returns the S3 bucket name for storing build artifacts
+func getAWSS3Bucket() string {
+	bucket := os.Getenv("AWS_S3_BUCKET")
+	if bucket == "" {
+		bucket = "flotio-builds"
+	}
+	return bucket
+}
+
+// getAWSRegion returns the AWS region for S3 operations
+func getAWSRegion() string {
+	region := os.Getenv("AWS_REGION")
+	if region == "" {
+		region = "eu-west-1"
+	}
+	return region
+}
+
+// parseQuantity parses a Kubernetes resource quantity string
+func parseQuantity(s string) resource.Quantity {
+	q, _ := resource.ParseQuantity(s)
+	return q
 }
