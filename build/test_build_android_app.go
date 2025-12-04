@@ -71,6 +71,13 @@ func main() {
 	log.Printf("  Flutter Channel: %s\n", buildConfig.FlutterChannel)
 	log.Println()
 
+	log.Println("S3 Storage Configuration:")
+	log.Printf("  Bucket: %s\n", getEnvOrDefault("AWS_S3_BUCKET", "not configured"))
+	log.Printf("  Prefix: %s\n", getEnvOrDefault("AWS_S3_PREFIX", "builds"))
+	log.Printf("  Endpoint: %s\n", getEnvOrDefault("AWS_S3_ENDPOINT", "not configured"))
+	log.Printf("  Region: %s\n", getEnvOrDefault("AWS_REGION", "garage"))
+	log.Println()
+
 	// Create the Kubernetes pod
 	log.Println("Creating Kubernetes build pod...")
 	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {
@@ -148,6 +155,15 @@ func showPodLogs(buildID uint) {
 
 func showArtifacts(buildID uint) {
 	log.Println("Build artifacts information:")
+	log.Println()
+
+	// Show S3 configuration
+	log.Println("S3 Storage Configuration:")
+	log.Printf("  Bucket: %s\n", getEnvOrDefault("AWS_S3_BUCKET", "not configured"))
+	log.Printf("  Prefix: %s\n", getEnvOrDefault("AWS_S3_PREFIX", "builds"))
+	log.Printf("  Endpoint: %s\n", getEnvOrDefault("AWS_S3_ENDPOINT", "not configured"))
+	log.Printf("  Region: %s\n", getEnvOrDefault("AWS_REGION", "garage"))
+	log.Println()
 
 	artifacts, err := kubernetesEngine.GetBuildArtifacts(buildID)
 	if err != nil {
@@ -155,6 +171,7 @@ func showArtifacts(buildID uint) {
 		return
 	}
 
+	log.Println("Artifact URLs:")
 	for key, value := range artifacts {
 		log.Printf("  %s: %s\n", key, value)
 	}

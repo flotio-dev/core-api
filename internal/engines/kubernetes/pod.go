@@ -232,8 +232,10 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 		{Name: "ENV_FILES_DIR", Value: "/env-files"},
 		{Name: "GIT_USERNAME", Value: config.GitUsername},
 		{Name: "GIT_PASSWORD", Value: config.GitToken},
-		// AWS S3 configuration for artifact storage
+		// AWS S3 configuration for artifact storage (supports Garage/MinIO/AWS)
 		{Name: "AWS_S3_BUCKET", Value: getAWSS3Bucket()},
+		{Name: "AWS_S3_PREFIX", Value: getAWSS3Prefix()},
+		{Name: "AWS_S3_ENDPOINT", Value: getAWSS3Endpoint()},
 		{Name: "AWS_REGION", Value: getAWSRegion()},
 		{Name: "AWS_ACCESS_KEY_ID", Value: os.Getenv("AWS_ACCESS_KEY_ID")},
 		{Name: "AWS_SECRET_ACCESS_KEY", Value: os.Getenv("AWS_SECRET_ACCESS_KEY")},
@@ -386,8 +388,16 @@ func GetPodStatus(buildID uint) (string, error) {
 // @Router		/internal/kubernetes/pod/{buildID}/artifact/{artifactName} [get]
 func GetArtifactURL(buildID uint, artifactName string) string {
 	bucket := getAWSS3Bucket()
+	prefix := getAWSS3Prefix()
+	endpoint := getAWSS3Endpoint()
+
+	// If custom endpoint is set (Garage/MinIO), use it
+	if endpoint != "" {
+		return fmt.Sprintf("%s/%s/%s/%d/%s", endpoint, bucket, prefix, buildID, artifactName)
+	}
+	// Default to AWS S3 URL format
 	region := getAWSRegion()
-	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/builds/%d/%s", bucket, region, buildID, artifactName)
+	return fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s/%d/%s", bucket, region, prefix, buildID, artifactName)
 }
 
 // GetBuildArtifacts returns information about the artifacts produced by a build
@@ -402,8 +412,18 @@ func GetArtifactURL(buildID uint, artifactName string) string {
 // @Router		/internal/kubernetes/pod/{buildID}/artifacts [get]
 func GetBuildArtifacts(buildID uint) (map[string]string, error) {
 	bucket := getAWSS3Bucket()
-	region := getAWSRegion()
-	baseURL := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/builds/%d", bucket, region, buildID)
+	prefix := getAWSS3Prefix()
+	endpoint := getAWSS3Endpoint()
+
+	var baseURL string
+	// If custom endpoint is set (Garage/MinIO), use it
+	if endpoint != "" {
+		baseURL = fmt.Sprintf("%s/%s/%s/%d", endpoint, bucket, prefix, buildID)
+	} else {
+		// Default to AWS S3 URL format
+		region := getAWSRegion()
+		baseURL = fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s/%d", bucket, region, prefix, buildID)
+	}
 
 	artifacts := make(map[string]string)
 	artifacts["apk"] = fmt.Sprintf("%s/app-release.apk", baseURL)
@@ -496,9 +516,23 @@ func getAWSS3Bucket() string {
 func getAWSRegion() string {
 	region := os.Getenv("AWS_REGION")
 	if region == "" {
-		region = "eu-west-1"
+		region = "garage"
 	}
 	return region
+}
+
+// getAWSS3Endpoint returns the custom S3 endpoint URL (for Garage/MinIO)
+func getAWSS3Endpoint() string {
+	return os.Getenv("AWS_S3_ENDPOINT")
+}
+
+// getAWSS3Prefix returns the S3 prefix/folder for storing build artifacts
+func getAWSS3Prefix() string {
+	prefix := os.Getenv("AWS_S3_PREFIX")
+	if prefix == "" {
+		prefix = "builds"
+	}
+	return prefix
 }
 
 // parseQuantity parses a Kubernetes resource quantity string
