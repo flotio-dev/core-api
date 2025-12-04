@@ -19,6 +19,16 @@ import (
 	services "github.com/flotio-dev/api/internal/services"
 )
 
+type ProjectController struct {
+	githubService *services.GithubService
+}
+
+func NewProjectController(githubService *services.GithubService) *ProjectController {
+	return &ProjectController{
+		githubService: githubService,
+	}
+}
+
 // Response structs for API documentation
 type ProjectsResponse struct {
 	Projects []Project `json:"projects"`
@@ -399,7 +409,7 @@ func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Router			/projects/{id}/build [post]
-func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
+func (c *ProjectController) ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
@@ -465,6 +475,25 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	githubInstallationDB, err := c.githubService.GetInstallationByUser(userInfo.DB.ID)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get GitHub installation", http.StatusInternalServerError)
+		return
+	}
+
+	githubInstallation, err := c.githubService.GetGithubInstallation(r.Context(), githubInstallationDB.InstallationID)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get GitHub installation details", http.StatusInternalServerError)
+		return
+	}
+	username := githubInstallation.Account.Login
+
+	installationToken, err := c.githubService.GetInstallationToken(githubInstallationDB.InstallationID)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get GitHub installation token", http.StatusInternalServerError)
+		return
+	}
+
 	// Start the build process by creating a Kubernetes pod
 	buildConfig := kubernetesEngine.BuildConfig{
 		BuildID:        build.ID,
@@ -474,9 +503,8 @@ func ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 		BuildTarget:    req.BuildTarget,
 		FlutterChannel: req.FlutterChannel,
 		GitBranch:      req.GitBranch,
-		GitUsername:    req.GitUsername,
-		GitToken:       req.GitToken,
-		User:           *userInfo.DB,
+		GitUsername:    *username,
+		GitToken:       installationToken,
 	}
 
 	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {

@@ -30,7 +30,7 @@ func main() {
 	log.Printf("✓ Test build ID: %d\n", testBuildID)
 
 	// Create a mock project (no database)
-	gitRepo := "https://github.com/flotio-dev/test_apk.git"
+	gitRepo := "flotio-dev/test_apk.git"
 	buildFolder := "."
 	testProject := dbEngine.Project{
 		Name:        "Test Application (Test)",
@@ -69,6 +69,13 @@ func main() {
 	log.Printf("  Build Mode: %s\n", buildConfig.BuildMode)
 	log.Printf("  Build Target: %s\n", buildConfig.BuildTarget)
 	log.Printf("  Flutter Channel: %s\n", buildConfig.FlutterChannel)
+	log.Println()
+
+	log.Println("S3 Storage Configuration:")
+	log.Printf("  Bucket: %s\n", getEnvOrDefault("AWS_S3_BUCKET", "not configured"))
+	log.Printf("  Prefix: %s\n", getEnvOrDefault("AWS_S3_PREFIX", "builds"))
+	log.Printf("  Endpoint: %s\n", getEnvOrDefault("AWS_S3_ENDPOINT", "not configured"))
+	log.Printf("  Region: %s\n", getEnvOrDefault("AWS_REGION", "garage"))
 	log.Println()
 
 	// Create the Kubernetes pod
@@ -148,6 +155,15 @@ func showPodLogs(buildID uint) {
 
 func showArtifacts(buildID uint) {
 	log.Println("Build artifacts information:")
+	log.Println()
+
+	// Show S3 configuration
+	log.Println("S3 Storage Configuration:")
+	log.Printf("  Bucket: %s\n", getEnvOrDefault("AWS_S3_BUCKET", "not configured"))
+	log.Printf("  Prefix: %s\n", getEnvOrDefault("AWS_S3_PREFIX", "builds"))
+	log.Printf("  Endpoint: %s\n", getEnvOrDefault("AWS_S3_ENDPOINT", "not configured"))
+	log.Printf("  Region: %s\n", getEnvOrDefault("AWS_REGION", "garage"))
+	log.Println()
 
 	artifacts, err := kubernetesEngine.GetBuildArtifacts(buildID)
 	if err != nil {
@@ -155,6 +171,7 @@ func showArtifacts(buildID uint) {
 		return
 	}
 
+	log.Println("Artifact URLs:")
 	for key, value := range artifacts {
 		log.Printf("  %s: %s\n", key, value)
 	}

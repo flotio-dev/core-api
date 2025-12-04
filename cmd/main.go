@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	api "github.com/flotio-dev/api/internal/api"
 	db "github.com/flotio-dev/api/internal/engines/db"
+	keycloakEngine "github.com/flotio-dev/api/internal/engines/keycloak"
 )
 
 // @securityDefinitions.apikey BearerAuth
@@ -20,6 +22,9 @@ func main() {
 	godotenv.Load()
 
 	db.InitDB()
+
+	// Sync users with Keycloak on startup
+	syncUsersWithKeycloak()
 
 	log.Println("Starting Flotio API server")
 	r := api.Router()
@@ -49,4 +54,26 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server failed: %v", err)
 	}
+}
+
+// syncUsersWithKeycloak fetches users from Keycloak and removes local users
+// that no longer exist in Keycloak
+func syncUsersWithKeycloak() {
+	ctx := context.Background()
+
+	log.Println("Starting user synchronization with Keycloak...")
+
+	keycloakUserIDs, err := keycloakEngine.GetKeycloakUserIDs(ctx)
+	if err != nil {
+		log.Printf("Warning: Failed to fetch Keycloak users for sync: %v", err)
+		log.Println("Continuing without user sync - Keycloak may be unavailable")
+		return
+	}
+
+	if err := db.SyncUsersWithKeycloak(ctx, keycloakUserIDs); err != nil {
+		log.Printf("Warning: Failed to sync users with Keycloak: %v", err)
+		return
+	}
+
+	log.Println("User synchronization with Keycloak completed")
 }

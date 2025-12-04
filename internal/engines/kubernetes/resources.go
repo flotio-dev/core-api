@@ -7,12 +7,21 @@ import (
 
 	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
 // CreateConfigMapForEnvFiles creates a ConfigMap containing environment files for a build
+// @Summary		Create ConfigMap for environment files
+// @Description	Creates a Kubernetes ConfigMap containing environment files for a build
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID		path		int		true	"Build ID"
+// @Param		projectID	path		int		true	"Project ID"
+// @Success		200	{string}	string	"ConfigMap name"
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/configmap [post]
 func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
 	// Check if database is initialized
 	if dbEngine.DB == nil {
@@ -83,6 +92,16 @@ func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, p
 }
 
 // CreateSecretForKeystore creates a Secret containing the keystore and credentials
+// @Summary		Create Secret for keystore
+// @Description	Creates a Kubernetes Secret containing the Android keystore and credentials for signing
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID		path		int		true	"Build ID"
+// @Param		projectID	path		int		true	"Project ID"
+// @Success		200	{string}	string	"Secret name"
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/secret [post]
 func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
 	// Check if database is initialized
 	if dbEngine.DB == nil {
@@ -132,44 +151,16 @@ func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, proj
 	return secretName, nil
 }
 
-// CreatePersistentVolumeClaimForArtifacts creates a PVC for storing build artifacts
-func CreatePersistentVolumeClaimForArtifacts(clientset *kubernetes.Clientset, buildID uint, namespace string) (string, error) {
-	pvcName := fmt.Sprintf("build-%d-artifacts", buildID)
-
-	storageClassName := "standard" // Adjust based on your cluster
-	storage := "5Gi"               // Adjust based on needs
-
-	pvc := &v1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: namespace,
-			Labels: map[string]string{
-				"app":      "flotio-build",
-				"build-id": fmt.Sprintf("%d", buildID),
-			},
-		},
-		Spec: v1.PersistentVolumeClaimSpec{
-			AccessModes: []v1.PersistentVolumeAccessMode{
-				v1.ReadWriteOnce,
-			},
-			StorageClassName: &storageClassName,
-			Resources: v1.VolumeResourceRequirements{
-				Requests: v1.ResourceList{
-					v1.ResourceStorage: parseQuantity(storage),
-				},
-			},
-		},
-	}
-
-	_, err := clientset.CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to create PVC: %v", err)
-	}
-
-	return pvcName, nil
-}
-
 // DeleteBuildResources deletes all Kubernetes resources associated with a build
+// @Summary		Delete build resources
+// @Description	Deletes all Kubernetes resources (Pod, ConfigMap, Secret) associated with a build
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID	path		int	true	"Build ID"
+// @Success		200
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/build/{buildID}/resources [delete]
 func DeleteBuildResources(clientset *kubernetes.Clientset, buildID uint, namespace string) error {
 	ctx := context.TODO()
 	deletePolicy := metav1.DeletePropagationForeground
@@ -198,17 +189,10 @@ func DeleteBuildResources(clientset *kubernetes.Clientset, buildID uint, namespa
 		fmt.Printf("Warning: failed to delete Secret %s: %v\n", secretName, err)
 	}
 
-	// Delete PVC
-	pvcName := fmt.Sprintf("build-%d-artifacts", buildID)
-	err = clientset.CoreV1().PersistentVolumeClaims(namespace).Delete(ctx, pvcName, metav1.DeleteOptions{})
-	if err != nil {
-		fmt.Printf("Warning: failed to delete PVC %s: %v\n", pvcName, err)
-	}
-
 	return nil
 }
 
-// Helper functions
+// Helper function
 func replaceAll(s, old, new string) string {
 	result := ""
 	for _, char := range s {
@@ -219,9 +203,4 @@ func replaceAll(s, old, new string) string {
 		}
 	}
 	return result
-}
-
-func parseQuantity(s string) resource.Quantity {
-	q, _ := resource.ParseQuantity(s)
-	return q
 }
