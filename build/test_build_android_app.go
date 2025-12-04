@@ -30,7 +30,7 @@ func main() {
 	log.Printf("✓ Test build ID: %d\n", testBuildID)
 
 	// Create a mock project (no database)
-	gitRepo := "https://github.com/flotio-dev/test_apk.git"
+	gitRepo := "flotio-dev/test_apk.git"
 	buildFolder := "."
 	testProject := dbEngine.Project{
 		Name:        "Test Application (Test)",
