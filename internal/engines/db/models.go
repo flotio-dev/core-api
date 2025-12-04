@@ -42,7 +42,7 @@ type Build struct {
 	Platform    string  `json:"platform"`     // e.g., android, ios
 	ContainerID string  `json:"container_id"` // Kubernetes container ID
 	Duration    int64   `json:"duration"`     // build duration in seconds
-	APKURL      string  `json:"apk_url"`
+	APKURL      string  `json:"apk_url"`      // S3 key for the build artifact (e.g., "builds/123/app-release.apk")
 	Logs        []Log   `gorm:"foreignKey:BuildID" json:"logs"`
 }
 

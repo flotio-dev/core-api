@@ -26,7 +26,7 @@ func InitDB() {
 	}
 
 	// Auto migrate
-	err = DB.AutoMigrate(&User{}, &Project{}, &Build{}, &Env{}, &Organization{}, &GithubInstallation{})
+	err = DB.AutoMigrate(&User{}, &Project{}, &Build{}, &Log{}, &Env{}, &Organization{}, &GithubInstallation{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}

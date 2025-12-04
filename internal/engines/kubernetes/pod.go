@@ -1,10 +1,12 @@
 package kubernetes
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -13,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	s3Engine "github.com/flotio-dev/api/internal/engines/s3"
 )
 
 // BuildConfig contains all configuration for creating a build pod
@@ -26,6 +29,15 @@ type BuildConfig struct {
 	GitBranch      string
 	GitUsername    string
 	GitToken       string
+}
+
+// GetPodName generates a unique pod name prefixed with the server hostname
+func GetPodName(buildID uint) string {
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "unknown"
+	}
+	return fmt.Sprintf("build-%s-%d", hostname, buildID)
 }
 
 // CreateBuildPod creates a Kubernetes pod to build a Flutter application
@@ -50,7 +62,7 @@ func CreateBuildPod(config BuildConfig) error {
 	}
 
 	namespace := getNamespace()
-	podName := fmt.Sprintf("build-%d", config.BuildID)
+	podName := GetPodName(config.BuildID)
 
 	// Create ConfigMap for environment files
 	configMapName, err := CreateConfigMapForEnvFiles(clientset, config.BuildID, config.Project.ID, namespace)
@@ -270,7 +282,7 @@ func GetPodLogs(buildID uint) ([]string, error) {
 		return nil, fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	podName := fmt.Sprintf("build-%d", buildID)
+	podName := GetPodName(buildID)
 	namespace := getNamespace()
 
 	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{})
@@ -316,7 +328,7 @@ func StreamPodLogs(buildID uint, logChan chan<- string) error {
 		return fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	podName := fmt.Sprintf("build-%d", buildID)
+	podName := GetPodName(buildID)
 	namespace := getNamespace()
 
 	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
@@ -364,7 +376,7 @@ func GetPodStatus(buildID uint) (string, error) {
 		return "", fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	podName := fmt.Sprintf("build-%d", buildID)
+	podName := GetPodName(buildID)
 	namespace := getNamespace()
 
 	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -373,6 +385,161 @@ func GetPodStatus(buildID uint) (string, error) {
 	}
 
 	return string(pod.Status.Phase), nil
+}
+
+// DeleteBuildPod deletes a build pod from Kubernetes
+// @Summary		Delete a build pod
+// @Description	Deletes a specific build pod from the Kubernetes cluster
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID	path		int	true	"Build ID"
+// @Success		200
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod/{buildID} [delete]
+func DeleteBuildPod(buildID uint) error {
+	config, err := getKubernetesConfig()
+	if err != nil {
+		return err
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to create clientset: %v", err)
+	}
+
+	podName := GetPodName(buildID)
+	namespace := getNamespace()
+
+	deletePolicy := metav1.DeletePropagationForeground
+	err = clientset.CoreV1().Pods(namespace).Delete(context.TODO(), podName, metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete pod: %v", err)
+	}
+
+	return nil
+}
+
+// StartPodLogListener starts listening to pod logs and saves them to the database
+// This function should be called in a goroutine after creating a build pod
+// @Summary		Start pod log listener
+// @Description	Starts listening to pod logs and saves them to the database
+// @Tags			kubernetes
+// @Accept		json
+// @Produce		json
+// @Param		buildID	path		int	true	"Build ID"
+// @Success		200
+// @Failure		500	{object}	map[string]string
+// @Router		/internal/kubernetes/pod/{buildID}/listen [post]
+func StartPodLogListener(buildID uint) {
+	config, err := getKubernetesConfig()
+	if err != nil {
+		fmt.Printf("Failed to get kubernetes config for log listener (build %d): %v\n", buildID, err)
+		return
+	}
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		fmt.Printf("Failed to create clientset for log listener (build %d): %v\n", buildID, err)
+		return
+	}
+
+	podName := GetPodName(buildID)
+	namespace := getNamespace()
+
+	// Wait for pod to be running before starting log collection
+	for i := 0; i < 60; i++ { // Wait up to 60 seconds
+		pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+		if err != nil {
+			fmt.Printf("Waiting for pod %s to be created (attempt %d): %v\n", podName, i+1, err)
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		if pod.Status.Phase == v1.PodRunning || pod.Status.Phase == v1.PodSucceeded || pod.Status.Phase == v1.PodFailed {
+			break
+		}
+		if pod.Status.Phase == v1.PodPending {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
+	}
+
+	// Start streaming logs
+	req := clientset.CoreV1().Pods(namespace).GetLogs(podName, &v1.PodLogOptions{
+		Follow: true,
+	})
+	logStream, err := req.Stream(context.TODO())
+	if err != nil {
+		fmt.Printf("Failed to get log stream for build %d: %v\n", buildID, err)
+		return
+	}
+	defer logStream.Close()
+
+	lineNumber := 1
+	scanner := bufio.NewScanner(logStream)
+	for scanner.Scan() {
+		logLine := scanner.Text()
+
+		// Save log to database
+		logEntry := dbEngine.Log{
+			BuildID:    buildID,
+			LineNumber: lineNumber,
+			Content:    logLine,
+			Timestamp:  time.Now().Unix(),
+		}
+		if err := dbEngine.DB.Create(&logEntry).Error; err != nil {
+			fmt.Printf("Failed to save log to database for build %d: %v\n", buildID, err)
+		}
+		lineNumber++
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("Error reading log stream for build %d: %v\n", buildID, err)
+	}
+
+	// Update build status based on pod status
+	updateBuildStatusFromPod(clientset, namespace, podName, buildID)
+}
+
+// updateBuildStatusFromPod checks the final pod status and updates the build accordingly
+func updateBuildStatusFromPod(clientset *kubernetes.Clientset, namespace, podName string, buildID uint) {
+	pod, err := clientset.CoreV1().Pods(namespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	if err != nil {
+		fmt.Printf("Failed to get pod status for build %d: %v\n", buildID, err)
+		return
+	}
+
+	var build dbEngine.Build
+	if err := dbEngine.DB.First(&build, buildID).Error; err != nil {
+		fmt.Printf("Failed to get build %d from database: %v\n", buildID, err)
+		return
+	}
+
+	// Only update if build is still running (not cancelled)
+	if build.Status != "running" {
+		return
+	}
+
+	switch pod.Status.Phase {
+	case v1.PodSucceeded:
+		build.Status = "success"
+		// Reconcile S3 artifact key when build succeeds
+		if artifactKey, err := s3Engine.FindPrimaryArtifactKey(buildID, build.Platform); err == nil {
+			build.APKURL = artifactKey
+			fmt.Printf("Build %d: found artifact at S3 key: %s\n", buildID, artifactKey)
+		} else {
+			fmt.Printf("Build %d: failed to find artifact in S3: %v\n", buildID, err)
+		}
+	case v1.PodFailed:
+		build.Status = "failed"
+	}
+
+	if err := dbEngine.DB.Save(&build).Error; err != nil {
+		fmt.Printf("Failed to update build %d status: %v\n", buildID, err)
+	}
 }
 
 // GetArtifactURL returns the S3 URL for a build artifact
