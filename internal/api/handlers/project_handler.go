@@ -481,6 +481,10 @@ func (c *ProjectController) ProjectBuildHandler(w http.ResponseWriter, r *http.R
 		helpers.WriteErrorJSON(w, "Failed to get GitHub installation", http.StatusInternalServerError)
 		return
 	}
+	if githubInstallationDB == nil {
+		helpers.WriteErrorJSON(w, "No GitHub installation found for this user. Please install the GitHub App first.", http.StatusBadRequest)
+		return
+	}
 
 	githubInstallation, err := c.githubService.GetGithubInstallation(r.Context(), githubInstallationDB.InstallationID)
 	if err != nil {
