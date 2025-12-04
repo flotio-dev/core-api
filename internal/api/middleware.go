@@ -36,8 +36,31 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		if err := dbEngine.DB.Where("keycloak_id = ?", userInfo.Sub).First(&user).Error; err != nil {
 			// Si pas trouvé par keycloak_id, essaie avec email
 			if err := dbEngine.DB.Where("email = ?", userInfo.Email).First(&user).Error; err != nil {
-				next.ServeHTTP(w, r)
-				return
+				// Utilisateur non trouvé en base, le créer automatiquement
+				username := ""
+				if userInfo.PreferredUsername != nil {
+					username = *userInfo.PreferredUsername
+				}
+				email := ""
+				if userInfo.Email != nil {
+					email = *userInfo.Email
+				}
+				keycloakID := ""
+				if userInfo.Sub != nil {
+					keycloakID = *userInfo.Sub
+				}
+
+				user = dbEngine.User{
+					KeycloakID: keycloakID,
+					Email:      email,
+					Username:   username,
+				}
+
+				if err := dbEngine.DB.Create(&user).Error; err != nil {
+					// Si la création échoue, on continue sans utilisateur
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 		}
 
