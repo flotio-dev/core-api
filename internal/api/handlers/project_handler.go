@@ -15,6 +15,7 @@ import (
 	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 	keycloakEngine "github.com/flotio-dev/api/internal/engines/keycloak"
 	kubernetesEngine "github.com/flotio-dev/api/internal/engines/kubernetes"
+	s3Engine "github.com/flotio-dev/api/internal/engines/s3"
 	helpers "github.com/flotio-dev/api/internal/helpers"
 	services "github.com/flotio-dev/api/internal/services"
 )
@@ -164,7 +165,7 @@ func convertDBBuilds(builds []dbEngine.Build) []Build {
 //	@Failure		401	{object}	map[string]string
 //	@Failure		404	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
-//	@Router			/projects [get]
+//	@Router			/project [get]
 func ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -204,7 +205,7 @@ func ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401		{object}	map[string]string
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
-//	@Router			/projects [post]
+//	@Router			/project [post]
 func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -259,7 +260,7 @@ func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401	{object}	map[string]string
 //	@Failure		404	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
-//	@Router			/projects/{id} [get]
+//	@Router			/project/{id} [get]
 func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -301,7 +302,7 @@ func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401		{object}	map[string]string
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
-//	@Router			/projects/{id} [put]
+//	@Router			/project/{id} [put]
 func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -371,7 +372,7 @@ func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400	{object}	map[string]string
 //	@Failure		401	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
-//	@Router			/projects/{id} [delete]
+//	@Router			/project/{id} [delete]
 func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -408,7 +409,7 @@ func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401		{object}	map[string]string
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
-//	@Router			/projects/{id}/build [post]
+//	@Router			/project/{id}/build [post]
 func (c *ProjectController) ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -541,7 +542,7 @@ func (c *ProjectController) ProjectBuildHandler(w http.ResponseWriter, r *http.R
 //	@Failure		401		{object}	map[string]string
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
-//	@Router			/projects/{id}/builds/{buildId}/cancel [post]
+//	@Router			/project/{id}/builds/{buildId}/cancel [post]
 func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -598,7 +599,7 @@ func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400	{object}	map[string]string
 //	@Failure		401	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
-//	@Router			/projects/{id}/builds [get]
+//	@Router			/project/{id}/builds [get]
 func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -614,9 +615,65 @@ func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var builds []dbEngine.Build
-	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&builds).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Order("builds.created_at DESC").Find(&builds).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to fetch builds", http.StatusInternalServerError)
 		return
+	}
+
+	// Check and update status for running builds by querying pod status
+	// Also reconcile APKURL for successful builds that don't have it yet
+	for i := range builds {
+		// Reconcile APKURL for successful builds without artifact URL
+		if builds[i].Status == "success" && builds[i].APKURL == "" {
+			if artifactKey, err := s3Engine.FindPrimaryArtifactKey(builds[i].ID, builds[i].Platform); err == nil {
+				builds[i].APKURL = artifactKey
+				fmt.Printf("Build %d: found artifact at S3 key: %s\n", builds[i].ID, artifactKey)
+				dbEngine.DB.Save(&builds[i])
+			} else {
+				fmt.Printf("Build %d: failed to find artifact in S3: %v\n", builds[i].ID, err)
+			}
+			continue
+		}
+
+		if builds[i].Status == "running" || builds[i].Status == "pending" {
+			podStatus, err := kubernetesEngine.GetPodStatus(builds[i].ID)
+			if err != nil {
+				// Pod might not exist anymore, mark as failed
+				builds[i].Status = "failed"
+				dbEngine.DB.Save(&builds[i])
+				continue
+			}
+
+			// Map pod status to build status
+			var newStatus string
+			switch podStatus {
+			case "Succeeded":
+				newStatus = "success"
+			case "Failed":
+				newStatus = "failed"
+			case "Running":
+				newStatus = "running"
+			case "Pending":
+				newStatus = "pending"
+			default:
+				continue // Don't update if unknown status
+			}
+
+			// Update if status changed
+			if builds[i].Status != newStatus {
+				builds[i].Status = newStatus
+				// Reconcile S3 artifact key when build succeeds
+				if newStatus == "success" && builds[i].APKURL == "" {
+					if artifactKey, err := s3Engine.FindPrimaryArtifactKey(builds[i].ID, builds[i].Platform); err == nil {
+						builds[i].APKURL = artifactKey
+						fmt.Printf("Build %d: found artifact at S3 key: %s\n", builds[i].ID, artifactKey)
+					} else {
+						fmt.Printf("Build %d: failed to find artifact in S3: %v\n", builds[i].ID, err)
+					}
+				}
+				dbEngine.DB.Save(&builds[i])
+			}
+		}
 	}
 
 	helpers.WriteJSON(w, BuildsResponse{Builds: convertDBBuilds(builds)})
@@ -636,7 +693,7 @@ func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401		{object}	map[string]string
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
-//	@Router			/projects/{id}/builds/{buildId}/logs [get]
+//	@Router			/project/{id}/builds/{buildId}/logs [get]
 func BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -695,7 +752,7 @@ func BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
 //	@Success		101
 //	@Failure		400	{object}	map[string]string
 //	@Failure		401	{object}	map[string]string
-//	@Router			/projects/{id}/builds/{buildId}/logs/ws [get]
+//	@Router			/project/{id}/builds/{buildId}/logs/ws [get]
 func BuildLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 	// Auth via query param
 	token := r.URL.Query().Get("token")
@@ -768,27 +825,62 @@ func BuildLogsWSHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// BuildDownloadResponse represents the response for the build download endpoint
+type BuildDownloadResponse struct {
+	DownloadURL string `json:"download_url"`
+	ArtifactKey string `json:"artifact_key"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
 // BuildDownloadHandler godoc
 //
 //	@Summary		Download build artifact
-//	@Description	Download the artifact for a specific build
+//	@Description	Get a presigned URL to download the artifact for a specific build
 //	@Tags			builds
 //	@Accept			json
-//	@Produce		application/octet-stream
+//	@Produce		json
 //	@Param			id		path	int	true	"Project ID"
 //	@Param			buildId	path	int	true	"Build ID"
-//	@Success		200
+//	@Success		200	{object}	BuildDownloadResponse
 //	@Failure		401	{object}	map[string]string
-//	@Router			/projects/{id}/builds/{buildId}/download [get]
+//	@Failure		404	{object}	map[string]string
+//	@Router			/project/{id}/build/{buildId}/download [get]
 func BuildDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	if services.GetUserFromContext(r.Context()) == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
 	vars := mux.Vars(r)
-	// Simulate file download
-	filename := "app-" + vars["buildId"] + ".apk"
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
-	w.Write([]byte("fake apk content"))
+	buildID, err := strconv.ParseUint(vars["buildId"], 10, 32)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
+		return
+	}
+
+	// Get build from database
+	var build dbEngine.Build
+	if err := dbEngine.DB.First(&build, buildID).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if artifact key exists
+	if build.APKURL == "" {
+		helpers.WriteErrorJSON(w, "No artifact available for this build", http.StatusNotFound)
+		return
+	}
+
+	// Generate presigned URL (valid for 1 hour)
+	presignedURL, err := s3Engine.GetPresignedURL(build.APKURL, 3600)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to generate download URL", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, BuildDownloadResponse{
+		DownloadURL: presignedURL,
+		ArtifactKey: build.APKURL,
+		ExpiresIn:   3600,
+	})
 }

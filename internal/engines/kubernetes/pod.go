@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	s3Engine "github.com/flotio-dev/api/internal/engines/s3"
 )
 
 // BuildConfig contains all configuration for creating a build pod
@@ -525,6 +526,13 @@ func updateBuildStatusFromPod(clientset *kubernetes.Clientset, namespace, podNam
 	switch pod.Status.Phase {
 	case v1.PodSucceeded:
 		build.Status = "success"
+		// Reconcile S3 artifact key when build succeeds
+		if artifactKey, err := s3Engine.FindPrimaryArtifactKey(buildID, build.Platform); err == nil {
+			build.APKURL = artifactKey
+			fmt.Printf("Build %d: found artifact at S3 key: %s\n", buildID, artifactKey)
+		} else {
+			fmt.Printf("Build %d: failed to find artifact in S3: %v\n", buildID, err)
+		}
 	case v1.PodFailed:
 		build.Status = "failed"
 	}
