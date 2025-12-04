@@ -6,11 +6,12 @@ import (
 	"os"
 	"strconv"
 
-	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 )
 
 // BuildConfig contains all configuration for creating a build pod
@@ -24,7 +25,6 @@ type BuildConfig struct {
 	GitBranch      string
 	GitUsername    string
 	GitToken       string
-	User           dbEngine.User
 }
 
 // CreateBuildPod creates a Kubernetes pod to build a Flutter application
@@ -232,7 +232,7 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 	}
 
 	envVars := []v1.EnvVar{
-		{Name: "GIT_REPO", Value: gitRepo},
+		{Name: "GIT_REPO", Value: fmt.Sprintf("https://github.com/%s", gitRepo)},
 		{Name: "BUILD_FOLDER", Value: buildFolder},
 		{Name: "PLATFORM", Value: config.Platform},
 		{Name: "BUILD_ID", Value: strconv.Itoa(int(config.BuildID))},
@@ -241,19 +241,13 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 		{Name: "FLUTTER_CHANNEL", Value: getFlutterChannel(config.FlutterChannel)},
 		{Name: "OUTPUT_DIR", Value: "/outputs"},
 		{Name: "ENV_FILES_DIR", Value: "/env-files"},
+		{Name: "GIT_USERNAME", Value: config.GitUsername},
+		{Name: "GIT_PASSWORD", Value: config.GitToken},
 	}
 
 	// Add Git branch if specified
 	if config.GitBranch != "" {
 		envVars = append(envVars, v1.EnvVar{Name: "GIT_BRANCH", Value: config.GitBranch})
-	}
-
-	// Add Git credentials if specified
-	if config.GitUsername != "" {
-		envVars = append(envVars, v1.EnvVar{Name: "GIT_USERNAME", Value: config.GitUsername})
-	}
-	if config.GitToken != "" {
-		envVars = append(envVars, v1.EnvVar{Name: "GIT_TOKEN", Value: config.GitToken})
 	}
 
 	return envVars

@@ -8,9 +8,29 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	handlers "github.com/flotio-dev/api/internal/api/handlers"
+	repositories "github.com/flotio-dev/api/internal/repositories"
+	services "github.com/flotio-dev/api/internal/services"
+
+	dbEngine "github.com/flotio-dev/api/internal/engines/db"
+	githubEngine "github.com/flotio-dev/api/internal/engines/github"
 )
 
 func Router() http.Handler {
+
+	// Inject dependencies
+	githubRepository := repositories.NewGithubRepository(dbEngine.DB)
+	githubClientManager, err := githubEngine.NewGitHubClientManager()
+	if err != nil {
+		panic("Failed to create GitHub Client Manager: " + err.Error())
+	}
+	githubService := services.NewGithubService(
+		githubRepository,
+		githubClientManager,
+	)
+
+	userRepository := repositories.NewUserRepository(dbEngine.DB)
+	userService := services.NewUserService(userRepository)
+
 	r := mux.NewRouter()
 
 	r.PathPrefix("/docs/").Handler(httpSwagger.WrapHandler)
@@ -47,12 +67,13 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id}/env/{envId}", handlers.EnvDeleteByIdHandler).Methods("DELETE")
 
 	// Project routes
+	ProjectController := handlers.NewProjectController(githubService)
 	protected.HandleFunc("/project", handlers.ProjectsGetHandler).Methods("GET")
 	protected.HandleFunc("/project", handlers.ProjectCreateHandler).Methods("POST")
 	protected.HandleFunc("/project/{id}", handlers.ProjectGetHandler).Methods("GET")
 	protected.HandleFunc("/project/{id}", handlers.ProjectPutHandler).Methods("PUT")
 	protected.HandleFunc("/project/{id}", handlers.ProjectDeleteHandler).Methods("DELETE")
-	protected.HandleFunc("/project/{id}/build", handlers.ProjectBuildHandler).Methods("POST")
+	protected.HandleFunc("/project/{id}/build", ProjectController.ProjectBuildHandler).Methods("POST")
 
 	// Build routes
 	protected.HandleFunc("/project/{id}/build/{buildId}/cancel", handlers.BuildCancelHandler).Methods("PUT")
@@ -62,12 +83,12 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id}/build/{buildId}/download", handlers.BuildDownloadHandler).Methods("GET")
 
 	// Github routes
-	githubController := handlers.NewGithubController()
-	protected.HandleFunc("/github/webhooks", githubController.HandleWebhook)
+	githubController := handlers.NewGithubController(githubService, userService)
 	protected.HandleFunc("/github/post-installation", githubController.HandleGithubPostInstallation)
 	protected.HandleFunc("/github/repos", githubController.HandleGithubGetRepositories).Methods("GET")
 	protected.HandleFunc("/github/repo", githubController.HandleGithubRepoTree).Methods("GET")
 	protected.HandleFunc("/github/installations", githubController.HandleGithubCheckInstallation).Methods("GET")
+	protected.HandleFunc("/github/installation", githubController.HandleGetGithubInstallation).Methods("GET")
 
 	return r
 }

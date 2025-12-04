@@ -54,3 +54,7 @@ type GithubInstallationResponse struct {
 type PostInstallationResponse struct {
 	InstallationID int64 `json:"installation_id" example:"12345678"`
 }
+
+type BuildPathResponse struct {
+	Path string `json:"path"`
+}
