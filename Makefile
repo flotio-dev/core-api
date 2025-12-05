@@ -30,7 +30,7 @@ swagger-install:
 
 # Generate Swagger documentation
 swagger: swagger-install
-	swag init -g cmd/main.go -o docs --parseDependency --parseInternal
+	$(shell go env GOPATH)/bin/swag init -g cmd/main.go -o docs --parseDependency --parseInternal
 
 # Clean build artifacts
 clean:
