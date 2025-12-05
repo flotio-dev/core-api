@@ -392,7 +392,7 @@ func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http
 	}
 
 	// Tenter la suppression (GitHub + DB)
-	if err := c.Service.DeleteInstallation(r.Context(), inst.InstallationID); err != nil {
+	if err := c.Service.DeleteInstallationByInstallationID(inst.InstallationID); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusBadGateway,
 			Message: fmt.Sprintf("Erreur lors de la suppression de l'installation: %v", err),
