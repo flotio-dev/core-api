@@ -49,7 +49,6 @@ func Router() http.Handler {
 
 	// Protected routes
 	protected := r.PathPrefix("/").Subrouter()
-	protected.HandleFunc("/project/{id}/build/{buildId}/logs/ws", handlers.BuildLogsWSHandler).Methods("GET")
 	protected.Use(AuthMiddleware)
 
 	// Protected auth routes
@@ -82,7 +81,7 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id}/build/{buildId}/logs", handlers.BuildLogsHandler).Methods("GET")
 
 	protected.HandleFunc("/project/{id}/build/{buildId}/download", handlers.BuildDownloadHandler).Methods("GET")
-
+	protected.HandleFunc("/project/{id}/build/{buildId}/logs/sync", handlers.BuildLogsSyncHandler).Methods("GET")
 	// Github routes
 	githubController := handlers.NewGithubController(githubService, userService)
 	protected.HandleFunc("/github/post-installation", githubController.HandleGithubPostInstallation)

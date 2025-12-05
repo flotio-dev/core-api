@@ -474,6 +474,8 @@ func StartPodLogListener(buildID uint) {
 	logStream, err := req.Stream(context.TODO())
 	if err != nil {
 		fmt.Printf("Failed to get log stream for build %d: %v\n", buildID, err)
+		// Still try to update build status even if log streaming failed
+		updateBuildStatusFromPod(clientset, namespace, podName, buildID)
 		return
 	}
 	defer logStream.Close()
@@ -518,14 +520,16 @@ func updateBuildStatusFromPod(clientset *kubernetes.Clientset, namespace, podNam
 		return
 	}
 
-	// Only update if build is still running (not cancelled)
-	if build.Status != "running" {
+	// Only update if build is still running or pending (not cancelled)
+	if build.Status != "running" && build.Status != "pending" {
 		return
 	}
 
 	switch pod.Status.Phase {
 	case v1.PodSucceeded:
 		build.Status = "success"
+		// Calculate build duration
+		build.Duration = int64(time.Since(build.CreatedAt).Seconds())
 		// Reconcile S3 artifact key when build succeeds
 		if artifactKey, err := s3Engine.FindPrimaryArtifactKey(buildID, build.Platform); err == nil {
 			build.APKURL = artifactKey
@@ -535,6 +539,8 @@ func updateBuildStatusFromPod(clientset *kubernetes.Clientset, namespace, podNam
 		}
 	case v1.PodFailed:
 		build.Status = "failed"
+		// Calculate build duration
+		build.Duration = int64(time.Since(build.CreatedAt).Seconds())
 	}
 
 	if err := dbEngine.DB.Save(&build).Error; err != nil {
