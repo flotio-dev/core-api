@@ -30,7 +30,7 @@ func NewGithubController(service *services.GithubService, userService *services.
 // @Tags         github
 // @Accept       json
 // @Produce      json
-// @Param        payload body models.PostInstallationPayload true "Installation payload"
+// @Param        payload body models.PostInstallationRequest true "Installation payload"
 // @Success      200  {object} models.PostInstallationResponse
 // @Failure      400  {object} models.APIErrorResponse
 // @Router       /github/post-installation [post]

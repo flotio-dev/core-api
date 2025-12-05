@@ -280,6 +280,17 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// MeGetHandler godoc
+//
+//	@Summary		Get current user profile
+//	@Description	Get the authenticated user's profile information
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Success		200		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]string
+//	@Router			/auth/me [get]
+//	@Security		BearerAuth
 func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -363,6 +374,17 @@ func MePutHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, StatusResponse{Status: "updated"})
 }
 
+// GithubCallbackHandler godoc
+//
+//	@Summary		GitHub OAuth callback
+//	@Description	Handle GitHub OAuth callback and redirect to frontend
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			code	query	string	true	"Authorization code from GitHub"
+//	@Success		302
+//	@Failure		400		{object}	map[string]string
+//	@Router			/auth/github/callback [get]
 func GithubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// This is a public endpoint for GitHub OAuth callback
 	// It should redirect to the frontend with the code
@@ -377,6 +399,19 @@ func GithubCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, frontendURL, http.StatusFound)
 }
 
+// GithubHandler godoc
+//
+//	@Summary		GitHub OAuth actions
+//	@Description	Handle GitHub OAuth login and related actions
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			action	query	string	true	"Action to perform (login, callback)"
+//	@Success		200		{object}	GithubLoginResponse
+//	@Failure		401		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/github [get]
+//	@Security		BearerAuth
 func GithubHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {

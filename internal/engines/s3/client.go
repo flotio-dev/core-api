@@ -207,3 +207,59 @@ func GetPresignedURL(key string, expirySeconds int) (string, error) {
 
 	return presignedURL.String(), nil
 }
+
+// DeleteBuildArtifacts deletes all artifacts for a specific build from S3
+func DeleteBuildArtifacts(buildID uint) error {
+	minioClient, err := GetClient()
+	if err != nil {
+		return err
+	}
+
+	bucket := GetBucket()
+	prefix := fmt.Sprintf("%s/%d/", GetPrefix(), buildID)
+	ctx := context.Background()
+
+	// List all objects with the build prefix
+	objectCh := minioClient.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+
+	// Delete each object
+	var deleteErrors []error
+	for object := range objectCh {
+		if object.Err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("error listing object: %v", object.Err))
+			continue
+		}
+
+		err := minioClient.RemoveObject(ctx, bucket, object.Key, minio.RemoveObjectOptions{})
+		if err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("failed to delete %s: %v", object.Key, err))
+		}
+	}
+
+	if len(deleteErrors) > 0 {
+		return fmt.Errorf("failed to delete some artifacts: %v", deleteErrors)
+	}
+
+	return nil
+}
+
+// DeleteObject deletes a single object from S3
+func DeleteObject(key string) error {
+	minioClient, err := GetClient()
+	if err != nil {
+		return err
+	}
+
+	bucket := GetBucket()
+	ctx := context.Background()
+
+	err = minioClient.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete object %s: %v", key, err)
+	}
+
+	return nil
+}
