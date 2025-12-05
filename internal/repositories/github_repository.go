@@ -54,5 +54,6 @@ func (r *GithubRepository) GetGithubInstallationByInstallationID(installationID 
 }
 
 func (r *GithubRepository) DeleteInstallationByInstallationID(installationID int64) error {
-	return r.DB.Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error
+	// Use Unscoped to permanently remove the record (avoid soft-delete)
+	return r.DB.Unscoped().Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error
 }
