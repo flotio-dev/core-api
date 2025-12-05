@@ -1,6 +1,6 @@
 module github.com/flotio-dev/api
 
-go 1.25
+go 1.25.0
 
 require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
