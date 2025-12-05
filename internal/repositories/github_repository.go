@@ -5,6 +5,7 @@ import (
 
 	dbEngine "github.com/flotio-dev/api/internal/engines/db"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type GithubRepository struct {
@@ -26,12 +27,10 @@ func (r *GithubRepository) SaveInstallation(userID uint, installationID int64, a
 		TargetID:       targetID,
 	}
 
-	// Ensure any existing row with the same installation_id is removed first
-	if err := r.DB.Unscoped().Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error; err != nil {
-		return err
-	}
-
-	return r.DB.Create(&inst).Error
+	return r.DB.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "installation_id"}},
+		UpdateAll: true,
+	}).Create(&inst).Error
 }
 
 func (r *GithubRepository) GetInstallationByUser(userID uint) (*dbEngine.GithubInstallation, error) {
@@ -55,6 +54,5 @@ func (r *GithubRepository) GetGithubInstallationByInstallationID(installationID 
 }
 
 func (r *GithubRepository) DeleteInstallationByInstallationID(installationID int64) error {
-	// Use Unscoped to permanently remove the record (avoid soft-delete)
-	return r.DB.Unscoped().Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error
+	return r.DB.Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error
 }

@@ -1607,55 +1607,6 @@ paths:
       summary: Delete a build
       tags:
       - builds
-    get:
-      consumes:
-      - application/json
-      description: Get information about a specific build for a project
-      parameters:
-      - description: Project ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Build ID
-        in: path
-        name: buildId
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/internal_api_handlers.BuildResponse'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Get build info
-      tags:
-      - builds
   /project/{id}/build/{buildId}/cancel:
     put:
       consumes:
