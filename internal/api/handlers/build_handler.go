@@ -29,6 +29,102 @@ func NewBuildController(githubService *services.GithubService) *BuildController 
 	}
 }
 
+// BuildGetHandler godoc
+//
+//	@Summary		Get build info
+//	@Description	Get information about a specific build for a project
+//	@Tags			builds
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int					true	"Project ID"
+//	@Param			buildId	path	int					true	"Build ID"
+//	@Success		200		{object}	BuildResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		401		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/project/{id}/build/{buildId} [get]
+func BuildGetHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo := services.GetUserFromContext(r.Context())
+	if userInfo == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	projectID, err := strconv.Atoi(vars["id"])
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+	buildID, err := strconv.Atoi(vars["buildId"])
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
+		return
+	}
+
+	var build dbEngine.Build
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
+			return
+		}
+		helpers.WriteErrorJSON(w, "Failed to fetch build", http.StatusInternalServerError)
+		return
+	}
+
+	// Check and update status for running builds by querying pod status
+	if build.Status == "running" || build.Status == "pending" {
+		podStatus, err := kubernetesEngine.GetPodStatus(build.ID)
+		if err != nil {
+			// Pod might not exist anymore, mark as failed
+			build.Status = "failed"
+			if build.Duration == 0 {
+				build.Duration = int64(time.Since(build.CreatedAt).Seconds())
+			}
+			dbEngine.DB.Save(&build)
+		} else {
+			// Map pod status to build status
+			var newStatus string
+			switch podStatus {
+			case "Succeeded":
+				newStatus = "success"
+			case "Failed":
+				newStatus = "failed"
+			case "Running":
+				newStatus = "running"
+			case "Pending":
+				newStatus = "pending"
+			}
+
+			if newStatus != "" && build.Status != newStatus {
+				build.Status = newStatus
+				if (newStatus == "success" || newStatus == "failed") && build.Duration == 0 {
+					build.Duration = int64(time.Since(build.CreatedAt).Seconds())
+				}
+				if newStatus == "success" && build.APKURL == "" {
+					if artifactKey, err := s3Engine.FindPrimaryArtifactKey(build.ID, build.Platform); err == nil {
+						build.APKURL = artifactKey
+						fmt.Printf("Build %d: found artifact at S3 key: %s\n", build.ID, artifactKey)
+					}
+				}
+				dbEngine.DB.Save(&build)
+			}
+		}
+	}
+
+	// Reconcile APKURL for successful builds without artifact URL
+	if build.Status == "success" && build.APKURL == "" {
+		if artifactKey, err := s3Engine.FindPrimaryArtifactKey(build.ID, build.Platform); err == nil {
+			build.APKURL = artifactKey
+			fmt.Printf("Build %d: found artifact at S3 key: %s\n", build.ID, artifactKey)
+			dbEngine.DB.Save(&build)
+		}
+	}
+
+	helpers.WriteJSON(w, BuildResponse{Build: convertDBBuild(build)})
+}
+
 // BuildCancelHandler godoc
 //
 //	@Summary		Cancel a build

@@ -76,6 +76,7 @@ func Router() http.Handler {
 	// Build routes
 	BuildController := handlers.NewBuildController(githubService)
 	protected.HandleFunc("/project/{id}/build", BuildController.ProjectBuildHandler).Methods("POST")
+	protected.HandleFunc("/project/{id}/build/{buildId}", handlers.BuildGetHandler).Methods("GET")
 	protected.HandleFunc("/project/{id}/build/{buildId}", handlers.BuildDeleteHandler).Methods("DELETE")
 	protected.HandleFunc("/project/{id}/build/{buildId}/cancel", handlers.BuildCancelHandler).Methods("PUT")
 	protected.HandleFunc("/project/{id}/builds", handlers.BuildsListHandler).Methods("GET")
