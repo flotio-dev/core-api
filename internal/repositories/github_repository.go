@@ -52,3 +52,7 @@ func (r *GithubRepository) GetGithubInstallationByInstallationID(installationID 
 	}
 	return &inst, nil
 }
+
+func (r *GithubRepository) DeleteInstallationByInstallationID(installationID int64) error {
+	return r.DB.Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error
+}
