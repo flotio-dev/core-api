@@ -12,7 +12,20 @@ import (
 	services "github.com/flotio-dev/api/internal/services"
 )
 
-// Env handlers
+// EnvGetHandler godoc
+//
+//	@Summary		Get environment variables
+//	@Description	Get all environment variables for a project
+//	@Tags			environment
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path	int	true	"Project ID"
+//	@Success		200	{object}	map[string]interface{}
+//	@Failure		401	{object}	map[string]string
+//	@Failure		400	{object}	map[string]string
+//	@Failure		500	{object}	map[string]string
+//	@Router			/project/{id}/env [get]
+//	@Security		BearerAuth
 func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -35,6 +48,23 @@ func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	helpers.WriteJSON(w, map[string]interface{}{"envs": envs})
 }
+
+// EnvPostHandler godoc
+//
+//	@Summary		Create environment variable
+//	@Description	Create a new environment variable for a project
+//	@Tags			environment
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path	int	true	"Project ID"
+//	@Param			env	body	map[string]string	true	"Environment variable data"
+//	@Success		201	{object}	map[string]interface{}
+//	@Failure		401	{object}	map[string]string
+//	@Failure		400	{object}	map[string]string
+//	@Failure		404	{object}	map[string]string
+//	@Failure		500	{object}	map[string]string
+//	@Router			/project/{id}/env [post]
+//	@Security		BearerAuth
 func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -83,6 +113,22 @@ func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, map[string]interface{}{"env": env})
 }
 
+// EnvGetByIdHandler godoc
+//
+//	@Summary		Get environment variable by ID
+//	@Description	Get a specific environment variable by its ID
+//	@Tags			environment
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int	true	"Project ID"
+//	@Param			envId	path	int	true	"Environment variable ID"
+//	@Success		200		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]string
+//	@Failure		400		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/project/{id}/env/{envId} [get]
+//	@Security		BearerAuth
 func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -116,6 +162,23 @@ func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, map[string]interface{}{"env": env})
 }
 
+// EnvPutByIdHandler godoc
+//
+//	@Summary		Update environment variable
+//	@Description	Update an existing environment variable
+//	@Tags			environment
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int					true	"Project ID"
+//	@Param			envId	path	int					true	"Environment variable ID"
+//	@Param			env		body	map[string]string	true	"Updated environment variable data"
+//	@Success		200		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]string
+//	@Failure		400		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/project/{id}/env/{envId} [put]
+//	@Security		BearerAuth
 func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {
@@ -166,6 +229,22 @@ func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, map[string]interface{}{"env": env})
 }
 
+// EnvDeleteByIdHandler godoc
+//
+//	@Summary		Delete environment variable
+//	@Description	Delete an environment variable by its ID
+//	@Tags			environment
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int	true	"Project ID"
+//	@Param			envId	path	int	true	"Environment variable ID"
+//	@Success		200		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]string
+//	@Failure		400		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/project/{id}/env/{envId} [delete]
+//	@Security		BearerAuth
 func EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo := services.GetUserFromContext(r.Context())
 	if userInfo == nil {

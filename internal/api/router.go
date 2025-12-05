@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	_ "github.com/flotio-dev/api/docs/api"
+	_ "github.com/flotio-dev/api/docs"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 
@@ -67,19 +67,19 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id}/env/{envId}", handlers.EnvDeleteByIdHandler).Methods("DELETE")
 
 	// Project routes
-	ProjectController := handlers.NewProjectController(githubService)
 	protected.HandleFunc("/project", handlers.ProjectsGetHandler).Methods("GET")
 	protected.HandleFunc("/project", handlers.ProjectCreateHandler).Methods("POST")
 	protected.HandleFunc("/project/{id}", handlers.ProjectGetHandler).Methods("GET")
 	protected.HandleFunc("/project/{id}", handlers.ProjectPutHandler).Methods("PUT")
 	protected.HandleFunc("/project/{id}", handlers.ProjectDeleteHandler).Methods("DELETE")
-	protected.HandleFunc("/project/{id}/build", ProjectController.ProjectBuildHandler).Methods("POST")
 
 	// Build routes
+	BuildController := handlers.NewBuildController(githubService)
+	protected.HandleFunc("/project/{id}/build", BuildController.ProjectBuildHandler).Methods("POST")
+	protected.HandleFunc("/project/{id}/build/{buildId}", handlers.BuildDeleteHandler).Methods("DELETE")
 	protected.HandleFunc("/project/{id}/build/{buildId}/cancel", handlers.BuildCancelHandler).Methods("PUT")
 	protected.HandleFunc("/project/{id}/builds", handlers.BuildsListHandler).Methods("GET")
 	protected.HandleFunc("/project/{id}/build/{buildId}/logs", handlers.BuildLogsHandler).Methods("GET")
-
 	protected.HandleFunc("/project/{id}/build/{buildId}/download", handlers.BuildDownloadHandler).Methods("GET")
 	protected.HandleFunc("/project/{id}/build/{buildId}/logs/sync", handlers.BuildLogsSyncHandler).Methods("GET")
 	// Github routes
@@ -89,6 +89,7 @@ func Router() http.Handler {
 	protected.HandleFunc("/github/repo", githubController.HandleGithubRepoTree).Methods("GET")
 	protected.HandleFunc("/github/installations", githubController.HandleGithubCheckInstallation).Methods("GET")
 	protected.HandleFunc("/github/installation", githubController.HandleGetGithubInstallation).Methods("GET")
+	protected.HandleFunc("/github/disconnect", githubController.HandleDisconnectGithub).Methods("DELETE")
 
 	return r
 }
