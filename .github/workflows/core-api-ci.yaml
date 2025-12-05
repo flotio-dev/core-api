@@ -7,7 +7,6 @@ on:
       - dev
     paths:
       - 'cmd/**'
-      - 'pkg/**'
       - 'Dockerfile'
       - 'go.mod'
       - 'go.sum'
@@ -15,16 +14,20 @@ on:
       - '.env.example'
       - 'build/flutter-build.Dockerfile'
       - 'build/build-image.sh'
+      - 'internal/**'
 
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - dev
     paths:
       - 'cmd/**'
-      - 'pkg/**'
       - 'Dockerfile'
       - 'go.mod'
       - 'go.sum'
       - 'openapi.yaml'
+      - 'internal/**'
+
 
 env:
   REGISTRY: ghcr.io
