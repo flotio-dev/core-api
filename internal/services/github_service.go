@@ -146,6 +146,10 @@ func (s *GithubService) GetGithubInstallationByInstallationID(installationID int
 	return s.Repository.GetGithubInstallationByInstallationID(installationID)
 }
 
+func (s *GithubService) DeleteInstallationByInstallationID(installationID int64) error {
+	return s.Repository.DeleteInstallationByInstallationID(installationID)
+}
+
 // DeleteInstallation supprime l'installation côté GitHub (si possible) puis supprime l'enregistrement en base.
 // Si l'appel GitHub renvoie 404, on continue et supprime uniquement l'enregistrement DB.
 func (s *GithubService) DeleteInstallation(ctx context.Context, installationID int64) error {
