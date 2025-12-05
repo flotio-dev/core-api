@@ -89,6 +89,7 @@ func Router() http.Handler {
 	protected.HandleFunc("/github/repo", githubController.HandleGithubRepoTree).Methods("GET")
 	protected.HandleFunc("/github/installations", githubController.HandleGithubCheckInstallation).Methods("GET")
 	protected.HandleFunc("/github/installation", githubController.HandleGetGithubInstallation).Methods("GET")
+	protected.HandleFunc("/github/disconnect", githubController.HandleDisconnectGithub).Methods("DELETE")
 
 	return r
 }

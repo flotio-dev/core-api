@@ -126,8 +126,52 @@ func (s *GithubService) GetGithubInstallation(ctx context.Context, installationI
 	return inst, nil
 }
 
+func (s *GithubService) InstallationExists(ctx context.Context, installationID int64) (*github.Installation, error) {
+	client, err := s.ClientManager.ClientForApp()
+	if err != nil {
+		return nil, err
+	}
+
+	inst, resp, err := client.Apps.GetInstallation(ctx, installationID)
+	if err != nil {
+		if resp != nil && resp.StatusCode == 404 {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return inst, nil
+}
+
 func (s *GithubService) GetGithubInstallationByInstallationID(installationID int64) (*dbEngine.GithubInstallation, error) {
 	return s.Repository.GetGithubInstallationByInstallationID(installationID)
+}
+
+// DeleteInstallation supprime l'installation côté GitHub (si possible) puis supprime l'enregistrement en base.
+// Si l'appel GitHub renvoie 404, on continue et supprime uniquement l'enregistrement DB.
+func (s *GithubService) DeleteInstallation(ctx context.Context, installationID int64) error {
+	// tenter suppression côté GitHub avec le client App
+	client, err := s.ClientManager.ClientForApp()
+	if err == nil {
+		// essayer de supprimer l'installation sur GitHub ; certains comptes peuvent ne pas autoriser
+		resp, derr := client.Apps.DeleteInstallation(ctx, installationID)
+		if derr != nil {
+			if resp != nil && resp.StatusCode != 404 {
+				// erreur non-404 -> considérer comme bloquante
+				return derr
+			}
+			// si 404, on ignore et on continue vers suppression DB
+		}
+	} else {
+		// si on ne peut pas créer de client App, renvoyer l'erreur
+		return err
+	}
+
+	// suppression en base
+	if err := s.Repository.DeleteInstallationByInstallationID(installationID); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *GithubService) FindBuildPath(ctx context.Context, installationID int64, owner, repo string) (string, error) {

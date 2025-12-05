@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -10,6 +11,8 @@ import (
 	services "github.com/flotio-dev/api/internal/services"
 
 	helpers "github.com/flotio-dev/api/internal/helpers"
+
+	"gorm.io/gorm"
 )
 
 type GithubController struct {
@@ -60,6 +63,29 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		})
 		return
 	}
+	// Vérifier si l'installation est déjà liée à un utilisateur
+	respMessage := ""
+	existingInst, gerr := c.Service.GetGithubInstallationByInstallationID(payload.InstallationID)
+	if gerr == nil && existingInst != nil {
+		if existingInst.UserID != nil && *existingInst.UserID != user.DB.ID {
+			helpers.RespondWithError(w, &helpers.ResponseOptions{
+				Status:  helpers.StatusInvalidArgs,
+				Message: "Cette installation GitHub est déjà liée à un autre compte",
+			})
+			return
+		}
+		// si liée au même utilisateur, on indique que c'est une mise à jour
+		respMessage = "Installation GitHub mise à jour"
+	} else if gerr != nil {
+		if !errors.Is(gerr, gorm.ErrRecordNotFound) {
+			helpers.RespondWithError(w, &helpers.ResponseOptions{
+				Status:  helpers.StatusInternalError,
+				Message: fmt.Sprintf("DB error: %v", gerr),
+			})
+			return
+		}
+		// si record not found, on continue normalement
+	}
 
 	if err := c.Service.SaveInstallation(user.DB.ID, payload.InstallationID, "", "", 0); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
@@ -69,9 +95,14 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
+	opts := (*helpers.ResponseOptions)(nil)
+	if respMessage != "" {
+		opts = &helpers.ResponseOptions{Message: respMessage}
+	}
+
 	helpers.RespondWithSuccess(w, &models.PostInstallationResponse{
 		InstallationID: payload.InstallationID,
-	}, nil)
+	}, opts)
 }
 
 // @Summary      Get GitHub Repositories
@@ -225,6 +256,23 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 		return
 	}
 
+	// Vérifier l'existence côté GitHub via l'API
+	ghInst, err := c.Service.InstallationExists(r.Context(), inst.InstallationID)
+	if err != nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusBadGateway,
+			Message: fmt.Sprintf("Erreur GitHub API: %v", err),
+		})
+		return
+	}
+	if ghInst == nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusNotFound,
+			Message: "Installation GitHub introuvable (GitHub API)",
+		})
+		return
+	}
+
 	helpers.RespondWithSuccess(w, &models.GithubInstallationResponse{
 		ID:             inst.ID,
 		UserID:         *inst.UserID,
@@ -281,6 +329,23 @@ func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r 
 		return
 	}
 
+	// Vérifier l'existence côté GitHub via l'API
+	ghInst, err := c.Service.InstallationExists(r.Context(), installationID)
+	if err != nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusBadGateway,
+			Message: fmt.Sprintf("Erreur GitHub API: %v", err),
+		})
+		return
+	}
+	if ghInst == nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusNotFound,
+			Message: "Installation GitHub introuvable (GitHub API)",
+		})
+		return
+	}
+
 	helpers.RespondWithSuccess(w, &models.GithubInstallationResponse{
 		ID:             inst.ID,
 		UserID:         *inst.UserID,
@@ -288,6 +353,58 @@ func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r 
 		AccountLogin:   inst.AccountLogin,
 		AccountType:    inst.AccountType,
 	}, nil)
+}
+
+// HandleDisconnectGithub godoc
+// @Summary      Déconnecte l'utilisateur courant de GitHub
+// @Description  Supprime l'enregistrement `GithubInstallation` de l'utilisateur courant et tente de supprimer l'installation via l'API GitHub
+// @Tags         github
+// @Produce      json
+// @Success      200  {object} map[string]string
+// @Failure      400  {object} models.APIErrorResponse
+// @Failure      404  {object} models.APIErrorResponse
+// @Router       /github/disconnect [delete]
+// @Security     BearerAuth
+func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http.Request) {
+	user := services.GetUserFromContext(r.Context())
+	if user == nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status: helpers.StatusUnauthorized,
+		})
+		return
+	}
+
+	// Récupérer l'installation liée à l'utilisateur
+	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	if err != nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusInternalError,
+			Message: fmt.Sprintf("DB error: %v", err),
+		})
+		return
+	}
+	if inst == nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusNotFound,
+			Message: "Installation GitHub introuvable",
+		})
+		return
+	}
+
+	// Tenter la suppression (GitHub + DB)
+	if err := c.Service.DeleteInstallation(r.Context(), inst.InstallationID); err != nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusBadGateway,
+			Message: fmt.Sprintf("Erreur lors de la suppression de l'installation: %v", err),
+		})
+		return
+	}
+
+	type deletedResp struct {
+		Status string `json:"status"`
+	}
+	resp := &deletedResp{Status: "deleted"}
+	helpers.RespondWithSuccess(w, resp, nil)
 }
 
 // GetBuildPath godoc
