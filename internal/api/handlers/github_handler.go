@@ -87,6 +87,14 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		// si record not found, on continue normalement
 	}
 
+	if err := c.Service.DeleteInstallation(r.Context(), payload.InstallationID); err != nil {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusBadGateway,
+			Message: fmt.Sprintf("Erreur lors de la suppression de l'installation: %v", err),
+		})
+		return
+	}
+
 	if err := c.Service.SaveInstallation(user.DB.ID, payload.InstallationID, "", "", 0); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
