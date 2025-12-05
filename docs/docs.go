@@ -370,6 +370,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/github/disconnect": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Supprime l'enregistrement ` + "`" + `GithubInstallation` + "`" + ` de l'utilisateur courant et tente de supprimer l'installation via l'API GitHub",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "github"
+                ],
+                "summary": "Déconnecte l'utilisateur courant de GitHub",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/github/installation": {
             "get": {
                 "security": [
