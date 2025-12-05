@@ -67,14 +67,7 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 	respMessage := ""
 	existingInst, gerr := c.Service.GetGithubInstallationByInstallationID(payload.InstallationID)
 	if gerr == nil && existingInst != nil {
-		if existingInst.UserID != nil && *existingInst.UserID != user.DB.ID {
-			helpers.RespondWithError(w, &helpers.ResponseOptions{
-				Status:  helpers.StatusInvalidArgs,
-				Message: "Cette installation GitHub est déjà liée à un autre compte",
-			})
-			return
-		}
-		// si liée au même utilisateur, on indique que c'est une mise à jour
+		// si une ligne existe pour cet installation_id, on considèrera que c'est une mise à jour
 		respMessage = "Installation GitHub mise à jour"
 	} else if gerr != nil {
 		if !errors.Is(gerr, gorm.ErrRecordNotFound) {
@@ -85,14 +78,6 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 			return
 		}
 		// si record not found, on continue normalement
-	}
-
-	if err := c.Service.DeleteInstallation(r.Context(), payload.InstallationID); err != nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusBadGateway,
-			Message: fmt.Sprintf("Erreur lors de la suppression de l'installation: %v", err),
-		})
-		return
 	}
 
 	if err := c.Service.SaveInstallation(user.DB.ID, payload.InstallationID, "", "", 0); err != nil {
