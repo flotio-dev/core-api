@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -37,6 +38,7 @@ func GetPodName(buildID uint) string {
 	if err != nil {
 		hostname = "unknown"
 	}
+	hostname = strings.ToLower(hostname)
 	return fmt.Sprintf("build-%s-%d", hostname, buildID)
 }
 
