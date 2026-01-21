@@ -1,5 +1,5 @@
 definitions:
-  github_com_flotio-dev_api_internal_engines_db.Build:
+  github_com_flotio-dev_core-api_internal_common_database.Build:
     properties:
       apk_url:
         description: S3 key for the build artifact (e.g., "builds/123/app-release.apk")
@@ -18,13 +18,13 @@ definitions:
         type: integer
       logs:
         items:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Log'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Log'
         type: array
       platform:
         description: e.g., android, ios
         type: string
       project:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Project'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project'
       project_id:
         type: integer
       status:
@@ -33,7 +33,7 @@ definitions:
       updatedAt:
         type: string
     type: object
-  github_com_flotio-dev_api_internal_engines_db.Env:
+  github_com_flotio-dev_core-api_internal_common_database.Env:
     properties:
       createdAt:
         type: string
@@ -51,7 +51,7 @@ definitions:
         description: Target path for files (e.g., "android/app/google-services.json")
         type: string
       project:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Project'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project'
       project_id:
         type: integer
       type:
@@ -63,7 +63,7 @@ definitions:
         description: Variable value or file content (base64 for binary)
         type: string
     type: object
-  github_com_flotio-dev_api_internal_engines_db.GithubInstallation:
+  github_com_flotio-dev_core-api_internal_common_database.GithubInstallation:
     properties:
       account_login:
         type: string
@@ -78,7 +78,7 @@ definitions:
       id:
         type: integer
       organization:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Organization'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Organization'
       organization_id:
         type: integer
       target_id:
@@ -86,14 +86,14 @@ definitions:
       updatedAt:
         type: string
       user:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.User'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.User'
       user_id:
         type: integer
     type: object
-  github_com_flotio-dev_api_internal_engines_db.Log:
+  github_com_flotio-dev_core-api_internal_common_database.Log:
     properties:
       build:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Build'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build'
       build_id:
         type: integer
       content:
@@ -112,7 +112,7 @@ definitions:
       updatedAt:
         type: string
     type: object
-  github_com_flotio-dev_api_internal_engines_db.Organization:
+  github_com_flotio-dev_core-api_internal_common_database.Organization:
     properties:
       createdAt:
         type: string
@@ -121,7 +121,7 @@ definitions:
       description:
         type: string
       githubInstallation:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.GithubInstallation'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.GithubInstallation'
       id:
         type: integer
       keycloak_organization_id:
@@ -131,13 +131,13 @@ definitions:
       updatedAt:
         type: string
     type: object
-  github_com_flotio-dev_api_internal_engines_db.Project:
+  github_com_flotio-dev_core-api_internal_common_database.Project:
     properties:
       build_folder:
         type: string
       builds:
         items:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Build'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build'
         type: array
       createdAt:
         type: string
@@ -145,7 +145,7 @@ definitions:
         $ref: '#/definitions/gorm.DeletedAt'
       envs:
         items:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Env'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env'
         type: array
       flutter_version:
         type: string
@@ -162,11 +162,11 @@ definitions:
       updatedAt:
         type: string
       user:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.User'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.User'
       user_id:
         type: integer
     type: object
-  github_com_flotio-dev_api_internal_engines_db.User:
+  github_com_flotio-dev_core-api_internal_common_database.User:
     properties:
       createdAt:
         type: string
@@ -181,137 +181,30 @@ definitions:
       github_refresh_token:
         type: string
       githubInstallation:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.GithubInstallation'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.GithubInstallation'
       id:
         type: integer
       keycloak_id:
         type: string
       projects:
         items:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Project'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project'
         type: array
       updatedAt:
         type: string
       username:
         type: string
     type: object
-  github_com_flotio-dev_api_internal_models.APIErrorResponse:
+  github_com_flotio-dev_core-api_internal_models.APIErrorResponse:
     properties:
       code:
-        example: 400
         type: integer
       message:
-        example: Bad request
         type: string
       status:
-        example: error
         type: string
     type: object
-  github_com_flotio-dev_api_internal_models.GithubInstallationResponse:
-    properties:
-      account_login:
-        example: flotio-dev
-        type: string
-      account_type:
-        example: User
-        type: string
-      id:
-        example: 123456
-        type: integer
-      installation_id:
-        example: 987654
-        type: integer
-      user_id:
-        example: 42
-        type: integer
-    type: object
-  github_com_flotio-dev_api_internal_models.GithubRepoTreeItem:
-    properties:
-      children:
-        items:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_models.GithubRepoTreeItem'
-        type: array
-      name:
-        example: cmd
-        type: string
-      path:
-        example: cmd/service
-        type: string
-      type:
-        example: dir
-        type: string
-      url:
-        example: https://github.com/...
-        type: string
-    type: object
-  github_com_flotio-dev_api_internal_models.GithubRepositoriesResponse:
-    properties:
-      repositories:
-        items:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_models.GithubRepository'
-        type: array
-    type: object
-  github_com_flotio-dev_api_internal_models.GithubRepository:
-    properties:
-      full_name:
-        example: flotio-dev/api
-        type: string
-      id:
-        example: 123456
-        type: integer
-      name:
-        example: api
-        type: string
-      owner:
-        example: flotio-dev
-        type: string
-      private:
-        example: false
-        type: boolean
-    type: object
-  github_com_flotio-dev_api_internal_models.GithubTreeResponse:
-    properties:
-      owner:
-        example: flotio-dev
-        type: string
-      repo:
-        example: api
-        type: string
-      tree:
-        items:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_models.GithubRepoTreeItem'
-        type: array
-    type: object
-  github_com_flotio-dev_api_internal_models.PostInstallationRequest:
-    properties:
-      installation_id:
-        example: 12345678
-        type: integer
-    type: object
-  github_com_flotio-dev_api_internal_models.PostInstallationResponse:
-    properties:
-      installation_id:
-        example: 12345678
-        type: integer
-    type: object
-  gorm.DeletedAt:
-    properties:
-      time:
-        type: string
-      valid:
-        description: Valid is true if Time is not NULL
-        type: boolean
-    type: object
-  internal_api_handlers.AuthResponse:
-    properties:
-      access_token:
-        type: string
-      expires_in:
-        type: string
-      refresh_token:
-        type: string
-    type: object
-  internal_api_handlers.Build:
+  github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO:
     properties:
       apk_url:
         type: string
@@ -332,209 +225,139 @@ definitions:
       updated_at:
         type: string
     type: object
-  internal_api_handlers.BuildDownloadResponse:
-    properties:
-      artifact_key:
-        type: string
-      download_url:
-        type: string
-      expires_in:
-        type: integer
-    type: object
-  internal_api_handlers.BuildLogsSyncResponse:
-    properties:
-      elapsed_time:
-        description: Time since build started in seconds
-        type: integer
-      has_more:
-        type: boolean
-      last_line:
-        type: integer
-      logs:
-        items:
-          type: string
-        type: array
-      pod_status:
-        type: string
-      status:
-        type: string
-    type: object
-  internal_api_handlers.BuildRequest:
+  github_com_flotio-dev_core-api_internal_modules_build_model.BuildRequest:
     properties:
       build_mode:
-        example: release
         type: string
       build_target:
-        example: apk
         type: string
       flutter_channel:
-        example: stable
         type: string
       git_branch:
-        example: main
-        type: string
-      git_token:
-        example: ghp_xxx
-        type: string
-      git_username:
-        example: username
         type: string
       platform:
-        example: android
         type: string
     type: object
-  internal_api_handlers.BuildResponse:
+  github_com_flotio-dev_core-api_internal_modules_build_model.BuildResponse:
     properties:
       build:
-        $ref: '#/definitions/internal_api_handlers.Build'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO'
     type: object
-  internal_api_handlers.BuildsResponse:
+  github_com_flotio-dev_core-api_internal_modules_build_model.BuildsResponse:
     properties:
       builds:
         items:
-          $ref: '#/definitions/internal_api_handlers.Build'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO'
         type: array
     type: object
-  internal_api_handlers.DeleteResponse:
+  github_com_flotio-dev_core-api_internal_modules_build_model.DeleteResponse:
     properties:
       status:
         type: string
     type: object
-  internal_api_handlers.GithubLoginResponse:
-    properties:
-      login_url:
-        type: string
-    type: object
-  internal_api_handlers.LoginRequest:
-    properties:
-      password:
-        example: securepassword
-        type: string
-      username:
-        example: johndoe
-        type: string
-    type: object
-  internal_api_handlers.LogsResponse:
+  github_com_flotio-dev_core-api_internal_modules_build_model.LogsResponse:
     properties:
       logs:
         items:
           type: string
         type: array
     type: object
-  internal_api_handlers.Project:
+  github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse:
     properties:
-      build_folder:
+      account_login:
+        example: flotio-dev
         type: string
-      created_at:
-        type: string
-      flutter_version:
-        type: string
-      git_repo:
-        type: string
-      git_username:
+      account_type:
+        example: User
         type: string
       id:
+        example: 123456
         type: integer
-      name:
-        type: string
-      updated_at:
-        type: string
+      installation_id:
+        example: 987654
+        type: integer
       user_id:
+        example: 42
         type: integer
     type: object
-  internal_api_handlers.ProjectCreateRequest:
+  github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepoTreeItem:
     properties:
-      build_folder:
-        example: .
-        type: string
-      flutter_version:
-        example: 3.19.0
-        type: string
-      git_repo:
-        example: https://github.com/user/repo.git
-        type: string
-      git_token:
-        example: ghp_xxx
-        type: string
-      git_username:
-        example: username
-        type: string
-      name:
-        example: My Flutter App
-        type: string
-    type: object
-  internal_api_handlers.ProjectResponse:
-    properties:
-      project:
-        $ref: '#/definitions/internal_api_handlers.Project'
-    type: object
-  internal_api_handlers.ProjectUpdateRequest:
-    properties:
-      build_folder:
-        example: .
-        type: string
-      flutter_version:
-        example: 3.19.0
-        type: string
-      git_repo:
-        example: https://github.com/user/repo.git
-        type: string
-      git_token:
-        example: ghp_xxx
-        type: string
-      git_username:
-        example: username
-        type: string
-      name:
-        example: Updated App Name
-        type: string
-    type: object
-  internal_api_handlers.ProjectsResponse:
-    properties:
-      projects:
+      children:
         items:
-          $ref: '#/definitions/internal_api_handlers.Project'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepoTreeItem'
+        type: array
+      name:
+        example: cmd
+        type: string
+      path:
+        example: cmd/service
+        type: string
+      type:
+        example: dir
+        type: string
+      url:
+        example: https://github.com/...
+        type: string
+    type: object
+  github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepositoriesResponse:
+    properties:
+      repositories:
+        items:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepository'
         type: array
     type: object
-  internal_api_handlers.RefreshTokenRequest:
+  github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepository:
     properties:
-      refresh_token:
-        example: eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ...
+      full_name:
+        example: flotio-dev/api
         type: string
+      id:
+        example: 123456
+        type: integer
+      name:
+        example: api
+        type: string
+      owner:
+        example: flotio-dev
+        type: string
+      private:
+        example: false
+        type: boolean
     type: object
-  internal_api_handlers.RegisterRequest:
+  github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse:
     properties:
-      email:
-        example: john@example.com
+      owner:
+        example: flotio-dev
         type: string
-      first_name:
-        example: John
+      repo:
+        example: api
         type: string
-      last_name:
-        example: Doe
-        type: string
-      password:
-        example: securepassword
-        type: string
-      username:
-        example: johndoe
-        type: string
+      tree:
+        items:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepoTreeItem'
+        type: array
     type: object
-  internal_api_handlers.StatusResponse:
+  github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationRequest:
     properties:
-      status:
-        type: string
+      installation_id:
+        example: 12345678
+        type: integer
     type: object
-  internal_api_handlers.UpdateUserRequest:
+  github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationResponse:
     properties:
-      email:
-        example: newemail@example.com
-        type: string
-      username:
-        example: newusername
-        type: string
+      installation_id:
+        example: 12345678
+        type: integer
     type: object
-  internal_engines_kubernetes.BuildConfig:
+  gorm.DeletedAt:
+    properties:
+      time:
+        type: string
+      valid:
+        description: Valid is true if Time is not NULL
+        type: boolean
+    type: object
+  internal_infra_kubernetes.BuildConfig:
     properties:
       buildID:
         type: integer
@@ -556,7 +379,175 @@ definitions:
       platform:
         type: string
       project:
-        $ref: '#/definitions/github_com_flotio-dev_api_internal_engines_db.Project'
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project'
+    type: object
+  internal_modules_build_handler.BuildDownloadResponse:
+    properties:
+      artifact_key:
+        type: string
+      download_url:
+        type: string
+      expires_in:
+        type: integer
+    type: object
+  internal_modules_build_handler.BuildLogsSyncResponse:
+    properties:
+      elapsed_time:
+        description: Time since build started in seconds
+        type: integer
+      has_more:
+        type: boolean
+      last_line:
+        type: integer
+      logs:
+        items:
+          type: string
+        type: array
+      pod_status:
+        type: string
+      status:
+        type: string
+    type: object
+  internal_modules_project_handler.DeleteResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  internal_modules_project_handler.Project:
+    properties:
+      build_folder:
+        type: string
+      created_at:
+        type: string
+      flutter_version:
+        type: string
+      git_repo:
+        type: string
+      git_username:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  internal_modules_project_handler.ProjectCreateRequest:
+    properties:
+      build_folder:
+        example: .
+        type: string
+      flutter_version:
+        example: 3.19.0
+        type: string
+      git_repo:
+        example: https://github.com/user/repo.git
+        type: string
+      git_token:
+        example: ghp_xxx
+        type: string
+      git_username:
+        example: username
+        type: string
+      name:
+        example: My Flutter App
+        type: string
+    type: object
+  internal_modules_project_handler.ProjectResponse:
+    properties:
+      project:
+        $ref: '#/definitions/internal_modules_project_handler.Project'
+    type: object
+  internal_modules_project_handler.ProjectUpdateRequest:
+    properties:
+      build_folder:
+        example: .
+        type: string
+      flutter_version:
+        example: 3.19.0
+        type: string
+      git_repo:
+        example: https://github.com/user/repo.git
+        type: string
+      git_token:
+        example: ghp_xxx
+        type: string
+      git_username:
+        example: username
+        type: string
+      name:
+        example: Updated App Name
+        type: string
+    type: object
+  internal_modules_project_handler.ProjectsResponse:
+    properties:
+      projects:
+        items:
+          $ref: '#/definitions/internal_modules_project_handler.Project'
+        type: array
+    type: object
+  internal_modules_user_handler.AuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  internal_modules_user_handler.GithubLoginResponse:
+    properties:
+      login_url:
+        type: string
+    type: object
+  internal_modules_user_handler.LoginRequest:
+    properties:
+      password:
+        example: securepassword
+        type: string
+      username:
+        example: johndoe
+        type: string
+    type: object
+  internal_modules_user_handler.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        example: eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ...
+        type: string
+    type: object
+  internal_modules_user_handler.RegisterRequest:
+    properties:
+      email:
+        example: john@example.com
+        type: string
+      first_name:
+        example: John
+        type: string
+      last_name:
+        example: Doe
+        type: string
+      password:
+        example: securepassword
+        type: string
+      username:
+        example: johndoe
+        type: string
+    type: object
+  internal_modules_user_handler.StatusResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  internal_modules_user_handler.UpdateUserRequest:
+    properties:
+      email:
+        example: newemail@example.com
+        type: string
+      username:
+        example: newusername
+        type: string
     type: object
 info:
   contact: {}
@@ -597,14 +588,14 @@ paths:
         name: credentials
         required: true
         schema:
-          $ref: '#/definitions/internal_api_handlers.LoginRequest'
+          $ref: '#/definitions/internal_modules_user_handler.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.AuthResponse'
+            $ref: '#/definitions/internal_modules_user_handler.AuthResponse'
         "400":
           description: Bad Request
           schema:
@@ -654,14 +645,14 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/internal_api_handlers.UpdateUserRequest'
+          $ref: '#/definitions/internal_modules_user_handler.UpdateUserRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.StatusResponse'
+            $ref: '#/definitions/internal_modules_user_handler.StatusResponse'
         "400":
           description: Bad Request
           schema:
@@ -700,14 +691,14 @@ paths:
         name: token
         required: true
         schema:
-          $ref: '#/definitions/internal_api_handlers.RefreshTokenRequest'
+          $ref: '#/definitions/internal_modules_user_handler.RefreshTokenRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.AuthResponse'
+            $ref: '#/definitions/internal_modules_user_handler.AuthResponse'
         "400":
           description: Bad Request
           schema:
@@ -734,14 +725,14 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/internal_api_handlers.RegisterRequest'
+          $ref: '#/definitions/internal_modules_user_handler.RegisterRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.AuthResponse'
+            $ref: '#/definitions/internal_modules_user_handler.AuthResponse'
         "400":
           description: Bad Request
           schema:
@@ -774,7 +765,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.GithubLoginResponse'
+            $ref: '#/definitions/internal_modules_user_handler.GithubLoginResponse'
         "401":
           description: Unauthorized
           schema:
@@ -808,11 +799,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
       security:
       - BearerAuth: []
       summary: Déconnecte l'utilisateur courant de GitHub
@@ -834,15 +825,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.GithubInstallationResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
       security:
       - BearerAuth: []
       summary: Vérifie l'existence d'une installation GitHub par installation_id
@@ -857,11 +848,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.GithubInstallationResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse'
         "400":
           description: Bad request
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
       security:
       - BearerAuth: []
       summary: Vérifie si l'utilisateur a une installation GitHub
@@ -879,18 +870,18 @@ paths:
         name: payload
         required: true
         schema:
-          $ref: '#/definitions/github_com_flotio-dev_api_internal_models.PostInstallationRequest'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.PostInstallationResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
       security:
       - BearerAuth: []
       summary: Enregistre ou met à jour une installation GitHub pour l'utilisateur
@@ -924,11 +915,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
       security:
       - BearerAuth: []
       summary: Trouve le chemin de pubspec.yaml dans un repo
@@ -954,11 +945,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.GithubTreeResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
       security:
       - BearerAuth: []
       summary: Récupère l'arborescence d'un repo GitHub
@@ -973,11 +964,11 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.GithubRepositoriesResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepositoriesResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse'
       security:
       - BearerAuth: []
       summary: Get GitHub Repositories
@@ -1054,7 +1045,7 @@ paths:
         name: config
         required: true
         schema:
-          $ref: '#/definitions/internal_engines_kubernetes.BuildConfig'
+          $ref: '#/definitions/internal_infra_kubernetes.BuildConfig'
       produces:
       - application/json
       responses:
@@ -1305,7 +1296,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.ProjectsResponse'
+            $ref: '#/definitions/internal_modules_project_handler.ProjectsResponse'
         "401":
           description: Unauthorized
           schema:
@@ -1337,14 +1328,14 @@ paths:
         name: project
         required: true
         schema:
-          $ref: '#/definitions/internal_api_handlers.ProjectCreateRequest'
+          $ref: '#/definitions/internal_modules_project_handler.ProjectCreateRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.ProjectResponse'
+            $ref: '#/definitions/internal_modules_project_handler.ProjectResponse'
         "400":
           description: Bad Request
           schema:
@@ -1389,7 +1380,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.DeleteResponse'
+            $ref: '#/definitions/internal_modules_project_handler.DeleteResponse'
         "400":
           description: Bad Request
           schema:
@@ -1427,7 +1418,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.ProjectResponse'
+            $ref: '#/definitions/internal_modules_project_handler.ProjectResponse'
         "400":
           description: Bad Request
           schema:
@@ -1470,14 +1461,14 @@ paths:
         name: project
         required: true
         schema:
-          $ref: '#/definitions/internal_api_handlers.ProjectUpdateRequest'
+          $ref: '#/definitions/internal_modules_project_handler.ProjectUpdateRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.ProjectResponse'
+            $ref: '#/definitions/internal_modules_project_handler.ProjectResponse'
         "400":
           description: Bad Request
           schema:
@@ -1521,14 +1512,14 @@ paths:
         name: build
         required: true
         schema:
-          $ref: '#/definitions/internal_api_handlers.BuildRequest'
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.BuildResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildResponse'
         "400":
           description: Bad Request
           schema:
@@ -1579,7 +1570,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.DeleteResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.DeleteResponse'
         "400":
           description: Bad Request
           schema:
@@ -1629,7 +1620,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.BuildResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildResponse'
         "400":
           description: Bad Request
           schema:
@@ -1679,7 +1670,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.BuildDownloadResponse'
+            $ref: '#/definitions/internal_modules_build_handler.BuildDownloadResponse'
         "401":
           description: Unauthorized
           schema:
@@ -1717,7 +1708,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.LogsResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.LogsResponse'
         "400":
           description: Bad Request
           schema:
@@ -1777,7 +1768,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.BuildLogsSyncResponse'
+            $ref: '#/definitions/internal_modules_build_handler.BuildLogsSyncResponse'
         "400":
           description: Bad Request
           schema:
@@ -1816,7 +1807,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_api_handlers.BuildsResponse'
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildsResponse'
         "400":
           description: Bad Request
           schema:

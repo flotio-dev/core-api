@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	dbEngine "github.com/flotio-dev/api/internal/engines/db"
-	kubernetesEngine "github.com/flotio-dev/api/internal/engines/kubernetes"
+	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
+	kubernetesEngine "github.com/flotio-dev/core-api/internal/infra/kubernetes"
 	"github.com/joho/godotenv"
 )
 
