@@ -73,7 +73,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.LoginRequest"
+                            "$ref": "#/definitions/internal_modules_user_handler.LoginRequest"
                         }
                     }
                 ],
@@ -81,7 +81,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.AuthResponse"
+                            "$ref": "#/definitions/internal_modules_user_handler.AuthResponse"
                         }
                     },
                     "400": {
@@ -161,7 +161,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.UpdateUserRequest"
+                            "$ref": "#/definitions/internal_modules_user_handler.UpdateUserRequest"
                         }
                     }
                 ],
@@ -169,7 +169,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.StatusResponse"
+                            "$ref": "#/definitions/internal_modules_user_handler.StatusResponse"
                         }
                     },
                     "400": {
@@ -231,7 +231,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.RefreshTokenRequest"
+                            "$ref": "#/definitions/internal_modules_user_handler.RefreshTokenRequest"
                         }
                     }
                 ],
@@ -239,7 +239,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.AuthResponse"
+                            "$ref": "#/definitions/internal_modules_user_handler.AuthResponse"
                         }
                     },
                     "400": {
@@ -283,7 +283,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.RegisterRequest"
+                            "$ref": "#/definitions/internal_modules_user_handler.RegisterRequest"
                         }
                     }
                 ],
@@ -291,7 +291,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.AuthResponse"
+                            "$ref": "#/definitions/internal_modules_user_handler.AuthResponse"
                         }
                     },
                     "400": {
@@ -346,7 +346,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.GithubLoginResponse"
+                            "$ref": "#/definitions/internal_modules_user_handler.GithubLoginResponse"
                         }
                     },
                     "401": {
@@ -398,13 +398,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     }
                 }
@@ -438,19 +438,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.GithubInstallationResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     }
                 }
@@ -475,13 +475,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.GithubInstallationResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     }
                 }
@@ -512,7 +512,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.PostInstallationRequest"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationRequest"
                         }
                     }
                 ],
@@ -520,13 +520,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.PostInstallationResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     }
                 }
@@ -576,13 +576,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     }
                 }
@@ -623,13 +623,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.GithubTreeResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     }
                 }
@@ -654,13 +654,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.GithubRepositoriesResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepositoriesResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
                         }
                     }
                 }
@@ -772,7 +772,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_engines_kubernetes.BuildConfig"
+                            "$ref": "#/definitions/internal_infra_kubernetes.BuildConfig"
                         }
                     }
                 ],
@@ -1148,7 +1148,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.ProjectsResponse"
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectsResponse"
                         }
                     },
                     "401": {
@@ -1199,7 +1199,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.ProjectCreateRequest"
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectCreateRequest"
                         }
                     }
                 ],
@@ -1207,7 +1207,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.ProjectResponse"
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectResponse"
                         }
                     },
                     "400": {
@@ -1275,7 +1275,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.ProjectResponse"
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectResponse"
                         }
                     },
                     "400": {
@@ -1342,7 +1342,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.ProjectUpdateRequest"
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectUpdateRequest"
                         }
                     }
                 ],
@@ -1350,7 +1350,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.ProjectResponse"
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectResponse"
                         }
                     },
                     "400": {
@@ -1416,7 +1416,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.DeleteResponse"
+                            "$ref": "#/definitions/internal_modules_project_handler.DeleteResponse"
                         }
                     },
                     "400": {
@@ -1476,7 +1476,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.BuildRequest"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildRequest"
                         }
                     }
                 ],
@@ -1484,7 +1484,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.BuildResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildResponse"
                         }
                     },
                     "400": {
@@ -1527,79 +1527,6 @@ const docTemplate = `{
             }
         },
         "/project/{id}/build/{buildId}": {
-            "get": {
-                "description": "Get information about a specific build for a project",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "builds"
-                ],
-                "summary": "Get build info",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Project ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildId",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.BuildResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
             "delete": {
                 "description": "Delete a specific build for a project, including its S3 artifacts and Kubernetes pod",
                 "consumes": [
@@ -1632,7 +1559,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.DeleteResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.DeleteResponse"
                         }
                     },
                     "400": {
@@ -1707,7 +1634,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.BuildResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildResponse"
                         }
                     },
                     "400": {
@@ -1782,7 +1709,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.BuildDownloadResponse"
+                            "$ref": "#/definitions/internal_modules_build_handler.BuildDownloadResponse"
                         }
                     },
                     "401": {
@@ -1839,7 +1766,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.LogsResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.LogsResponse"
                         }
                     },
                     "400": {
@@ -1927,7 +1854,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.BuildLogsSyncResponse"
+                            "$ref": "#/definitions/internal_modules_build_handler.BuildLogsSyncResponse"
                         }
                     },
                     "400": {
@@ -1986,7 +1913,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/internal_api_handlers.BuildsResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildsResponse"
                         }
                     },
                     "400": {
@@ -2421,7 +2348,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_flotio-dev_api_internal_engines_db.Build": {
+        "github_com_flotio-dev_core-api_internal_common_database.Build": {
             "type": "object",
             "properties": {
                 "apk_url": {
@@ -2448,7 +2375,7 @@ const docTemplate = `{
                 "logs": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Log"
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Log"
                     }
                 },
                 "platform": {
@@ -2456,7 +2383,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Project"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
                 },
                 "project_id": {
                     "type": "integer"
@@ -2470,7 +2397,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flotio-dev_api_internal_engines_db.Env": {
+        "github_com_flotio-dev_core-api_internal_common_database.Env": {
             "type": "object",
             "properties": {
                 "createdAt": {
@@ -2495,7 +2422,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Project"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
                 },
                 "project_id": {
                     "type": "integer"
@@ -2513,7 +2440,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flotio-dev_api_internal_engines_db.GithubInstallation": {
+        "github_com_flotio-dev_core-api_internal_common_database.GithubInstallation": {
             "type": "object",
             "properties": {
                 "account_login": {
@@ -2535,7 +2462,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "organization": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Organization"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Organization"
                 },
                 "organization_id": {
                     "type": "integer"
@@ -2547,18 +2474,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.User"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
                 },
                 "user_id": {
                     "type": "integer"
                 }
             }
         },
-        "github_com_flotio-dev_api_internal_engines_db.Log": {
+        "github_com_flotio-dev_core-api_internal_common_database.Log": {
             "type": "object",
             "properties": {
                 "build": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Build"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build"
                 },
                 "build_id": {
                     "type": "integer"
@@ -2587,7 +2514,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flotio-dev_api_internal_engines_db.Organization": {
+        "github_com_flotio-dev_core-api_internal_common_database.Organization": {
             "type": "object",
             "properties": {
                 "createdAt": {
@@ -2600,7 +2527,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "githubInstallation": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.GithubInstallation"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.GithubInstallation"
                 },
                 "id": {
                     "type": "integer"
@@ -2616,7 +2543,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flotio-dev_api_internal_engines_db.Project": {
+        "github_com_flotio-dev_core-api_internal_common_database.Project": {
             "type": "object",
             "properties": {
                 "build_folder": {
@@ -2625,7 +2552,7 @@ const docTemplate = `{
                 "builds": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Build"
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build"
                     }
                 },
                 "createdAt": {
@@ -2637,7 +2564,7 @@ const docTemplate = `{
                 "envs": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Env"
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env"
                     }
                 },
                 "flutter_version": {
@@ -2662,14 +2589,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.User"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
                 },
                 "user_id": {
                     "type": "integer"
                 }
             }
         },
-        "github_com_flotio-dev_api_internal_engines_db.User": {
+        "github_com_flotio-dev_core-api_internal_common_database.User": {
             "type": "object",
             "properties": {
                 "createdAt": {
@@ -2682,7 +2609,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "githubInstallation": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.GithubInstallation"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.GithubInstallation"
                 },
                 "github_access_token": {
                     "type": "string"
@@ -2702,7 +2629,7 @@ const docTemplate = `{
                 "projects": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Project"
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
                     }
                 },
                 "updatedAt": {
@@ -2713,175 +2640,21 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flotio-dev_api_internal_models.APIErrorResponse": {
+        "github_com_flotio-dev_core-api_internal_models.APIErrorResponse": {
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "integer",
-                    "example": 400
+                    "type": "integer"
                 },
                 "message": {
-                    "type": "string",
-                    "example": "Bad request"
+                    "type": "string"
                 },
                 "status": {
-                    "type": "string",
-                    "example": "error"
-                }
-            }
-        },
-        "github_com_flotio-dev_api_internal_models.GithubInstallationResponse": {
-            "type": "object",
-            "properties": {
-                "account_login": {
-                    "type": "string",
-                    "example": "flotio-dev"
-                },
-                "account_type": {
-                    "type": "string",
-                    "example": "User"
-                },
-                "id": {
-                    "type": "integer",
-                    "example": 123456
-                },
-                "installation_id": {
-                    "type": "integer",
-                    "example": 987654
-                },
-                "user_id": {
-                    "type": "integer",
-                    "example": 42
-                }
-            }
-        },
-        "github_com_flotio-dev_api_internal_models.GithubRepoTreeItem": {
-            "type": "object",
-            "properties": {
-                "children": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.GithubRepoTreeItem"
-                    }
-                },
-                "name": {
-                    "type": "string",
-                    "example": "cmd"
-                },
-                "path": {
-                    "type": "string",
-                    "example": "cmd/service"
-                },
-                "type": {
-                    "type": "string",
-                    "example": "dir"
-                },
-                "url": {
-                    "type": "string",
-                    "example": "https://github.com/..."
-                }
-            }
-        },
-        "github_com_flotio-dev_api_internal_models.GithubRepositoriesResponse": {
-            "type": "object",
-            "properties": {
-                "repositories": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.GithubRepository"
-                    }
-                }
-            }
-        },
-        "github_com_flotio-dev_api_internal_models.GithubRepository": {
-            "type": "object",
-            "properties": {
-                "full_name": {
-                    "type": "string",
-                    "example": "flotio-dev/api"
-                },
-                "id": {
-                    "type": "integer",
-                    "example": 123456
-                },
-                "name": {
-                    "type": "string",
-                    "example": "api"
-                },
-                "owner": {
-                    "type": "string",
-                    "example": "flotio-dev"
-                },
-                "private": {
-                    "type": "boolean",
-                    "example": false
-                }
-            }
-        },
-        "github_com_flotio-dev_api_internal_models.GithubTreeResponse": {
-            "type": "object",
-            "properties": {
-                "owner": {
-                    "type": "string",
-                    "example": "flotio-dev"
-                },
-                "repo": {
-                    "type": "string",
-                    "example": "api"
-                },
-                "tree": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_api_internal_models.GithubRepoTreeItem"
-                    }
-                }
-            }
-        },
-        "github_com_flotio-dev_api_internal_models.PostInstallationRequest": {
-            "type": "object",
-            "properties": {
-                "installation_id": {
-                    "type": "integer",
-                    "example": 12345678
-                }
-            }
-        },
-        "github_com_flotio-dev_api_internal_models.PostInstallationResponse": {
-            "type": "object",
-            "properties": {
-                "installation_id": {
-                    "type": "integer",
-                    "example": 12345678
-                }
-            }
-        },
-        "gorm.DeletedAt": {
-            "type": "object",
-            "properties": {
-                "time": {
-                    "type": "string"
-                },
-                "valid": {
-                    "description": "Valid is true if Time is not NULL",
-                    "type": "boolean"
-                }
-            }
-        },
-        "internal_api_handlers.AuthResponse": {
-            "type": "object",
-            "properties": {
-                "access_token": {
-                    "type": "string"
-                },
-                "expires_in": {
-                    "type": "string"
-                },
-                "refresh_token": {
                     "type": "string"
                 }
             }
         },
-        "internal_api_handlers.Build": {
+        "github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO": {
             "type": "object",
             "properties": {
                 "apk_url": {
@@ -2913,100 +2686,46 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api_handlers.BuildDownloadResponse": {
-            "type": "object",
-            "properties": {
-                "artifact_key": {
-                    "type": "string"
-                },
-                "download_url": {
-                    "type": "string"
-                },
-                "expires_in": {
-                    "type": "integer"
-                }
-            }
-        },
-        "internal_api_handlers.BuildLogsSyncResponse": {
-            "type": "object",
-            "properties": {
-                "elapsed_time": {
-                    "description": "Time since build started in seconds",
-                    "type": "integer"
-                },
-                "has_more": {
-                    "type": "boolean"
-                },
-                "last_line": {
-                    "type": "integer"
-                },
-                "logs": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "pod_status": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_api_handlers.BuildRequest": {
+        "github_com_flotio-dev_core-api_internal_modules_build_model.BuildRequest": {
             "type": "object",
             "properties": {
                 "build_mode": {
-                    "type": "string",
-                    "example": "release"
+                    "type": "string"
                 },
                 "build_target": {
-                    "type": "string",
-                    "example": "apk"
+                    "type": "string"
                 },
                 "flutter_channel": {
-                    "type": "string",
-                    "example": "stable"
+                    "type": "string"
                 },
                 "git_branch": {
-                    "type": "string",
-                    "example": "main"
-                },
-                "git_token": {
-                    "type": "string",
-                    "example": "ghp_xxx"
-                },
-                "git_username": {
-                    "type": "string",
-                    "example": "username"
+                    "type": "string"
                 },
                 "platform": {
-                    "type": "string",
-                    "example": "android"
+                    "type": "string"
                 }
             }
         },
-        "internal_api_handlers.BuildResponse": {
+        "github_com_flotio-dev_core-api_internal_modules_build_model.BuildResponse": {
             "type": "object",
             "properties": {
                 "build": {
-                    "$ref": "#/definitions/internal_api_handlers.Build"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO"
                 }
             }
         },
-        "internal_api_handlers.BuildsResponse": {
+        "github_com_flotio-dev_core-api_internal_modules_build_model.BuildsResponse": {
             "type": "object",
             "properties": {
                 "builds": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_api_handlers.Build"
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO"
                     }
                 }
             }
         },
-        "internal_api_handlers.DeleteResponse": {
+        "github_com_flotio-dev_core-api_internal_modules_build_model.DeleteResponse": {
             "type": "object",
             "properties": {
                 "status": {
@@ -3014,28 +2733,7 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api_handlers.GithubLoginResponse": {
-            "type": "object",
-            "properties": {
-                "login_url": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_api_handlers.LoginRequest": {
-            "type": "object",
-            "properties": {
-                "password": {
-                    "type": "string",
-                    "example": "securepassword"
-                },
-                "username": {
-                    "type": "string",
-                    "example": "johndoe"
-                }
-            }
-        },
-        "internal_api_handlers.LogsResponse": {
+        "github_com_flotio-dev_core-api_internal_modules_build_model.LogsResponse": {
             "type": "object",
             "properties": {
                 "logs": {
@@ -3046,171 +2744,144 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_api_handlers.Project": {
+        "github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse": {
             "type": "object",
             "properties": {
-                "build_folder": {
-                    "type": "string"
+                "account_login": {
+                    "type": "string",
+                    "example": "flotio-dev"
                 },
-                "created_at": {
-                    "type": "string"
-                },
-                "flutter_version": {
-                    "type": "string"
-                },
-                "git_repo": {
-                    "type": "string"
-                },
-                "git_username": {
-                    "type": "string"
+                "account_type": {
+                    "type": "string",
+                    "example": "User"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 123456
                 },
-                "name": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
+                "installation_id": {
+                    "type": "integer",
+                    "example": 987654
                 },
                 "user_id": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 42
                 }
             }
         },
-        "internal_api_handlers.ProjectCreateRequest": {
+        "github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepoTreeItem": {
             "type": "object",
             "properties": {
-                "build_folder": {
-                    "type": "string",
-                    "example": "."
-                },
-                "flutter_version": {
-                    "type": "string",
-                    "example": "3.19.0"
-                },
-                "git_repo": {
-                    "type": "string",
-                    "example": "https://github.com/user/repo.git"
-                },
-                "git_token": {
-                    "type": "string",
-                    "example": "ghp_xxx"
-                },
-                "git_username": {
-                    "type": "string",
-                    "example": "username"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "My Flutter App"
-                }
-            }
-        },
-        "internal_api_handlers.ProjectResponse": {
-            "type": "object",
-            "properties": {
-                "project": {
-                    "$ref": "#/definitions/internal_api_handlers.Project"
-                }
-            }
-        },
-        "internal_api_handlers.ProjectUpdateRequest": {
-            "type": "object",
-            "properties": {
-                "build_folder": {
-                    "type": "string",
-                    "example": "."
-                },
-                "flutter_version": {
-                    "type": "string",
-                    "example": "3.19.0"
-                },
-                "git_repo": {
-                    "type": "string",
-                    "example": "https://github.com/user/repo.git"
-                },
-                "git_token": {
-                    "type": "string",
-                    "example": "ghp_xxx"
-                },
-                "git_username": {
-                    "type": "string",
-                    "example": "username"
-                },
-                "name": {
-                    "type": "string",
-                    "example": "Updated App Name"
-                }
-            }
-        },
-        "internal_api_handlers.ProjectsResponse": {
-            "type": "object",
-            "properties": {
-                "projects": {
+                "children": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/internal_api_handlers.Project"
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepoTreeItem"
+                    }
+                },
+                "name": {
+                    "type": "string",
+                    "example": "cmd"
+                },
+                "path": {
+                    "type": "string",
+                    "example": "cmd/service"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "dir"
+                },
+                "url": {
+                    "type": "string",
+                    "example": "https://github.com/..."
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepositoriesResponse": {
+            "type": "object",
+            "properties": {
+                "repositories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepository"
                     }
                 }
             }
         },
-        "internal_api_handlers.RefreshTokenRequest": {
+        "github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepository": {
             "type": "object",
             "properties": {
-                "refresh_token": {
+                "full_name": {
                     "type": "string",
-                    "example": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ..."
+                    "example": "flotio-dev/api"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 123456
+                },
+                "name": {
+                    "type": "string",
+                    "example": "api"
+                },
+                "owner": {
+                    "type": "string",
+                    "example": "flotio-dev"
+                },
+                "private": {
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },
-        "internal_api_handlers.RegisterRequest": {
+        "github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse": {
             "type": "object",
             "properties": {
-                "email": {
+                "owner": {
                     "type": "string",
-                    "example": "john@example.com"
+                    "example": "flotio-dev"
                 },
-                "first_name": {
+                "repo": {
                     "type": "string",
-                    "example": "John"
+                    "example": "api"
                 },
-                "last_name": {
-                    "type": "string",
-                    "example": "Doe"
-                },
-                "password": {
-                    "type": "string",
-                    "example": "securepassword"
-                },
-                "username": {
-                    "type": "string",
-                    "example": "johndoe"
+                "tree": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepoTreeItem"
+                    }
                 }
             }
         },
-        "internal_api_handlers.StatusResponse": {
+        "github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationRequest": {
             "type": "object",
             "properties": {
-                "status": {
+                "installation_id": {
+                    "type": "integer",
+                    "example": 12345678
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationResponse": {
+            "type": "object",
+            "properties": {
+                "installation_id": {
+                    "type": "integer",
+                    "example": 12345678
+                }
+            }
+        },
+        "gorm.DeletedAt": {
+            "type": "object",
+            "properties": {
+                "time": {
                     "type": "string"
-                }
-            }
-        },
-        "internal_api_handlers.UpdateUserRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "newemail@example.com"
                 },
-                "username": {
-                    "type": "string",
-                    "example": "newusername"
+                "valid": {
+                    "description": "Valid is true if Time is not NULL",
+                    "type": "boolean"
                 }
             }
         },
-        "internal_engines_kubernetes.BuildConfig": {
+        "internal_infra_kubernetes.BuildConfig": {
             "type": "object",
             "properties": {
                 "buildID": {
@@ -3241,7 +2912,255 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "project": {
-                    "$ref": "#/definitions/github_com_flotio-dev_api_internal_engines_db.Project"
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
+                }
+            }
+        },
+        "internal_modules_build_handler.BuildDownloadResponse": {
+            "type": "object",
+            "properties": {
+                "artifact_key": {
+                    "type": "string"
+                },
+                "download_url": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_modules_build_handler.BuildLogsSyncResponse": {
+            "type": "object",
+            "properties": {
+                "elapsed_time": {
+                    "description": "Time since build started in seconds",
+                    "type": "integer"
+                },
+                "has_more": {
+                    "type": "boolean"
+                },
+                "last_line": {
+                    "type": "integer"
+                },
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pod_status": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_project_handler.DeleteResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_project_handler.Project": {
+            "type": "object",
+            "properties": {
+                "build_folder": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "flutter_version": {
+                    "type": "string"
+                },
+                "git_repo": {
+                    "type": "string"
+                },
+                "git_username": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_modules_project_handler.ProjectCreateRequest": {
+            "type": "object",
+            "properties": {
+                "build_folder": {
+                    "type": "string",
+                    "example": "."
+                },
+                "flutter_version": {
+                    "type": "string",
+                    "example": "3.19.0"
+                },
+                "git_repo": {
+                    "type": "string",
+                    "example": "https://github.com/user/repo.git"
+                },
+                "git_token": {
+                    "type": "string",
+                    "example": "ghp_xxx"
+                },
+                "git_username": {
+                    "type": "string",
+                    "example": "username"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Flutter App"
+                }
+            }
+        },
+        "internal_modules_project_handler.ProjectResponse": {
+            "type": "object",
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/internal_modules_project_handler.Project"
+                }
+            }
+        },
+        "internal_modules_project_handler.ProjectUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "build_folder": {
+                    "type": "string",
+                    "example": "."
+                },
+                "flutter_version": {
+                    "type": "string",
+                    "example": "3.19.0"
+                },
+                "git_repo": {
+                    "type": "string",
+                    "example": "https://github.com/user/repo.git"
+                },
+                "git_token": {
+                    "type": "string",
+                    "example": "ghp_xxx"
+                },
+                "git_username": {
+                    "type": "string",
+                    "example": "username"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Updated App Name"
+                }
+            }
+        },
+        "internal_modules_project_handler.ProjectsResponse": {
+            "type": "object",
+            "properties": {
+                "projects": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_project_handler.Project"
+                    }
+                }
+            }
+        },
+        "internal_modules_user_handler.AuthResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "string"
+                },
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_user_handler.GithubLoginResponse": {
+            "type": "object",
+            "properties": {
+                "login_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_user_handler.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "password": {
+                    "type": "string",
+                    "example": "securepassword"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "johndoe"
+                }
+            }
+        },
+        "internal_modules_user_handler.RefreshTokenRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string",
+                    "example": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ..."
+                }
+            }
+        },
+        "internal_modules_user_handler.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "john@example.com"
+                },
+                "first_name": {
+                    "type": "string",
+                    "example": "John"
+                },
+                "last_name": {
+                    "type": "string",
+                    "example": "Doe"
+                },
+                "password": {
+                    "type": "string",
+                    "example": "securepassword"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "johndoe"
+                }
+            }
+        },
+        "internal_modules_user_handler.StatusResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_user_handler.UpdateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "newemail@example.com"
+                },
+                "username": {
+                    "type": "string",
+                    "example": "newusername"
                 }
             }
         }
