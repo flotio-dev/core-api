@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+var Redis *redis.Client
 
 func InitDB() {
 	dsn := os.Getenv("DATABASE_URL")
@@ -34,42 +37,32 @@ func InitDB() {
 	log.Println("Database connected and migrated")
 }
 
-// SyncUsersWithKeycloak synchronizes local users with Keycloak
-// It removes users from the local database that no longer exist in Keycloak
-func SyncUsersWithKeycloak(ctx context.Context, keycloakUserIDs map[string]bool) error {
-	var localUsers []User
-	if err := DB.Find(&localUsers).Error; err != nil {
-		return fmt.Errorf("failed to fetch local users: %w", err)
+func InitRedis() {
+	addr := os.Getenv("REDIS_ADDR")
+	if addr == "" {
+		log.Fatal("REDIS_ADDR is not set")
 	}
 
-	var usersToDelete []uint
-	for _, user := range localUsers {
-		if user.KeycloakID == "" {
-			continue // Skip users without KeycloakID
-		}
-		if !keycloakUserIDs[user.KeycloakID] {
-			log.Printf("User %s (KeycloakID: %s) not found in Keycloak, marking for deletion", user.Username, user.KeycloakID)
-			usersToDelete = append(usersToDelete, user.ID)
+	password := os.Getenv("REDIS_PASSWORD")
+	dbStr := os.Getenv("REDIS_DB")
+
+	db := 0
+	if dbStr != "" {
+		if parsed, err := strconv.Atoi(dbStr); err == nil {
+			db = parsed
 		}
 	}
 
-	if len(usersToDelete) > 0 {
-		// Delete associated data first (projects, etc.) due to foreign key constraints
-		for _, userID := range usersToDelete {
-			// Delete user's projects and related data
-			if err := DB.Where("user_id = ?", userID).Delete(&Project{}).Error; err != nil {
-				log.Printf("Warning: failed to delete projects for user %d: %v", userID, err)
-			}
-		}
+	Redis = redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+		DB:       db,
+	})
 
-		// Now delete the users
-		if err := DB.Where("id IN ?", usersToDelete).Delete(&User{}).Error; err != nil {
-			return fmt.Errorf("failed to delete users: %w", err)
-		}
-		log.Printf("Removed %d users that no longer exist in Keycloak", len(usersToDelete))
-	} else {
-		log.Println("All local users are synced with Keycloak")
+	ctx := context.Background()
+	if err := Redis.Ping(ctx).Err(); err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
 
-	return nil
+	log.Println("Redis connected")
 }

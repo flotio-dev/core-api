@@ -14,6 +14,7 @@ type User struct {
 	GithubAccessToken  string    `json:"github_access_token"`
 	GithubRefreshToken string    `json:"github_refresh_token"`
 	Projects           []Project `gorm:"foreignKey:UserID" json:"projects"`
+	PasswordHash       string    `json:"-"`
 
 	GithubInstallation *GithubInstallation `gorm:"foreignKey:UserID"`
 }
