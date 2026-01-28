@@ -59,7 +59,7 @@ export KUBECTL_TOKEN=your-token
 Utilisez l'exemple dans `examples/flutter_build_example.go` ou :
 
 ```go
-import "github.com/flotio-dev/api/pkg/kubernetes"
+import "github.com/flotio-dev/core-api/pkg/kubernetes"
 
 // Configuration du build
 config := kubernetes.BuildConfig{

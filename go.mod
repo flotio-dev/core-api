@@ -1,4 +1,4 @@
-module github.com/flotio-dev/api
+module github.com/flotio-dev/core-api
 
 go 1.25.0
 

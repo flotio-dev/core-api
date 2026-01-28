@@ -14,11 +14,11 @@ help:
 
 # Build the API
 build:
-	go build -o bin/api ./cmd/main.go
+	go build -o bin/api ./cmd/api/main.go
 
 # Run the API
 run:
-	go run ./cmd/main.go
+	go run ./cmd/api/main.go
 
 # Run tests
 test:
@@ -30,7 +30,7 @@ swagger-install:
 
 # Generate Swagger documentation
 swagger: swagger-install
-	swag init -g cmd/main.go -o docs --parseDependency --parseInternal
+	swag init -g cmd/api/main.go -o docs --parseDependency --parseInternal
 
 # Clean build artifacts
 clean:
