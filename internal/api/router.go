@@ -46,6 +46,7 @@ func Router() http.Handler {
 	r.HandleFunc("/auth/register", userHandler.RegisterHandler).Methods("POST")
 	r.HandleFunc("/auth/login", userHandler.LoginHandler).Methods("POST")
 	r.HandleFunc("/auth/refresh", userHandler.RefreshTokenHandler).Methods("POST")
+	r.HandleFunc("/auth/logout", userHandler.LogoutHandler).Methods("POST")
 
 	// Health check
 	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {

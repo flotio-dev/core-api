@@ -14,6 +14,18 @@ import (
 	authServices "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
+// RegisterHandler godoc
+//
+//	@Summary		Register a new user
+//	@Description	Create a new user account and return access & refresh tokens
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			register	body		authModel.RegisterRequest	true	"Register payload"
+//	@Success		200			{object}	authModel.AuthResponse
+//	@Failure		400			{object}	map[string]string
+//	@Failure		500			{object}	map[string]string
+//	@Router			/auth/register [post]
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -45,6 +57,18 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// LoginHandler godoc
+//
+//	@Summary		Login
+//	@Description	Authenticate a user and return access & refresh tokens
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			login	body		authModel.LoginRequest	true	"Login payload"
+//	@Success		200		{object}	authModel.AuthResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		401		{object}	map[string]string
+//	@Router			/auth/login [post]
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -77,6 +101,17 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// RefreshTokenHandler godoc
+//
+//	@Summary		Refresh access token
+//	@Description	Generate a new access token using a valid refresh token (rotation enabled)
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			refresh	body		authModel.RefreshTokenRequest	true	"Refresh token payload"
+//	@Success		200		{object}	authModel.AuthResponse
+//	@Failure		401		{object}	map[string]string
+//	@Router			/auth/refresh [post]
 func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.RefreshTokenRequest
 	json.NewDecoder(r.Body).Decode(&body)
@@ -114,6 +149,17 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// LogoutHandler godoc
+//
+//	@Summary		Logout
+//	@Description	Revoke a refresh token and logout the user
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			logout	body		authModel.RefreshTokenRequest	true	"Refresh token payload"
+//	@Success		200		{object}	authModel.StatusResponse
+//	@Failure		400		{object}	map[string]string
+//	@Router			/auth/logout [post]
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.RefreshTokenRequest
 	json.NewDecoder(r.Body).Decode(&body)
@@ -133,6 +179,17 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, authModel.StatusResponse{Status: "logged_out"})
 }
 
+// MeGetHandler godoc
+//
+//	@Summary		Get current user
+//	@Description	Return information about the authenticated user
+//	@Tags			auth
+//	@Produce		json
+//	@Success		200	{object}	map[string]interface{}
+//	@Failure		401	{object}	map[string]string
+//	@Failure		404	{object}	map[string]string
+//	@Security		BearerAuth
+//	@Router			/auth/me [get]
 func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authServices.GetUserIDFromContext(r.Context())
 	if !ok {
@@ -146,7 +203,6 @@ func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ⚠️ Ne JAMAIS retourner le password hash
 	response := map[string]interface{}{
 		"id":       user.ID,
 		"email":    user.Email,
@@ -157,6 +213,21 @@ func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 	helpers.WriteJSON(w, response)
 }
 
+// MePutHandler godoc
+//
+//	@Summary		Update current user
+//	@Description	Update email and/or username of the authenticated user
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			user	body		authModel.UpdateUserRequest	true	"User update payload"
+//	@Success		200		{object}	authModel.StatusResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		401		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Security		BearerAuth
+//	@Router			/auth/me [put]
 func MePutHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authServices.GetUserIDFromContext(r.Context())
 	if !ok {

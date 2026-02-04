@@ -7,14 +7,10 @@ import (
 // User model - additional info beyond Keycloak
 type User struct {
 	gorm.Model
-	KeycloakID         string    `gorm:"uniqueIndex" json:"keycloak_id"`
-	GithubID           *string   `json:"github_id"`
-	Email              string    `gorm:"uniqueIndex" json:"email"`
-	Username           string    `json:"username"`
-	GithubAccessToken  string    `json:"github_access_token"`
-	GithubRefreshToken string    `json:"github_refresh_token"`
-	Projects           []Project `gorm:"foreignKey:UserID" json:"projects"`
-	PasswordHash       string    `json:"-"`
+	Email        string    `gorm:"uniqueIndex" json:"email"`
+	Username     string    `json:"username"`
+	Projects     []Project `gorm:"foreignKey:UserID" json:"projects"`
+	PasswordHash string    `json:"-"`
 
 	GithubInstallation *GithubInstallation `gorm:"foreignKey:UserID"`
 }
@@ -84,9 +80,8 @@ type Keystore struct {
 
 type Organization struct {
 	gorm.Model
-	Name                   string `json:"name" gorm:"not null;uniqueIndex"`
-	KeycloakOrganizationID int64  `json:"keycloak_organization_id" gorm:"not null;uniqueIndex"`
-	Description            string `json:"description,omitempty"`
+	Name        string `json:"name" gorm:"not null;uniqueIndex"`
+	Description string `json:"description,omitempty"`
 
 	GithubInstallation *GithubInstallation `gorm:"foreignKey:OrganizationID"`
 }
