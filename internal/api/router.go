@@ -1,16 +1,15 @@
 package api
 
-
 import (
 	"net/http"
 
-	_ "github.com/flotio-dev/core-api/docs"
+	_ "github.com/flotio-dev/core-api/docs/api"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	githubEngine "github.com/flotio-dev/core-api/internal/infra/github"
-	
+
 	buildHandler "github.com/flotio-dev/core-api/internal/modules/build/handler"
 	githubHandler "github.com/flotio-dev/core-api/internal/modules/github/handler"
 	githubRepo "github.com/flotio-dev/core-api/internal/modules/github/repository"
@@ -47,7 +46,7 @@ func Router() http.Handler {
 	r.HandleFunc("/auth/register", userHandler.RegisterHandler).Methods("POST")
 	r.HandleFunc("/auth/login", userHandler.LoginHandler).Methods("POST")
 	r.HandleFunc("/auth/refresh", userHandler.RefreshTokenHandler).Methods("POST")
-	r.HandleFunc("/auth/github/callback", userHandler.GithubCallbackHandler).Methods("GET")
+	r.HandleFunc("/auth/logout", userHandler.LogoutHandler).Methods("POST")
 
 	// Health check
 	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -62,9 +61,6 @@ func Router() http.Handler {
 	// Protected auth routes (User Module)
 	protected.HandleFunc("/auth/@me", userHandler.MeGetHandler).Methods("GET")
 	protected.HandleFunc("/auth/@me", userHandler.MePutHandler).Methods("PUT")
-
-	// Github route (protected) (Github Module)
-	protected.HandleFunc("/github", userHandler.GithubHandler).Methods("GET")
 
 	// Env routes (by project) (Project Module)
 	protected.HandleFunc("/project/{id}/env", projectHandler.EnvGetHandler).Methods("GET")
