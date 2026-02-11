@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"time"
 
@@ -65,4 +66,26 @@ func RevokeRefreshToken(ctx context.Context, tokenID string) error {
 func GetUserIDFromContext(ctx context.Context) (uint, bool) {
 	id, ok := ctx.Value("user_id").(uint)
 	return id, ok
+}
+
+func SetRefreshTokenCookie(w http.ResponseWriter, token string, maxAge int) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    token,
+		HttpOnly: true,
+		Secure:   false,
+		Path:     "/",
+		MaxAge:   maxAge,
+	})
+}
+
+func ClearRefreshTokenCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		HttpOnly: true,
+		Secure:   false,
+		Path:     "/",
+		MaxAge:   -1,
+	})
 }

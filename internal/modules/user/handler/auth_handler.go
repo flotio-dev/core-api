@@ -50,6 +50,8 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	refresh, tid, _ := authServices.GenerateRefreshToken(user.ID)
 	authServices.StoreRefreshToken(r.Context(), tid, user.ID)
 
+	authServices.SetRefreshTokenCookie(w, refresh, 7*24*3600)
+
 	helpers.WriteJSON(w, authModel.AuthResponse{
 		AccessToken:  access,
 		RefreshToken: refresh,
@@ -77,7 +79,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var user dbEngine.User
-	if err := dbEngine.DB.Where("username = ?", body.Username).First(&user).Error; err != nil {
+	if err := dbEngine.DB.Where("email = ?", body.Email).First(&user).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -93,6 +95,8 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	access, _ := authServices.GenerateAccessToken(user.ID)
 	refresh, tid, _ := authServices.GenerateRefreshToken(user.ID)
 	authServices.StoreRefreshToken(r.Context(), tid, user.ID)
+
+	authServices.SetRefreshTokenCookie(w, refresh, 7*24*3600)
 
 	helpers.WriteJSON(w, authModel.AuthResponse{
 		AccessToken:  access,
@@ -113,18 +117,22 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401		{object}	map[string]string
 //	@Router			/auth/refresh [post]
 func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
-	var body authModel.RefreshTokenRequest
-	json.NewDecoder(r.Body).Decode(&body)
+	cookie, err := r.Cookie("refresh_token")
+	if err != nil {
+		helpers.WriteJSON(w, "Refresh token not provided")
+		return
+	}
+	refreshToken := cookie.Value
 
 	token, err := jwt.ParseWithClaims(
-		body.RefreshToken,
+		refreshToken,
 		&authModel.RefreshClaims{},
 		func(t *jwt.Token) (interface{}, error) {
 			return authServices.RefreshSecret, nil
 		},
 	)
 	if err != nil || !token.Valid {
-		helpers.WriteErrorJSON(w, "Invalid refresh token", http.StatusUnauthorized)
+		helpers.WriteJSON(w, "Invalid refresh token")
 		return
 	}
 
@@ -142,6 +150,9 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	access, _ := authServices.GenerateAccessToken(claims.UserID)
 	refresh, tid, _ := authServices.GenerateRefreshToken(claims.UserID)
 	authServices.StoreRefreshToken(r.Context(), tid, claims.UserID)
+
+	authServices.SetRefreshTokenCookie(w, refresh, 7*24*3600)
+
 	helpers.WriteJSON(w, authModel.AuthResponse{
 		AccessToken:  access,
 		RefreshToken: refresh,
@@ -175,6 +186,8 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	if claims, ok := token.Claims.(*authModel.RefreshClaims); ok {
 		authServices.RevokeRefreshToken(r.Context(), claims.TokenID)
 	}
+
+	authServices.ClearRefreshTokenCookie(w)
 
 	helpers.WriteJSON(w, authModel.StatusResponse{Status: "logged_out"})
 }
@@ -247,7 +260,6 @@ func MePutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mise à jour contrôlée
 	if body.Email != nil {
 		user.Email = *body.Email
 	}

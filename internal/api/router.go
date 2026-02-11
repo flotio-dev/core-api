@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	_ "github.com/flotio-dev/core-api/docs"
+	_ "github.com/flotio-dev/core-api/docs/api"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 
