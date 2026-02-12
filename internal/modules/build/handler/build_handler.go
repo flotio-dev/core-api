@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,6 +33,73 @@ func NewBuildController(githubService *githubServices.GithubService, userService
 		githubService: githubService,
 		userService:   userService,
 	}
+}
+
+func stringPtrValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
+func hasProjectGitCredentials(project dbEngine.Project) (string, string, bool) {
+	username := stringPtrValue(project.GitUsername)
+	token := stringPtrValue(project.GitToken)
+	if username == "" || token == "" {
+		return username, token, false
+	}
+	return username, token, true
+}
+
+func isGitHubHTTPSRepo(gitRepo *string) bool {
+	if gitRepo == nil {
+		return false
+	}
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(*gitRepo)), "https://github.com")
+}
+
+func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint, project dbEngine.Project) (string, string) {
+	projectUsername, projectToken, projectHasCredentials := hasProjectGitCredentials(project)
+
+	if !isGitHubHTTPSRepo(project.GitRepo) {
+		if projectHasCredentials {
+			return projectUsername, projectToken
+		}
+		return "", ""
+	}
+
+	githubInstallationDB, err := c.githubService.GetInstallationByUser(userID)
+	if err != nil {
+		fmt.Printf("Build auth: failed to get GitHub installation for user %d: %v\n", userID, err)
+		if projectHasCredentials {
+			return projectUsername, projectToken
+		}
+		return "", ""
+	}
+
+	if githubInstallationDB != nil {
+		installationToken, tokenErr := c.githubService.GetInstallationToken(githubInstallationDB.InstallationID)
+		if tokenErr == nil && strings.TrimSpace(installationToken) != "" {
+			username := "x-access-token"
+			githubInstallation, installationErr := c.githubService.GetGithubInstallation(ctx, githubInstallationDB.InstallationID)
+			if installationErr == nil && githubInstallation != nil && githubInstallation.Account != nil && strings.TrimSpace(githubInstallation.Account.GetLogin()) != "" {
+				username = githubInstallation.Account.GetLogin()
+			} else if installationErr != nil {
+				fmt.Printf("Build auth: failed to get GitHub installation details %d: %v\n", githubInstallationDB.InstallationID, installationErr)
+			}
+			return username, installationToken
+		}
+
+		if tokenErr != nil {
+			fmt.Printf("Build auth: failed to get GitHub installation token %d: %v\n", githubInstallationDB.InstallationID, tokenErr)
+		}
+	}
+
+	if projectHasCredentials {
+		return projectUsername, projectToken
+	}
+
+	return "", ""
 }
 
 // BuildCancelHandler godoc
@@ -254,6 +323,9 @@ func (bc *BuildController) BuildsListHandler(w http.ResponseWriter, r *http.Requ
 				if (newStatus == "success" || newStatus == "failed") && builds[i].Duration == 0 {
 					builds[i].Duration = int64(time.Since(builds[i].CreatedAt).Seconds())
 				}
+				if newStatus == "success" || newStatus == "failed" {
+					kubernetesEngine.ScheduleBuildPodCleanup(builds[i].ID)
+				}
 				// Reconcile S3 artifact key when build succeeds
 				if newStatus == "success" && builds[i].APKURL == "" {
 					if artifactKey, err := s3Engine.FindPrimaryArtifactKey(builds[i].ID, builds[i].Platform); err == nil {
@@ -452,6 +524,7 @@ func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.R
 						// Calculate duration when build finishes
 						if newBuildStatus == "success" || newBuildStatus == "failed" {
 							build.Duration = int64(time.Since(build.CreatedAt).Seconds())
+							kubernetesEngine.ScheduleBuildPodCleanup(build.ID)
 						}
 						dbEngine.DB.Save(&build)
 					}
@@ -667,28 +740,7 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	githubInstallationDB, err := c.githubService.GetInstallationByUser(userInfo.ID)
-	if err != nil {
-		helpers.WriteErrorJSON(w, "Failed to get GitHub installation", http.StatusInternalServerError)
-		return
-	}
-	if githubInstallationDB == nil {
-		helpers.WriteErrorJSON(w, "No GitHub installation found for this user. Please install the GitHub App first.", http.StatusBadRequest)
-		return
-	}
-
-	githubInstallation, err := c.githubService.GetGithubInstallation(r.Context(), githubInstallationDB.InstallationID)
-	if err != nil {
-		helpers.WriteErrorJSON(w, "Failed to get GitHub installation details", http.StatusInternalServerError)
-		return
-	}
-	username := githubInstallation.Account.Login
-
-	installationToken, err := c.githubService.GetInstallationToken(githubInstallationDB.InstallationID)
-	if err != nil {
-		helpers.WriteErrorJSON(w, "Failed to get GitHub installation token", http.StatusInternalServerError)
-		return
-	}
+	gitUsername, gitToken := c.resolveGitCredentials(r.Context(), userInfo.ID, project)
 
 	// Start the build process by creating a Kubernetes pod
 	buildConfig := kubernetesEngine.BuildConfig{
@@ -699,8 +751,8 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 		BuildTarget:    req.BuildTarget,
 		FlutterChannel: req.FlutterChannel,
 		GitBranch:      req.GitBranch,
-		GitUsername:    *username,
-		GitToken:       installationToken,
+		GitUsername:    gitUsername,
+		GitToken:       gitToken,
 	}
 
 	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {

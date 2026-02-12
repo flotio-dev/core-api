@@ -7,9 +7,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -31,6 +33,10 @@ type BuildConfig struct {
 	GitUsername    string
 	GitToken       string
 }
+
+const completedPodCleanupDelay = 30 * time.Second
+
+var scheduledPodCleanup sync.Map
 
 // GetPodName generates a unique pod name prefixed with the server hostname
 func GetPodName(buildID uint) string {
@@ -236,7 +242,7 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 	}
 
 	envVars := []v1.EnvVar{
-		{Name: "GIT_REPO", Value: fmt.Sprintf("https://github.com/%s", gitRepo)},
+		{Name: "GIT_REPO", Value: gitRepo},
 		{Name: "BUILD_FOLDER", Value: buildFolder},
 		{Name: "PLATFORM", Value: config.Platform},
 		{Name: "BUILD_ID", Value: strconv.Itoa(int(config.BuildID))},
@@ -418,10 +424,31 @@ func DeleteBuildPod(buildID uint) error {
 		PropagationPolicy: &deletePolicy,
 	})
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		return fmt.Errorf("failed to delete pod: %v", err)
 	}
 
 	return nil
+}
+
+// ScheduleBuildPodCleanup deletes the build pod after a short delay.
+// Terminal build statuses can trigger this safely multiple times.
+func ScheduleBuildPodCleanup(buildID uint) {
+	if _, loaded := scheduledPodCleanup.LoadOrStore(buildID, struct{}{}); loaded {
+		return
+	}
+
+	go func() {
+		defer scheduledPodCleanup.Delete(buildID)
+		time.Sleep(completedPodCleanupDelay)
+		if err := DeleteBuildPod(buildID); err != nil {
+			fmt.Printf("Failed to auto-delete pod for build %d: %v\n", buildID, err)
+			return
+		}
+		fmt.Printf("Auto-deleted pod for build %d after completion delay\n", buildID)
+	}()
 }
 
 // StartPodLogListener starts listening to pod logs and saves them to the database
@@ -543,6 +570,10 @@ func updateBuildStatusFromPod(clientset *kubernetes.Clientset, namespace, podNam
 		build.Status = "failed"
 		// Calculate build duration
 		build.Duration = int64(time.Since(build.CreatedAt).Seconds())
+	}
+
+	if build.Status == "success" || build.Status == "failed" {
+		ScheduleBuildPodCleanup(buildID)
 	}
 
 	if err := dbEngine.DB.Save(&build).Error; err != nil {
