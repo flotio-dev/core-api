@@ -11,9 +11,9 @@ import (
 	"gorm.io/gorm"
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
+	helpers "github.com/flotio-dev/core-api/internal/common/server"
 	kubernetesEngine "github.com/flotio-dev/core-api/internal/infra/kubernetes"
 	s3Engine "github.com/flotio-dev/core-api/internal/infra/s3"
-	helpers "github.com/flotio-dev/core-api/internal/common/server"
 	buildModels "github.com/flotio-dev/core-api/internal/modules/build/model"
 	githubServices "github.com/flotio-dev/core-api/internal/modules/github/service"
 	userServices "github.com/flotio-dev/core-api/internal/modules/user/service"
@@ -22,12 +22,14 @@ import (
 // BuildController handles build-related operations
 type BuildController struct {
 	githubService *githubServices.GithubService
+	userService   *userServices.UserService
 }
 
 // NewBuildController creates a new BuildController
-func NewBuildController(githubService *githubServices.GithubService) *BuildController {
+func NewBuildController(githubService *githubServices.GithubService, userService *userServices.UserService) *BuildController {
 	return &BuildController{
 		githubService: githubService,
+		userService:   userService,
 	}
 }
 
@@ -46,9 +48,9 @@ func NewBuildController(githubService *githubServices.GithubService) *BuildContr
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id}/build/{buildId}/cancel [put]
-func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userServices.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (bc *BuildController) BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -66,7 +68,7 @@ func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var build dbEngine.Build
-	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = ?)", buildID, projectID, userInfo.ID).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 			return
@@ -109,9 +111,9 @@ func BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id}/build/{buildId} [delete]
-func BuildDeleteHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userServices.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (bc *BuildController) BuildDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -129,7 +131,7 @@ func BuildDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var build dbEngine.Build
-	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = ?", buildID, projectID, userInfo.ID).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 			return
@@ -182,9 +184,9 @@ func BuildDeleteHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
 //	@Router			/project/{id}/builds [get]
-func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userServices.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (bc *BuildController) BuildsListHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -197,7 +199,7 @@ func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var builds []dbEngine.Build
-	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Order("builds.created_at DESC").Find(&builds).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("projects.id = ? AND projects.user_id = ?", projectID, userInfo.ID).Order("builds.created_at DESC").Find(&builds).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to fetch builds", http.StatusInternalServerError)
 		return
 	}
@@ -284,9 +286,9 @@ func BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id}/build/{buildId}/logs [get]
-func BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userServices.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (bc *BuildController) BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -305,7 +307,7 @@ func BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the build belongs to the user's project
 	var build dbEngine.Build
-	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = ?", buildID, projectID, userInfo.ID).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 			return
@@ -365,9 +367,9 @@ type BuildLogsSyncResponse struct {
 //	@Failure		401	{object}	map[string]string
 //	@Failure		404	{object}	map[string]string
 //	@Router			/project/{id}/build/{buildId}/logs/sync [get]
-func BuildLogsSyncHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userServices.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -399,7 +401,7 @@ func BuildLogsSyncHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify the build belongs to the user's project
 	var build dbEngine.Build
-	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", buildID, projectID, *userInfo.Keycloak.Sub).First(&build).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = ?", buildID, projectID, userInfo.ID).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 			return
@@ -543,8 +545,9 @@ type BuildDownloadResponse struct {
 //	@Failure		401	{object}	map[string]string
 //	@Failure		404	{object}	map[string]string
 //	@Router			/project/{id}/build/{buildId}/download [get]
-func BuildDownloadHandler(w http.ResponseWriter, r *http.Request) {
-	if userServices.GetUserFromContext(r.Context()) == nil {
+func (bc *BuildController) BuildDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -599,8 +602,8 @@ func BuildDownloadHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id}/build [post]
 func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userServices.GetUserFromContext(r.Context())
-	if userInfo == nil {
+	userInfo, err := c.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -644,7 +647,7 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var project dbEngine.Project
-	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
@@ -664,7 +667,7 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	githubInstallationDB, err := c.githubService.GetInstallationByUser(userInfo.DB.ID)
+	githubInstallationDB, err := c.githubService.GetInstallationByUser(userInfo.ID)
 	if err != nil {
 		helpers.WriteErrorJSON(w, "Failed to get GitHub installation", http.StatusInternalServerError)
 		return

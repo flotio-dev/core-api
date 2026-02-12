@@ -41,8 +41,8 @@ func NewGithubController(service *services.GithubService, userService *userServi
 // @Router       /github/post-installation [post]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r *http.Request) {
-	user := userServices.GetUserFromContext(r.Context())
-	if user == nil {
+	user, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status: helpers.StatusUnauthorized,
 		})
@@ -69,7 +69,7 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 	respMessage := ""
 	existingInst, gerr := c.Service.GetGithubInstallationByInstallationID(payload.InstallationID)
 	if gerr == nil && existingInst != nil {
-		if existingInst.UserID != nil && *existingInst.UserID != user.DB.ID {
+		if existingInst.UserID != nil && *existingInst.UserID != user.ID {
 			helpers.RespondWithError(w, &helpers.ResponseOptions{
 				Status:  helpers.StatusInvalidArgs,
 				Message: "Cette installation GitHub est déjà liée à un autre compte",
@@ -89,7 +89,7 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		// si record not found, on continue normalement
 	}
 
-	if err := c.Service.SaveInstallation(user.DB.ID, payload.InstallationID, "", "", 0); err != nil {
+	if err := c.Service.SaveInstallation(user.ID, payload.InstallationID, "", "", 0); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
 			Message: fmt.Sprintf("DB error: %v", err),
@@ -116,15 +116,15 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 // @Router       /github/repos [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r *http.Request) {
-	user := userServices.GetUserFromContext(r.Context())
-	if user == nil {
+	user, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			HTTPCode: http.StatusUnauthorized,
 		})
 		return
 	}
 
-	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	inst, err := c.Service.GetInstallationByUser(user.ID)
 	if err != nil || inst == nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			HTTPCode: http.StatusNotFound,
@@ -170,8 +170,8 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 // @Router       /github/repo [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.Request) {
-	user := userServices.GetUserFromContext(r.Context())
-	if user == nil {
+	user, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status: helpers.StatusUnauthorized,
 		})
@@ -189,7 +189,7 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	inst, err := c.Service.GetInstallationByUser(user.ID)
 	if err != nil || inst == nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusNotFound,
@@ -234,15 +234,15 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 // @Router       /github/installations [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, r *http.Request) {
-	user := userServices.GetUserFromContext(r.Context())
-	if user == nil {
+	user, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status: helpers.StatusUnauthorized,
 		})
 		return
 	}
 
-	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	inst, err := c.Service.GetInstallationByUser(user.ID)
 	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
@@ -296,8 +296,8 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 // @Router       /github/installation [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r *http.Request) {
-	user := userServices.GetUserFromContext(r.Context())
-	if user == nil {
+	_, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status: helpers.StatusUnauthorized,
 		})
@@ -368,8 +368,8 @@ func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r 
 // @Router       /github/disconnect [delete]
 // @Security     BearerAuth
 func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http.Request) {
-	user := userServices.GetUserFromContext(r.Context())
-	if user == nil {
+	user, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status: helpers.StatusUnauthorized,
 		})
@@ -377,7 +377,7 @@ func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http
 	}
 
 	// Récupérer l'installation liée à l'utilisateur
-	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	inst, err := c.Service.GetInstallationByUser(user.ID)
 	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
@@ -422,8 +422,8 @@ func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http
 // @Router       /github/pubspec-path [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGetBuildPath(w http.ResponseWriter, r *http.Request) {
-	user := userServices.GetUserFromContext(r.Context())
-	if user == nil {
+	user, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status: helpers.StatusUnauthorized,
 		})
@@ -440,7 +440,7 @@ func (c *GithubController) HandleGetBuildPath(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	inst, err := c.Service.GetInstallationByUser(user.DB.ID)
+	inst, err := c.Service.GetInstallationByUser(user.ID)
 	if err != nil || inst == nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusNotFound,
@@ -460,4 +460,5 @@ func (c *GithubController) HandleGetBuildPath(w http.ResponseWriter, r *http.Req
 
 	helpers.RespondWithSuccess(w, &githubModels.BuildPathResponse{Path: path}, nil)
 }
+
 var _ = models.APIErrorResponse{}

@@ -12,6 +12,16 @@ import (
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
+type EnvController struct {
+	UserService *services.UserService
+}
+
+func NewEnvController(userService *services.UserService) *EnvController {
+	return &EnvController{
+		UserService: userService,
+	}
+}
+
 // EnvGetHandler godoc
 //
 //	@Summary		Get environment variables
@@ -26,9 +36,9 @@ import (
 //	@Failure		500	{object}	map[string]string
 //	@Router			/project/{id}/env [get]
 //	@Security		BearerAuth
-func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := services.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (c *EnvController) EnvGetHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -41,7 +51,7 @@ func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var envs []dbEngine.Env
-	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Find(&envs).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("projects.id = ? AND projects.user_id = ?", projectID, userInfo.ID).Find(&envs).Error; err != nil {
 		http.Error(w, "Failed to fetch envs", http.StatusInternalServerError)
 		return
 	}
@@ -65,9 +75,9 @@ func EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	map[string]string
 //	@Router			/project/{id}/env [post]
 //	@Security		BearerAuth
-func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := services.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (c *EnvController) EnvPostHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -90,7 +100,7 @@ func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Verify project ownership
 	var project dbEngine.Project
-	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Project not found", http.StatusNotFound)
 			return
@@ -129,9 +139,9 @@ func EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id}/env/{envId} [get]
 //	@Security		BearerAuth
-func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := services.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (c *EnvController) EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -150,7 +160,7 @@ func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var env dbEngine.Env
-	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = ?", envID, projectID, userInfo.ID).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Env not found", http.StatusNotFound)
 			return
@@ -179,9 +189,9 @@ func EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id}/env/{envId} [put]
 //	@Security		BearerAuth
-func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := services.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (c *EnvController) EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -209,7 +219,7 @@ func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var env dbEngine.Env
-	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).First(&env).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = ?", envID, projectID, userInfo.ID).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			http.Error(w, "Env not found", http.StatusNotFound)
 			return
@@ -245,9 +255,9 @@ func EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id}/env/{envId} [delete]
 //	@Security		BearerAuth
-func EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := services.GetUserFromContext(r.Context())
-	if userInfo == nil {
+func (c *EnvController) EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -265,7 +275,7 @@ func EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = (SELECT id FROM users WHERE keycloak_id = ?)", envID, projectID, *userInfo.Keycloak.Sub).Delete(&dbEngine.Env{}).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON envs.project_id = projects.id").Where("envs.id = ? AND projects.id = ? AND projects.user_id = ?", envID, projectID, userInfo.ID).Delete(&dbEngine.Env{}).Error; err != nil {
 		http.Error(w, "Failed to delete env", http.StatusInternalServerError)
 		return
 	}

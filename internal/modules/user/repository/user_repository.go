@@ -40,3 +40,12 @@ func (r *UserRepository) UpdateUser(user *dbEngine.User, updateRequest *model.Us
 
 	return r.DB.Model(&dbEngine.User{}).Where("id = ?", user.ID).Updates(updates).Error
 }
+
+func (r *UserRepository) GetUserByID(id uint) (*dbEngine.User, error) {
+	var user dbEngine.User
+	err := r.DB.Where("id = ?", id).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
