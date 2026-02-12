@@ -69,23 +69,39 @@ func GetUserIDFromContext(ctx context.Context) (uint, bool) {
 }
 
 func SetRefreshTokenCookie(w http.ResponseWriter, token string, maxAge int) {
+	secure := os.Getenv("APP_ENV") == "production"
+	sameSite := http.SameSiteLaxMode
+
+	if secure {
+		sameSite = http.SameSiteNoneMode
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    token,
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   secure,
 		Path:     "/",
 		MaxAge:   maxAge,
+		SameSite: sameSite,
 	})
 }
 
 func ClearRefreshTokenCookie(w http.ResponseWriter) {
+	secure := os.Getenv("APP_ENV") == "production"
+	sameSite := http.SameSiteLaxMode
+
+	if secure {
+		sameSite = http.SameSiteNoneMode
+	}
+
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    "",
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   secure,
 		Path:     "/",
 		MaxAge:   -1,
+		SameSite: sameSite,
 	})
 }
