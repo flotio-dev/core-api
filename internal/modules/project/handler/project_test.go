@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	userService "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
 func TestProjectCreateHandler_Unauthorized(t *testing.T) {
@@ -13,7 +15,8 @@ func TestProjectCreateHandler_Unauthorized(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	ProjectCreateHandler(w, req)
+	projectCtrl := NewProjectController(&userService.UserService{})
+	projectCtrl.ProjectCreateHandler(w, req)
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("Expected status 401, got %d", w.Code)
@@ -33,7 +36,8 @@ func TestProjectGetHandler_Unauthorized(t *testing.T) {
 	req := httptest.NewRequest("GET", "/projects/1", nil)
 
 	w := httptest.NewRecorder()
-	ProjectGetHandler(w, req)
+	projectCtrl := NewProjectController(&userService.UserService{})
+	projectCtrl.ProjectGetHandler(w, req)
 
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("Expected status 401, got %d", w.Code)

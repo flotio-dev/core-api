@@ -1,16 +1,15 @@
 package api
 
-
 import (
 	"net/http"
 
-	_ "github.com/flotio-dev/core-api/docs"
+	_ "github.com/flotio-dev/core-api/docs/api"
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	githubEngine "github.com/flotio-dev/core-api/internal/infra/github"
-	
+
 	buildHandler "github.com/flotio-dev/core-api/internal/modules/build/handler"
 	githubHandler "github.com/flotio-dev/core-api/internal/modules/github/handler"
 	githubRepo "github.com/flotio-dev/core-api/internal/modules/github/repository"
@@ -47,7 +46,7 @@ func Router() http.Handler {
 	r.HandleFunc("/auth/register", userHandler.RegisterHandler).Methods("POST")
 	r.HandleFunc("/auth/login", userHandler.LoginHandler).Methods("POST")
 	r.HandleFunc("/auth/refresh", userHandler.RefreshTokenHandler).Methods("POST")
-	r.HandleFunc("/auth/github/callback", userHandler.GithubCallbackHandler).Methods("GET")
+	r.HandleFunc("/auth/logout", userHandler.LogoutHandler).Methods("POST")
 
 	// Health check
 	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -63,34 +62,33 @@ func Router() http.Handler {
 	protected.HandleFunc("/auth/@me", userHandler.MeGetHandler).Methods("GET")
 	protected.HandleFunc("/auth/@me", userHandler.MePutHandler).Methods("PUT")
 
-	// Github route (protected) (Github Module)
-	protected.HandleFunc("/github", userHandler.GithubHandler).Methods("GET")
-
 	// Env routes (by project) (Project Module)
-	protected.HandleFunc("/project/{id}/env", projectHandler.EnvGetHandler).Methods("GET")
-	protected.HandleFunc("/project/{id}/env", projectHandler.EnvPostHandler).Methods("POST")
-	protected.HandleFunc("/project/{id}/envs", projectHandler.EnvGetHandler).Methods("GET")
-	protected.HandleFunc("/project/{id}/env/{envId}", projectHandler.EnvGetByIdHandler).Methods("GET")
-	protected.HandleFunc("/project/{id}/env/{envId}", projectHandler.EnvPutByIdHandler).Methods("PUT")
-	protected.HandleFunc("/project/{id}/env/{envId}", projectHandler.EnvDeleteByIdHandler).Methods("DELETE")
+	EnvCtrl := projectHandler.NewEnvController(uService)
+	protected.HandleFunc("/project/{id}/env", EnvCtrl.EnvGetHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/env", EnvCtrl.EnvPostHandler).Methods("POST")
+	protected.HandleFunc("/project/{id}/envs", EnvCtrl.EnvGetHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/env/{envId}", EnvCtrl.EnvGetByIdHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/env/{envId}", EnvCtrl.EnvPutByIdHandler).Methods("PUT")
+	protected.HandleFunc("/project/{id}/env/{envId}", EnvCtrl.EnvDeleteByIdHandler).Methods("DELETE")
 
 	// Project routes (Project Module)
-	protected.HandleFunc("/project", projectHandler.ProjectsGetHandler).Methods("GET")
-	protected.HandleFunc("/project", projectHandler.ProjectCreateHandler).Methods("POST")
-	protected.HandleFunc("/project/{id}", projectHandler.ProjectGetHandler).Methods("GET")
-	protected.HandleFunc("/project/{id}", projectHandler.ProjectPutHandler).Methods("PUT")
-	protected.HandleFunc("/project/{id}", projectHandler.ProjectDeleteHandler).Methods("DELETE")
+	projectCtrl := projectHandler.NewProjectController(uService)
+	protected.HandleFunc("/project", projectCtrl.ProjectsGetHandler).Methods("GET")
+	protected.HandleFunc("/project", projectCtrl.ProjectCreateHandler).Methods("POST")
+	protected.HandleFunc("/project/{id}", projectCtrl.ProjectGetHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}", projectCtrl.ProjectPutHandler).Methods("PUT")
+	protected.HandleFunc("/project/{id}", projectCtrl.ProjectDeleteHandler).Methods("DELETE")
 
 	// Build routes (Build Module)
 	// Inject dependencies into Build Controller
-	buildCtrl := buildHandler.NewBuildController(ghService)
+	buildCtrl := buildHandler.NewBuildController(ghService, uService)
 	protected.HandleFunc("/project/{id}/build", buildCtrl.ProjectBuildHandler).Methods("POST")
-	protected.HandleFunc("/project/{id}/build/{buildId}", buildHandler.BuildDeleteHandler).Methods("DELETE")
-	protected.HandleFunc("/project/{id}/build/{buildId}/cancel", buildHandler.BuildCancelHandler).Methods("PUT")
-	protected.HandleFunc("/project/{id}/builds", buildHandler.BuildsListHandler).Methods("GET")
-	protected.HandleFunc("/project/{id}/build/{buildId}/logs", buildHandler.BuildLogsHandler).Methods("GET")
-	protected.HandleFunc("/project/{id}/build/{buildId}/download", buildHandler.BuildDownloadHandler).Methods("GET")
-	protected.HandleFunc("/project/{id}/build/{buildId}/logs/sync", buildHandler.BuildLogsSyncHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/build/{buildId}", buildCtrl.BuildDeleteHandler).Methods("DELETE")
+	protected.HandleFunc("/project/{id}/build/{buildId}/cancel", buildCtrl.BuildCancelHandler).Methods("PUT")
+	protected.HandleFunc("/project/{id}/builds", buildCtrl.BuildsListHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/build/{buildId}/logs", buildCtrl.BuildLogsHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/build/{buildId}/download", buildCtrl.BuildDownloadHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/build/{buildId}/logs/sync", buildCtrl.BuildLogsSyncHandler).Methods("GET")
 
 	// Github routes (Github Module)
 	// Inject dependencies into Github Controller
