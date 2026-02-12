@@ -2,39 +2,34 @@ name: Build and Deploy via GitOps
 
 on:
   push:
-    branches: 
-      - main
-      - dev
-    paths:
-      - 'cmd/**'
-      - 'Dockerfile'
-      - 'go.mod'
-      - 'go.sum'
-      - 'openapi.yaml'
-      - '.env.example'
-      - 'build/flutter-build.Dockerfile'
-      - 'build/build-image.sh'
-      - 'internal/**'
-
-  pull_request:
     branches:
       - main
       - dev
     paths:
-      - 'cmd/**'
-      - 'Dockerfile'
-      - 'go.mod'
-      - 'go.sum'
-      - 'openapi.yaml'
-      - 'internal/**'
+      - "cmd/**"
+      - "pkg/**"
+      - "Dockerfile"
+      - "go.mod"
+      - "go.sum"
+      - "openapi.yaml"
+      - ".env.example"
+      - "build/flutter-build.Dockerfile"
+      - "build/build-image.sh"
 
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "cmd/**"
+      - "pkg/**"
+      - "Dockerfile"
+      - "go.mod"
+      - "go.sum"
+      - "openapi.yaml"
 
 env:
   REGISTRY: ghcr.io
 
-
 jobs:
-
   build:
     runs-on: ubuntu-latest
     permissions:
@@ -48,7 +43,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  
+          fetch-depth: 0
 
       - name: Determine next version
         id: version
@@ -98,7 +93,6 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
 
-
   update-gitops:
     needs: build
     if: github.event_name == 'push'
@@ -122,7 +116,12 @@ jobs:
 
       - name: Update deployment
         run: |
-          FILE="manifest/core-api/deploy-core-api.yaml"
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            FILE="manifest/prod/core-api/deploy-core-api.yaml"
+          else
+            FILE="manifest/dev/core-api/deploy-core-api.yaml"
+          fi
+
           sed -i "s|image: .*|image: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.version }}|g" $FILE
 
       - name: Commit & push
