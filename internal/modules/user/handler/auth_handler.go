@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -173,18 +174,32 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 //	@Router			/auth/logout [post]
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.RefreshTokenRequest
-	json.NewDecoder(r.Body).Decode(&body)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && err != io.EOF {
+		helpers.WriteErrorJSON(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 
-	token, _ := jwt.ParseWithClaims(
-		body.RefreshToken,
-		&authModel.RefreshClaims{},
-		func(t *jwt.Token) (interface{}, error) {
-			return authServices.RefreshSecret, nil
-		},
-	)
+	refreshToken := body.RefreshToken
+	if refreshToken == "" {
+		if cookie, err := r.Cookie("refresh_token"); err == nil {
+			refreshToken = cookie.Value
+		}
+	}
 
-	if claims, ok := token.Claims.(*authModel.RefreshClaims); ok {
-		authServices.RevokeRefreshToken(r.Context(), claims.TokenID)
+	if refreshToken != "" {
+		token, err := jwt.ParseWithClaims(
+			refreshToken,
+			&authModel.RefreshClaims{},
+			func(t *jwt.Token) (interface{}, error) {
+				return authServices.RefreshSecret, nil
+			},
+		)
+
+		if err == nil && token != nil {
+			if claims, ok := token.Claims.(*authModel.RefreshClaims); ok && claims.TokenID != "" {
+				_ = authServices.RevokeRefreshToken(r.Context(), claims.TokenID)
+			}
+		}
 	}
 
 	authServices.ClearRefreshTokenCookie(w)
