@@ -6,6 +6,7 @@ WORKDIR /src
 
 ARG SERVICE_NAME=api
 
+
 RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,target=. \
     CGO_ENABLED=0 go build -a -gcflags=all="-l -B" -ldflags "-w -s" -o /bin/server ./cmd/${SERVICE_NAME}
