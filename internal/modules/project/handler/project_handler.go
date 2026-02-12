@@ -10,8 +10,18 @@ import (
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
-	userService "github.com/flotio-dev/core-api/internal/modules/user/service"
+	userServices "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
+
+type ProjectController struct {
+	UserService *userServices.UserService
+}
+
+func NewProjectController(userService *userServices.UserService) *ProjectController {
+	return &ProjectController{
+		UserService: userService,
+	}
+}
 
 // Response structs for API documentation
 type ProjectsResponse struct {
@@ -149,25 +159,19 @@ func convertDBBuilds(builds []dbEngine.Build) []Build {
 //	@Failure		404	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
 //	@Router			/project [get]
-func ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userService.GetUserFromContext(r.Context())
+func (c *ProjectController) ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get user info", http.StatusUnauthorized)
+		return
+	}
 	if userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var user dbEngine.User
-	if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
-			return
-		}
-		helpers.WriteErrorJSON(w, "Failed to fetch user", http.StatusInternalServerError)
-		return
-	}
-
 	var projects []dbEngine.Project
-	if err := dbEngine.DB.Where("user_id = ?", user.ID).Find(&projects).Error; err != nil {
+	if err := dbEngine.DB.Where("user_id = ?", userInfo.ID).Find(&projects).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to fetch projects", http.StatusInternalServerError)
 		return
 	}
@@ -189,20 +193,14 @@ func ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project [post]
-func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userService.GetUserFromContext(r.Context())
-	if userInfo == nil {
-		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+func (c *ProjectController) ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get user info", http.StatusUnauthorized)
 		return
 	}
-
-	var user dbEngine.User
-	if err := dbEngine.DB.Where("keycloak_id = ?", *userInfo.Keycloak.Sub).First(&user).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			helpers.WriteErrorJSON(w, "User not found", http.StatusNotFound)
-			return
-		}
-		helpers.WriteErrorJSON(w, "Failed to fetch user", http.StatusInternalServerError)
+	if userInfo == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -219,7 +217,7 @@ func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 		FlutterVersion: req.FlutterVersion,
 		GitUsername:    req.GitUsername,
 		GitToken:       req.GitToken,
-		UserID:         user.ID,
+		UserID:         userInfo.ID,
 	}
 
 	if err := dbEngine.DB.Create(&project).Error; err != nil {
@@ -244,13 +242,16 @@ func ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
 //	@Router			/project/{id} [get]
-func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userService.GetUserFromContext(r.Context())
+func (c *ProjectController) ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get user info", http.StatusUnauthorized)
+		return
+	}
 	if userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -259,7 +260,7 @@ func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var project dbEngine.Project
-	if err := dbEngine.DB.Preload("Builds").Preload("Envs").Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	if err := dbEngine.DB.Preload("Builds").Preload("Envs").Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
@@ -286,13 +287,16 @@ func ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Router			/project/{id} [put]
-func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userService.GetUserFromContext(r.Context())
+func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get user info", http.StatusUnauthorized)
+		return
+	}
 	if userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -307,7 +311,7 @@ func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var project dbEngine.Project
-	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).First(&project).Error; err != nil {
+	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
@@ -356,13 +360,16 @@ func ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401	{object}	map[string]string
 //	@Failure		500	{object}	map[string]string
 //	@Router			/project/{id} [delete]
-func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
-	userInfo := userService.GetUserFromContext(r.Context())
+func (c *ProjectController) ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.UserService.GetUserFromContext(r.Context())
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to get user info", http.StatusUnauthorized)
+		return
+	}
 	if userInfo == nil {
 		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-
 	vars := mux.Vars(r)
 	projectID, err := strconv.Atoi(vars["id"])
 	if err != nil {
@@ -370,7 +377,7 @@ func ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dbEngine.DB.Where("id = ? AND user_id = (SELECT id FROM users WHERE keycloak_id = ?)", projectID, *userInfo.Keycloak.Sub).Delete(&dbEngine.Project{}).Error; err != nil {
+	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).Delete(&dbEngine.Project{}).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to delete project", http.StatusInternalServerError)
 		return
 	}

@@ -24,11 +24,18 @@ type contextKey string
 
 const UserContextKey contextKey = "user"
 
-func GetUserFromContext(ctx context.Context) *userModel.UserContext {
-	if user, ok := ctx.Value(UserContextKey).(*userModel.UserContext); ok {
-		return user
+func (s *UserService) GetUserFromContext(ctx context.Context) (*dbEngine.User, error) {
+	id, ok := ctx.Value("user_id").(uint)
+	if !ok {
+		return nil, errors.New("user id not found in context")
 	}
-	return nil
+
+	user, err := s.Repository.GetUserByID(id)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func (s *UserService) UpdateUser(user *dbEngine.User, updateRequest *userModel.UserUpdateRequest) error {
