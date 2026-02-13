@@ -13,15 +13,19 @@ type BuildRequest struct {
 }
 
 type BuildDTO struct {
-	ID          uint      `json:"id"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	ProjectID   uint      `json:"project_id"`
-	Status      string    `json:"status"`
-	Platform    string    `json:"platform"`
-	ContainerID string    `json:"container_id"`
-	Duration    int64     `json:"duration"`
-	APKURL      string    `json:"apk_url"`
+	ID             uint      `json:"id"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	ProjectID      uint      `json:"project_id"`
+	Status         string    `json:"status"`
+	Platform       string    `json:"platform"`
+	BuildMode      string    `json:"build_mode"`
+	BuildTarget    string    `json:"build_target"`
+	FlutterChannel string    `json:"flutter_channel"`
+	GitBranch      string    `json:"git_branch"`
+	ContainerID    string    `json:"container_id"`
+	Duration       int64     `json:"duration"`
+	APKURL         string    `json:"apk_url"`
 }
 
 type BuildResponse struct {

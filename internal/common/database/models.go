@@ -33,14 +33,18 @@ type Project struct {
 // Build model
 type Build struct {
 	gorm.Model
-	ProjectID   uint    `json:"project_id"`
-	Project     Project `json:"project"`
-	Status      string  `json:"status"`       // pending, running, success, failed
-	Platform    string  `json:"platform"`     // e.g., android, ios
-	ContainerID string  `json:"container_id"` // Kubernetes container ID
-	Duration    int64   `json:"duration"`     // build duration in seconds
-	APKURL      string  `json:"apk_url"`      // S3 key for the build artifact (e.g., "builds/123/app-release.apk")
-	Logs        []Log   `gorm:"foreignKey:BuildID" json:"logs"`
+	ProjectID      uint    `json:"project_id"`
+	Project        Project `json:"project"`
+	Status         string  `json:"status"` // waiting, pending, running, success, failed, cancelled
+	Platform       string  `json:"platform"`
+	BuildMode      string  `json:"build_mode"`
+	BuildTarget    string  `json:"build_target"`
+	FlutterChannel string  `json:"flutter_channel"`
+	GitBranch      string  `json:"git_branch"`
+	ContainerID    string  `json:"container_id"` // Kubernetes container ID
+	Duration       int64   `json:"duration"`     // build duration in seconds
+	APKURL         string  `json:"apk_url"`      // S3 key for the build artifact (e.g., "builds/123/app-release.apk")
+	Logs           []Log   `gorm:"foreignKey:BuildID" json:"logs"`
 }
 
 // Log model - stores build logs line by line
