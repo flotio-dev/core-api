@@ -28,6 +28,7 @@ type BuildController struct {
 }
 
 const waitingBuildSchedulerInterval = 5 * time.Second
+const enableBuildCapacityQueue = false
 
 var buildSchedulingMutex sync.Mutex
 var waitingBuildSchedulerOnce sync.Once
@@ -40,7 +41,9 @@ func NewBuildController(githubService *githubServices.GithubService, userService
 	}
 
 	waitingBuildSchedulerOnce.Do(func() {
-		go controller.startWaitingBuildScheduler()
+		if enableBuildCapacityQueue {
+			go controller.startWaitingBuildScheduler()
+		}
 	})
 
 	return controller
@@ -164,7 +167,10 @@ func isPodBackedBuildStatus(status string) bool {
 }
 
 func buildHasMore(status string) bool {
-	return status == "running" || status == "pending" || status == "waiting"
+	if enableBuildCapacityQueue {
+		return status == "running" || status == "pending" || status == "waiting"
+	}
+	return status == "running" || status == "pending"
 }
 
 func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Build, project dbEngine.Project, userID uint) error {
@@ -193,6 +199,10 @@ func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Bui
 }
 
 func (c *BuildController) startBuildOrQueue(ctx context.Context, build *dbEngine.Build, project dbEngine.Project, userID uint) error {
+	if !enableBuildCapacityQueue {
+		return c.startBuildPod(ctx, build, project, userID)
+	}
+
 	buildSchedulingMutex.Lock()
 	defer buildSchedulingMutex.Unlock()
 
@@ -210,6 +220,10 @@ func (c *BuildController) startBuildOrQueue(ctx context.Context, build *dbEngine
 }
 
 func (c *BuildController) startWaitingBuildScheduler() {
+	if !enableBuildCapacityQueue {
+		return
+	}
+
 	c.processWaitingBuildQueue()
 
 	ticker := time.NewTicker(waitingBuildSchedulerInterval)
@@ -221,10 +235,17 @@ func (c *BuildController) startWaitingBuildScheduler() {
 }
 
 func (c *BuildController) triggerWaitingBuildProcessing() {
+	if !enableBuildCapacityQueue {
+		return
+	}
 	go c.processWaitingBuildQueue()
 }
 
 func (c *BuildController) processWaitingBuildQueue() {
+	if !enableBuildCapacityQueue {
+		return
+	}
+
 	if dbEngine.DB == nil {
 		return
 	}
