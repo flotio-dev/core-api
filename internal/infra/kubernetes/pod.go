@@ -36,7 +36,7 @@ type BuildConfig struct {
 
 const completedPodCleanupDelay = 30 * time.Second
 const buildPodMemoryRequirement = "8Gi"
-const defaultFallbackMaxConcurrentBuildPods = 5
+const defaultFallbackMaxConcurrentBuildPods = 4
 
 var scheduledPodCleanup sync.Map
 var buildPodMemoryRequirementQuantity = resource.MustParse(buildPodMemoryRequirement)
