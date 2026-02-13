@@ -65,31 +65,43 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		})
 		return
 	}
-	// Vérifier si l'installation est déjà liée à un utilisateur
-	respMessage := ""
-	existingInst, gerr := c.Service.GetGithubInstallationByInstallationID(payload.InstallationID)
-	if gerr == nil && existingInst != nil {
-		if existingInst.UserID != nil && *existingInst.UserID != user.ID {
-			helpers.RespondWithError(w, &helpers.ResponseOptions{
-				Status:  helpers.StatusInvalidArgs,
-				Message: "Cette installation GitHub est déjà liée à un autre compte",
-			})
-			return
-		}
-		// si liée au même utilisateur, on indique que c'est une mise à jour
-		respMessage = "Installation GitHub mise à jour"
-	} else if gerr != nil {
-		if !errors.Is(gerr, gorm.ErrRecordNotFound) {
-			helpers.RespondWithError(w, &helpers.ResponseOptions{
-				Status:  helpers.StatusInternalError,
-				Message: fmt.Sprintf("DB error: %v", gerr),
-			})
-			return
-		}
-		// si record not found, on continue normalement
+
+	existingInst, gerr := c.Service.GetGithubInstallationByUserID(user.ID)
+
+	if gerr != nil && !errors.Is(gerr, gorm.ErrRecordNotFound) {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusInternalError,
+			Message: fmt.Sprintf("DB error: %v", gerr),
+		})
+		return
 	}
 
-	if err := c.Service.SaveInstallation(user.ID, payload.InstallationID, "", "", 0); err != nil {
+	if errors.Is(gerr, gorm.ErrRecordNotFound) {
+		if err := c.Service.SaveInstallation(user.ID, payload.InstallationID, "", "", 0); err != nil {
+			helpers.RespondWithError(w, &helpers.ResponseOptions{
+				Status:  helpers.StatusInternalError,
+				Message: fmt.Sprintf("DB error: %v", err),
+			})
+			return
+		}
+
+		helpers.RespondWithSuccess(w, &githubModels.PostInstallationResponse{
+			InstallationID: payload.InstallationID,
+		}, &helpers.ResponseOptions{
+			Message: "Installation GitHub liée avec succès",
+		})
+		return
+	}
+
+	if existingInst.InstallationID != payload.InstallationID {
+		helpers.RespondWithError(w, &helpers.ResponseOptions{
+			Status:  helpers.StatusInvalidArgs,
+			Message: "Un utilisateur ne peut lier qu'une seule installation GitHub",
+		})
+		return
+	}
+
+	if err := c.Service.UpdateInstallation(existingInst.ID, payload.InstallationID); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
 			Message: fmt.Sprintf("DB error: %v", err),
@@ -97,14 +109,11 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
-	opts := (*helpers.ResponseOptions)(nil)
-	if respMessage != "" {
-		opts = &helpers.ResponseOptions{Message: respMessage}
-	}
-
 	helpers.RespondWithSuccess(w, &githubModels.PostInstallationResponse{
 		InstallationID: payload.InstallationID,
-	}, opts)
+	}, &helpers.ResponseOptions{
+		Message: "Installation GitHub mise à jour",
+	})
 }
 
 // @Summary      Get GitHub Repositories

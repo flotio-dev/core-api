@@ -227,3 +227,24 @@ func (s *GithubService) FindBuildPath(ctx context.Context, installationID int64,
 	}
 	return dir, nil
 }
+
+func (s *GithubService) GetGithubInstallationByUserID(userID uint) (*dbEngine.GithubInstallation, error) {
+	var installation dbEngine.GithubInstallation
+
+	err := s.Repository.DB.
+		Where("user_id = ?", userID).
+		First(&installation).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &installation, nil
+}
+
+func (s *GithubService) UpdateInstallation(userID uint, installationID int64) error {
+	return s.Repository.DB.
+		Model(&dbEngine.GithubInstallation{}).
+		Where("user_id = ?", userID).
+		Update("installation_id", installationID).Error
+}
