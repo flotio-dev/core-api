@@ -35,8 +35,11 @@ type BuildConfig struct {
 }
 
 const completedPodCleanupDelay = 30 * time.Second
+const buildPodMemoryRequirement = "8Gi"
 
 var scheduledPodCleanup sync.Map
+var buildPodMemoryRequirementQuantity = resource.MustParse(buildPodMemoryRequirement)
+var buildPodMemoryRequirementBytes = buildPodMemoryRequirementQuantity.Value()
 
 // GetPodName generates a unique pod name prefixed with the server hostname
 func GetPodName(buildID uint) string {
@@ -228,6 +231,91 @@ func CreateBuildPod(config BuildConfig) error {
 	}
 
 	return nil
+}
+
+// HasBuildPodCapacity returns whether the cluster has enough memory to start one more build pod.
+// Capacity is estimated as:
+//
+//	total allocatable memory on ready/schedulable nodes
+//	- (active build pods * 8Gi)
+func HasBuildPodCapacity() (bool, error) {
+	kubeConfig, err := getKubernetesConfig()
+	if err != nil {
+		return false, err
+	}
+
+	clientset, err := kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		return false, fmt.Errorf("failed to create clientset: %v", err)
+	}
+
+	totalAllocatableBytes, err := getTotalReadyNodeAllocatableMemory(clientset)
+	if err != nil {
+		return false, err
+	}
+	if totalAllocatableBytes <= 0 {
+		return false, fmt.Errorf("no ready schedulable nodes with allocatable memory found")
+	}
+
+	activeBuildPods, err := countActiveBuildPods(clientset, getNamespace())
+	if err != nil {
+		return false, err
+	}
+
+	usedBytes := int64(activeBuildPods) * buildPodMemoryRequirementBytes
+	availableBytes := totalAllocatableBytes - usedBytes
+
+	return availableBytes >= buildPodMemoryRequirementBytes, nil
+}
+
+func getTotalReadyNodeAllocatableMemory(clientset *kubernetes.Clientset) (int64, error) {
+	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list cluster nodes: %v", err)
+	}
+
+	var total int64
+	for _, node := range nodes.Items {
+		if node.Spec.Unschedulable || !isNodeReady(node) {
+			continue
+		}
+
+		mem, ok := node.Status.Allocatable[v1.ResourceMemory]
+		if !ok {
+			continue
+		}
+		total += mem.Value()
+	}
+
+	return total, nil
+}
+
+func isNodeReady(node v1.Node) bool {
+	for _, condition := range node.Status.Conditions {
+		if condition.Type == v1.NodeReady && condition.Status == v1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
+func countActiveBuildPods(clientset *kubernetes.Clientset, namespace string) (int, error) {
+	pods, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: "app=flotio-build",
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list build pods: %v", err)
+	}
+
+	active := 0
+	for _, pod := range pods.Items {
+		switch pod.Status.Phase {
+		case v1.PodPending, v1.PodRunning, v1.PodUnknown:
+			active++
+		}
+	}
+
+	return active, nil
 }
 
 // buildEnvironmentVariables creates the environment variables for the build container

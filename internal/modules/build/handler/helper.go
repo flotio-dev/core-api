@@ -7,15 +7,19 @@ import (
 
 func convertDBBuild(build dbEngine.Build) models.BuildDTO {
 	return models.BuildDTO{
-		ID:          build.ID,
-		CreatedAt:   build.CreatedAt,
-		UpdatedAt:   build.UpdatedAt,
-		ProjectID:   build.ProjectID,
-		Status:      build.Status,
-		Platform:    build.Platform,
-		ContainerID: build.ContainerID,
-		Duration:    build.Duration,
-		APKURL:      build.APKURL,
+		ID:             build.ID,
+		CreatedAt:      build.CreatedAt,
+		UpdatedAt:      build.UpdatedAt,
+		ProjectID:      build.ProjectID,
+		Status:         build.Status,
+		Platform:       build.Platform,
+		BuildMode:      build.BuildMode,
+		BuildTarget:    build.BuildTarget,
+		FlutterChannel: build.FlutterChannel,
+		GitBranch:      build.GitBranch,
+		ContainerID:    build.ContainerID,
+		Duration:       build.Duration,
+		APKURL:         build.APKURL,
 	}
 }
 

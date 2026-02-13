@@ -27,12 +27,23 @@ type BuildController struct {
 	userService   *userServices.UserService
 }
 
+const waitingBuildSchedulerInterval = 5 * time.Second
+
+var buildSchedulingMutex sync.Mutex
+var waitingBuildSchedulerOnce sync.Once
+
 // NewBuildController creates a new BuildController
 func NewBuildController(githubService *githubServices.GithubService, userService *userServices.UserService) *BuildController {
-	return &BuildController{
+	controller := &BuildController{
 		githubService: githubService,
 		userService:   userService,
 	}
+
+	waitingBuildSchedulerOnce.Do(func() {
+		go controller.startWaitingBuildScheduler()
+	})
+
+	return controller
 }
 
 func stringPtrValue(value *string) string {
@@ -102,6 +113,178 @@ func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint
 	return "", ""
 }
 
+func normalizeBuildRequestDefaults(req *buildModels.BuildRequest) {
+	if req.Platform == "" {
+		req.Platform = "android"
+	}
+	if req.BuildMode == "" {
+		req.BuildMode = "release"
+	}
+	if req.BuildTarget == "" {
+		req.BuildTarget = defaultBuildTarget(req.Platform)
+	}
+	if req.FlutterChannel == "" {
+		req.FlutterChannel = "stable"
+	}
+	if req.GitBranch == "" {
+		req.GitBranch = "main"
+	}
+}
+
+func defaultBuildTarget(platform string) string {
+	if platform == "android" {
+		return "apk"
+	}
+	if platform == "" {
+		return "apk"
+	}
+	return platform
+}
+
+func normalizeBuildDefaults(build *dbEngine.Build) {
+	if build.Platform == "" {
+		build.Platform = "android"
+	}
+	if build.BuildMode == "" {
+		build.BuildMode = "release"
+	}
+	if build.BuildTarget == "" {
+		build.BuildTarget = defaultBuildTarget(build.Platform)
+	}
+	if build.FlutterChannel == "" {
+		build.FlutterChannel = "stable"
+	}
+	if build.GitBranch == "" {
+		build.GitBranch = "main"
+	}
+}
+
+func isPodBackedBuildStatus(status string) bool {
+	return status == "running" || status == "pending"
+}
+
+func buildHasMore(status string) bool {
+	return status == "running" || status == "pending" || status == "waiting"
+}
+
+func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Build, project dbEngine.Project, userID uint) error {
+	normalizeBuildDefaults(build)
+
+	gitUsername, gitToken := c.resolveGitCredentials(ctx, userID, project)
+	buildConfig := kubernetesEngine.BuildConfig{
+		BuildID:        build.ID,
+		Project:        project,
+		Platform:       build.Platform,
+		BuildMode:      build.BuildMode,
+		BuildTarget:    build.BuildTarget,
+		FlutterChannel: build.FlutterChannel,
+		GitBranch:      build.GitBranch,
+		GitUsername:    gitUsername,
+		GitToken:       gitToken,
+	}
+
+	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {
+		return err
+	}
+
+	go kubernetesEngine.StartPodLogListener(build.ID)
+	build.Status = "running"
+	return dbEngine.DB.Save(build).Error
+}
+
+func (c *BuildController) startBuildOrQueue(ctx context.Context, build *dbEngine.Build, project dbEngine.Project, userID uint) error {
+	buildSchedulingMutex.Lock()
+	defer buildSchedulingMutex.Unlock()
+
+	hasCapacity, err := kubernetesEngine.HasBuildPodCapacity()
+	if err != nil {
+		return fmt.Errorf("failed to check cluster build capacity: %w", err)
+	}
+
+	if !hasCapacity {
+		build.Status = "waiting"
+		return dbEngine.DB.Save(build).Error
+	}
+
+	return c.startBuildPod(ctx, build, project, userID)
+}
+
+func (c *BuildController) startWaitingBuildScheduler() {
+	c.processWaitingBuildQueue()
+
+	ticker := time.NewTicker(waitingBuildSchedulerInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		c.processWaitingBuildQueue()
+	}
+}
+
+func (c *BuildController) triggerWaitingBuildProcessing() {
+	go c.processWaitingBuildQueue()
+}
+
+func (c *BuildController) processWaitingBuildQueue() {
+	if dbEngine.DB == nil {
+		return
+	}
+
+	buildSchedulingMutex.Lock()
+	defer buildSchedulingMutex.Unlock()
+
+	for {
+		var waitingBuild dbEngine.Build
+		if err := dbEngine.DB.Where("status = ?", "waiting").Order("created_at ASC").First(&waitingBuild).Error; err != nil {
+			if err != gorm.ErrRecordNotFound {
+				fmt.Printf("Build queue: failed to fetch waiting build: %v\n", err)
+			}
+			return
+		}
+
+		hasCapacity, err := kubernetesEngine.HasBuildPodCapacity()
+		if err != nil {
+			fmt.Printf("Build queue: failed to check capacity: %v\n", err)
+			return
+		}
+		if !hasCapacity {
+			return
+		}
+
+		claimResult := dbEngine.DB.Model(&dbEngine.Build{}).
+			Where("id = ? AND status = ?", waitingBuild.ID, "waiting").
+			Update("status", "pending")
+		if claimResult.Error != nil {
+			fmt.Printf("Build queue: failed to claim build %d: %v\n", waitingBuild.ID, claimResult.Error)
+			return
+		}
+		if claimResult.RowsAffected == 0 {
+			continue
+		}
+		waitingBuild.Status = "pending"
+
+		var project dbEngine.Project
+		if err := dbEngine.DB.First(&project, waitingBuild.ProjectID).Error; err != nil {
+			fmt.Printf("Build queue: failed to fetch project %d for build %d: %v\n", waitingBuild.ProjectID, waitingBuild.ID, err)
+			waitingBuild.Status = "failed"
+			if waitingBuild.Duration == 0 {
+				waitingBuild.Duration = int64(time.Since(waitingBuild.CreatedAt).Seconds())
+			}
+			dbEngine.DB.Save(&waitingBuild)
+			continue
+		}
+
+		if err := c.startBuildPod(context.Background(), &waitingBuild, project, project.UserID); err != nil {
+			fmt.Printf("Build queue: failed to start waiting build %d: %v\n", waitingBuild.ID, err)
+			waitingBuild.Status = "failed"
+			if waitingBuild.Duration == 0 {
+				waitingBuild.Duration = int64(time.Since(waitingBuild.CreatedAt).Seconds())
+			}
+			dbEngine.DB.Save(&waitingBuild)
+			continue
+		}
+	}
+}
+
 // BuildCancelHandler godoc
 //
 //	@Summary		Cancel a build
@@ -137,7 +320,7 @@ func (bc *BuildController) BuildCancelHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var build dbEngine.Build
-	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = ?)", buildID, projectID, userInfo.ID).First(&build).Error; err != nil {
+	if err := dbEngine.DB.Joins("JOIN projects ON builds.project_id = projects.id").Where("builds.id = ? AND projects.id = ? AND projects.user_id = ?", buildID, projectID, userInfo.ID).First(&build).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 			return
@@ -161,6 +344,7 @@ func (bc *BuildController) BuildCancelHandler(w http.ResponseWriter, r *http.Req
 		helpers.WriteErrorJSON(w, "Failed to cancel build", http.StatusInternalServerError)
 		return
 	}
+	bc.triggerWaitingBuildProcessing()
 
 	helpers.WriteJSON(w, buildModels.BuildResponse{Build: convertDBBuild(build)})
 }
@@ -208,6 +392,7 @@ func (bc *BuildController) BuildDeleteHandler(w http.ResponseWriter, r *http.Req
 		helpers.WriteErrorJSON(w, "Failed to fetch build", http.StatusInternalServerError)
 		return
 	}
+	previousStatus := build.Status
 
 	// Delete the Kubernetes pod (if still running)
 	if build.Status == "running" || build.Status == "pending" {
@@ -235,6 +420,9 @@ func (bc *BuildController) BuildDeleteHandler(w http.ResponseWriter, r *http.Req
 	if err := dbEngine.DB.Delete(&build).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to delete build", http.StatusInternalServerError)
 		return
+	}
+	if isPodBackedBuildStatus(previousStatus) {
+		bc.triggerWaitingBuildProcessing()
 	}
 
 	helpers.WriteJSON(w, buildModels.DeleteResponse{Status: "deleted"})
@@ -288,7 +476,7 @@ func (bc *BuildController) BuildsListHandler(w http.ResponseWriter, r *http.Requ
 			continue
 		}
 
-		if builds[i].Status == "running" || builds[i].Status == "pending" {
+		if isPodBackedBuildStatus(builds[i].Status) {
 			podStatus, err := kubernetesEngine.GetPodStatus(builds[i].ID)
 			if err != nil {
 				// Pod might not exist anymore, mark as failed
@@ -502,7 +690,7 @@ func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.R
 		case <-timeout:
 			// Timeout reached, return current status and any new logs
 			// Also get pod status and update build status in DB
-			if build.Status == "running" || build.Status == "pending" {
+			if isPodBackedBuildStatus(build.Status) {
 				podStatus, err = kubernetesEngine.GetPodStatus(uint(buildID))
 				if err == nil {
 					// Map pod status to build status
@@ -548,7 +736,7 @@ func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.R
 				LastLine:    newLastLine,
 				Status:      build.Status,
 				PodStatus:   podStatus,
-				HasMore:     build.Status == "running" || build.Status == "pending",
+				HasMore:     buildHasMore(build.Status),
 				ElapsedTime: int64(time.Since(build.CreatedAt).Seconds()),
 			})
 			return
@@ -575,7 +763,7 @@ func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.R
 					Logs:        logs,
 					LastLine:    newLastLine,
 					Status:      build.Status,
-					HasMore:     build.Status == "running" || build.Status == "pending",
+					HasMore:     buildHasMore(build.Status),
 					ElapsedTime: int64(time.Since(build.CreatedAt).Seconds()),
 				})
 				return
@@ -583,7 +771,7 @@ func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.R
 
 			// Check if build is still running
 			dbEngine.DB.First(&build, buildID)
-			if build.Status != "running" && build.Status != "pending" {
+			if !buildHasMore(build.Status) {
 				// Build finished, return final status
 				helpers.WriteJSON(w, BuildLogsSyncResponse{
 					Logs:        []string{},
@@ -697,27 +885,7 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 		req.FlutterChannel = "stable"
 		req.GitBranch = "main"
 	}
-
-	// Set defaults for empty fields
-	if req.Platform == "" {
-		req.Platform = "android"
-	}
-	if req.BuildMode == "" {
-		req.BuildMode = "release"
-	}
-	if req.BuildTarget == "" {
-		if req.Platform == "android" {
-			req.BuildTarget = "apk"
-		} else {
-			req.BuildTarget = req.Platform
-		}
-	}
-	if req.FlutterChannel == "" {
-		req.FlutterChannel = "stable"
-	}
-	if req.GitBranch == "" {
-		req.GitBranch = "main"
-	}
+	normalizeBuildRequestDefaults(&req)
 
 	var project dbEngine.Project
 	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
@@ -730,9 +898,13 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	build := dbEngine.Build{
-		ProjectID: project.ID,
-		Status:    "pending",
-		Platform:  req.Platform,
+		ProjectID:      project.ID,
+		Status:         "pending",
+		Platform:       req.Platform,
+		BuildMode:      req.BuildMode,
+		BuildTarget:    req.BuildTarget,
+		FlutterChannel: req.FlutterChannel,
+		GitBranch:      req.GitBranch,
 	}
 
 	if err := dbEngine.DB.Create(&build).Error; err != nil {
@@ -740,37 +912,17 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	gitUsername, gitToken := c.resolveGitCredentials(r.Context(), userInfo.ID, project)
-
-	// Start the build process by creating a Kubernetes pod
-	buildConfig := kubernetesEngine.BuildConfig{
-		BuildID:        build.ID,
-		Project:        project,
-		Platform:       req.Platform,
-		BuildMode:      req.BuildMode,
-		BuildTarget:    req.BuildTarget,
-		FlutterChannel: req.FlutterChannel,
-		GitBranch:      req.GitBranch,
-		GitUsername:    gitUsername,
-		GitToken:       gitToken,
-	}
-
-	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {
-		// If pod creation fails, update build status to failed
-		fmt.Printf("Failed to create build pod for build %d: %v\n", build.ID, err)
-
+	if err := c.startBuildOrQueue(r.Context(), &build, project, userInfo.ID); err != nil {
+		// If build start fails, update status to failed
+		fmt.Printf("Failed to start build %d: %v\n", build.ID, err)
 		build.Status = "failed"
+		if build.Duration == 0 {
+			build.Duration = int64(time.Since(build.CreatedAt).Seconds())
+		}
 		dbEngine.DB.Save(&build)
 		helpers.WriteErrorJSON(w, "Failed to start build process", http.StatusInternalServerError)
 		return
 	}
-
-	// Start listening to pod logs in a goroutine
-	go kubernetesEngine.StartPodLogListener(build.ID)
-
-	// Update build status to running
-	build.Status = "running"
-	dbEngine.DB.Save(&build)
 
 	helpers.WriteJSON(w, buildModels.BuildResponse{Build: convertDBBuild(build)})
 }
