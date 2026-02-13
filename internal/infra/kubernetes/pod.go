@@ -36,6 +36,7 @@ type BuildConfig struct {
 
 const completedPodCleanupDelay = 30 * time.Second
 const buildPodMemoryRequirement = "8Gi"
+const defaultFallbackMaxConcurrentBuildPods = 5
 
 var scheduledPodCleanup sync.Map
 var buildPodMemoryRequirementQuantity = resource.MustParse(buildPodMemoryRequirement)
@@ -249,29 +250,46 @@ func HasBuildPodCapacity() (bool, error) {
 		return false, fmt.Errorf("failed to create clientset: %v", err)
 	}
 
+	namespace := getNamespace()
+
+	activeBuildPods, err := countActiveBuildPods(clientset, namespace)
+	if err != nil {
+		return false, err
+	}
+
+	configuredMaxConcurrentPods, hasConfiguredMaxConcurrentPods, err := getConfiguredMaxConcurrentBuildPods()
+	if err != nil {
+		return false, err
+	}
+	if hasConfiguredMaxConcurrentPods {
+		return activeBuildPods < configuredMaxConcurrentPods, nil
+	}
+
 	totalAllocatableBytes, err := getTotalReadyNodeAllocatableMemory(clientset)
 	if err != nil {
+		// Fallback for service accounts that cannot list nodes at cluster scope.
+		if apierrors.IsForbidden(err) {
+			fmt.Printf("Build capacity: cannot list nodes (forbidden). Using fallback max concurrent pods=%d. Set BUILD_MAX_CONCURRENT_PODS to tune.\n", defaultFallbackMaxConcurrentBuildPods)
+			return activeBuildPods < defaultFallbackMaxConcurrentBuildPods, nil
+		}
 		return false, err
 	}
 	if totalAllocatableBytes <= 0 {
-		return false, fmt.Errorf("no ready schedulable nodes with allocatable memory found")
+		return false, nil
 	}
 
-	activeBuildPods, err := countActiveBuildPods(clientset, getNamespace())
-	if err != nil {
-		return false, err
+	maxConcurrentPodsFromMemory := int(totalAllocatableBytes / buildPodMemoryRequirementBytes)
+	if maxConcurrentPodsFromMemory <= 0 {
+		return false, nil
 	}
 
-	usedBytes := int64(activeBuildPods) * buildPodMemoryRequirementBytes
-	availableBytes := totalAllocatableBytes - usedBytes
-
-	return availableBytes >= buildPodMemoryRequirementBytes, nil
+	return activeBuildPods < maxConcurrentPodsFromMemory, nil
 }
 
 func getTotalReadyNodeAllocatableMemory(clientset *kubernetes.Clientset) (int64, error) {
 	nodes, err := clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		return 0, fmt.Errorf("failed to list cluster nodes: %v", err)
+		return 0, fmt.Errorf("failed to list cluster nodes: %w", err)
 	}
 
 	var total int64
@@ -304,7 +322,7 @@ func countActiveBuildPods(clientset *kubernetes.Clientset, namespace string) (in
 		LabelSelector: "app=flotio-build",
 	})
 	if err != nil {
-		return 0, fmt.Errorf("failed to list build pods: %v", err)
+		return 0, fmt.Errorf("failed to list build pods: %w", err)
 	}
 
 	active := 0
@@ -316,6 +334,20 @@ func countActiveBuildPods(clientset *kubernetes.Clientset, namespace string) (in
 	}
 
 	return active, nil
+}
+
+func getConfiguredMaxConcurrentBuildPods() (int, bool, error) {
+	rawValue := strings.TrimSpace(os.Getenv("BUILD_MAX_CONCURRENT_PODS"))
+	if rawValue == "" {
+		return 0, false, nil
+	}
+
+	value, err := strconv.Atoi(rawValue)
+	if err != nil || value < 1 {
+		return 0, false, fmt.Errorf("invalid BUILD_MAX_CONCURRENT_PODS value %q: must be an integer >= 1", rawValue)
+	}
+
+	return value, true, nil
 }
 
 // buildEnvironmentVariables creates the environment variables for the build container
