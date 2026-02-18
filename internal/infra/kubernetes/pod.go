@@ -205,10 +205,11 @@ func CreateBuildPod(config BuildConfig) error {
 			RestartPolicy: v1.RestartPolicyNever,
 			Containers: []v1.Container{
 				{
-					Name:         "build",
-					Image:        getFlutterBuildImage(),
-					Env:          envVars,
-					VolumeMounts: volumeMounts,
+					Name:            "build",
+					Image:           getFlutterBuildImage(),
+					ImagePullPolicy: getFlutterBuildImagePullPolicy(),
+					Env:             envVars,
+					VolumeMounts:    volumeMounts,
 					Resources: v1.ResourceRequirements{
 						Requests: v1.ResourceList{
 							v1.ResourceCPU:    parseQuantity("1000m"),
@@ -796,6 +797,25 @@ func getFlutterBuildImage() string {
 		image = "flotio/flutter-build:latest" // Default image name
 	}
 	return image
+}
+
+func getFlutterBuildImagePullPolicy() v1.PullPolicy {
+	pullPolicy := strings.TrimSpace(os.Getenv("FLUTTER_BUILD_IMAGE_PULL_POLICY"))
+	if pullPolicy == "" {
+		return v1.PullAlways
+	}
+
+	switch strings.ToLower(pullPolicy) {
+	case "always":
+		return v1.PullAlways
+	case "ifnotpresent":
+		return v1.PullIfNotPresent
+	case "never":
+		return v1.PullNever
+	default:
+		fmt.Printf("Invalid FLUTTER_BUILD_IMAGE_PULL_POLICY=%q, defaulting to Always\n", pullPolicy)
+		return v1.PullAlways
+	}
 }
 
 func getBuildMode(mode string) string {
