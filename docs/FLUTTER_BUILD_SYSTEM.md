@@ -48,6 +48,38 @@ docker push flotio/flutter-build:latest
 - `FLUTTER_BUILD_IMAGE_PULL_POLICY` : Politique de pull Kubernetes pour l'image de build (`Always`, `IfNotPresent`, `Never`, défaut: `Always`)
 - `KUBECTL_API` : URL de l'API Kubernetes (si hors cluster)
 - `KUBECTL_TOKEN` : Token d'authentification (si hors cluster)
+- `AWS_S3_CACHE_PREFIX` : Préfixe S3 du cache de dépendances (défaut: `build-cache`)
+- `CACHE_ENABLED` : Active la restauration/publication du cache (défaut: `true`)
+- `CACHE_UPLOAD_ON_SUCCESS` : Upload du cache uniquement en build réussi (défaut: `true`)
+- `CACHE_TTL_HOURS` : TTL cible en heures (appliqué via lifecycle bucket, défaut: `336`)
+
+## Cache de dépendances (S3)
+
+Le builder restaure un cache au début du job puis republie le cache en fin de build réussi.
+
+- Scope de clé : `project-{id}/{branch}/{fingerprint-lockfiles}`
+- Sources fingerprint : `pubspec.lock`, fichiers Gradle Android (`gradle-wrapper.properties`, `build.gradle(.kts)`)
+- Dossiers cachés : Pub cache Flutter/Dart, cache Gradle, intermediates Android
+- Backend : bucket S3/MinIO existant, sous `AWS_S3_CACHE_PREFIX`
+
+Le TTL réel est géré par la policy lifecycle du bucket (la variable `CACHE_TTL_HOURS` sert de cible d'exploitation).
+
+### Endpoints de gestion du cache
+
+- `GET /project/{id}/cache/metrics`
+    - Optionnel: `?branch=main`
+    - Optionnel: `&fingerprint=<sha256>` (nécessite `branch`)
+- `GET /project/{id}/cache/entries`
+    - Requis: `?branch=main`
+    - Retourne la liste des `fingerprint` disponibles avec taille/date
+- `DELETE /project/{id}/cache`
+    - Optionnel: `?branch=main`
+    - Optionnel: `&fingerprint=<sha256>` (nécessite `branch`)
+
+Règles:
+- Sans `branch` : scope projet complet (`project-{id}`)
+- Avec `branch` : scope branche (`project-{id}/{branch}`)
+- Avec `branch` + `fingerprint` : scope entrée de cache unique
 
 ## Utilisation
 
@@ -340,7 +372,7 @@ L'ancien système utilisait des commandes shell inline. Pour migrer :
 ## Améliorations futures
 
 - [ ] Support des builds multi-platform simultanés
-- [ ] Cache des dépendances Flutter/Gradle
+- [x] Cache des dépendances Flutter/Gradle
 - [ ] Notifications Webhook en fin de build
 - [ ] Interface UI pour gérer les variables/fichiers
 - [ ] Support des builds incrémentaux

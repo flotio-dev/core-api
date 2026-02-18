@@ -43,3 +43,39 @@ type LogsResponse struct {
 type DeleteResponse struct {
 	Status string `json:"status"`
 }
+
+type CachePurgeResponse struct {
+	Status         string `json:"status"`
+	Namespace      string `json:"namespace"`
+	Fingerprint    string `json:"fingerprint,omitempty"`
+	DeletedObjects int    `json:"deleted_objects"`
+}
+
+type CacheMetricsResponse struct {
+	Namespace         string     `json:"namespace"`
+	Fingerprint       string     `json:"fingerprint,omitempty"`
+	Prefix            string     `json:"prefix"`
+	ObjectCount       int64      `json:"object_count"`
+	TotalSizeBytes    int64      `json:"total_size_bytes"`
+	LastModifiedAt    *time.Time `json:"last_modified_at,omitempty"`
+	PurgeRequests     uint64     `json:"purge_requests"`
+	PurgedObjects     uint64     `json:"purged_objects"`
+	MetricsRequests   uint64     `json:"metrics_requests"`
+	GeneratedAt       time.Time  `json:"generated_at"`
+	RetentionTTLHours int        `json:"retention_ttl_hours"`
+}
+
+type CacheEntryDTO struct {
+	Fingerprint    string     `json:"fingerprint"`
+	Prefix         string     `json:"prefix"`
+	ObjectCount    int64      `json:"object_count"`
+	TotalSizeBytes int64      `json:"total_size_bytes"`
+	LastModifiedAt *time.Time `json:"last_modified_at,omitempty"`
+}
+
+type CacheEntriesResponse struct {
+	Namespace   string          `json:"namespace"`
+	Branch      string          `json:"branch"`
+	Entries     []CacheEntryDTO `json:"entries"`
+	GeneratedAt time.Time       `json:"generated_at"`
+}

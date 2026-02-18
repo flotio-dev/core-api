@@ -23,15 +23,19 @@ import (
 
 // BuildConfig contains all configuration for creating a build pod
 type BuildConfig struct {
-	BuildID        uint
-	Project        dbEngine.Project
-	Platform       string
-	BuildMode      string // release, debug, profile
-	BuildTarget    string // apk, aab, ios, web
-	FlutterChannel string // stable, beta, dev
-	GitBranch      string
-	GitUsername    string
-	GitToken       string
+	BuildID              uint
+	Project              dbEngine.Project
+	Platform             string
+	BuildMode            string // release, debug, profile
+	BuildTarget          string // apk, aab, ios, web
+	FlutterChannel       string // stable, beta, dev
+	GitBranch            string
+	GitUsername          string
+	GitToken             string
+	CacheEnabled         bool
+	CacheUploadOnSuccess bool
+	CacheNamespace       string
+	CacheTTLHours        int
 }
 
 const completedPodCleanupDelay = 30 * time.Second
@@ -362,6 +366,16 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 		buildFolder = *config.Project.BuildFolder
 	}
 
+	cacheNamespace := strings.TrimSpace(config.CacheNamespace)
+	if cacheNamespace == "" {
+		cacheNamespace = "global/main"
+	}
+
+	cacheTTLHours := config.CacheTTLHours
+	if cacheTTLHours <= 0 {
+		cacheTTLHours = 24 * 14
+	}
+
 	envVars := []v1.EnvVar{
 		{Name: "GIT_REPO", Value: gitRepo},
 		{Name: "BUILD_FOLDER", Value: buildFolder},
@@ -380,6 +394,12 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 		{Name: "AWS_REGION", Value: getAWSRegion()},
 		{Name: "AWS_ACCESS_KEY_ID", Value: os.Getenv("AWS_ACCESS_KEY_ID")},
 		{Name: "AWS_SECRET_ACCESS_KEY", Value: os.Getenv("AWS_SECRET_ACCESS_KEY")},
+		{Name: "CACHE_ENABLED", Value: strconv.FormatBool(config.CacheEnabled)},
+		{Name: "CACHE_UPLOAD_ON_SUCCESS", Value: strconv.FormatBool(config.CacheUploadOnSuccess)},
+		{Name: "CACHE_NAMESPACE", Value: cacheNamespace},
+		{Name: "CACHE_TTL_HOURS", Value: strconv.Itoa(cacheTTLHours)},
+		{Name: "CACHE_INCLUDE_ANDROID_INTERMEDIATES", Value: "true"},
+		{Name: "AWS_S3_CACHE_PREFIX", Value: getAWSS3CachePrefix()},
 	}
 
 	// Add Git branch if specified
@@ -877,6 +897,15 @@ func getAWSS3Prefix() string {
 	prefix := os.Getenv("AWS_S3_PREFIX")
 	if prefix == "" {
 		prefix = "builds"
+	}
+	return prefix
+}
+
+// getAWSS3CachePrefix returns the S3 prefix/folder for storing dependency caches
+func getAWSS3CachePrefix() string {
+	prefix := os.Getenv("AWS_S3_CACHE_PREFIX")
+	if prefix == "" {
+		prefix = "build-cache"
 	}
 	return prefix
 }
