@@ -45,6 +45,7 @@ docker push flotio/flutter-build:latest
 
 - `K8S_NAMESPACE` : Namespace Kubernetes (défaut: "default")
 - `FLUTTER_BUILD_IMAGE` : Image Docker à utiliser (défaut: "flotio/flutter-build:latest")
+- `FLUTTER_BUILD_IMAGE_PULL_POLICY` : Politique de pull Kubernetes pour l'image de build (`Always`, `IfNotPresent`, `Never`, défaut: `Always`)
 - `KUBECTL_API` : URL de l'API Kubernetes (si hors cluster)
 - `KUBECTL_TOKEN` : Token d'authentification (si hors cluster)
 
