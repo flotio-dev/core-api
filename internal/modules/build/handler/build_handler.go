@@ -166,6 +166,35 @@ func isPodBackedBuildStatus(status string) bool {
 	return status == "running" || status == "pending"
 }
 
+func sanitizeCacheSegment(segment string) string {
+	segment = strings.TrimSpace(strings.ToLower(segment))
+	if segment == "" {
+		return "default"
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(segment))
+	for _, char := range segment {
+		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '-' || char == '_' || char == '.' {
+			builder.WriteRune(char)
+			continue
+		}
+		builder.WriteRune('-')
+	}
+
+	normalized := strings.Trim(builder.String(), "-._")
+	if normalized == "" {
+		return "default"
+	}
+
+	return normalized
+}
+
+func buildCacheNamespace(projectID uint, gitBranch string) string {
+	branchSegment := sanitizeCacheSegment(gitBranch)
+	return fmt.Sprintf("project-%d/%s", projectID, branchSegment)
+}
+
 func buildHasMore(status string) bool {
 	if enableBuildCapacityQueue {
 		return status == "running" || status == "pending" || status == "waiting"
@@ -178,15 +207,19 @@ func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Bui
 
 	gitUsername, gitToken := c.resolveGitCredentials(ctx, userID, project)
 	buildConfig := kubernetesEngine.BuildConfig{
-		BuildID:        build.ID,
-		Project:        project,
-		Platform:       build.Platform,
-		BuildMode:      build.BuildMode,
-		BuildTarget:    build.BuildTarget,
-		FlutterChannel: build.FlutterChannel,
-		GitBranch:      build.GitBranch,
-		GitUsername:    gitUsername,
-		GitToken:       gitToken,
+		BuildID:              build.ID,
+		Project:              project,
+		Platform:             build.Platform,
+		BuildMode:            build.BuildMode,
+		BuildTarget:          build.BuildTarget,
+		FlutterChannel:       build.FlutterChannel,
+		GitBranch:            build.GitBranch,
+		GitUsername:          gitUsername,
+		GitToken:             gitToken,
+		CacheEnabled:         true,
+		CacheUploadOnSuccess: true,
+		CacheNamespace:       buildCacheNamespace(project.ID, build.GitBranch),
+		CacheTTLHours:        24 * 14,
 	}
 
 	if err := kubernetesEngine.CreateBuildPod(buildConfig); err != nil {
@@ -814,6 +847,254 @@ type BuildDownloadResponse struct {
 	ExpiresIn   int    `json:"expires_in"`
 }
 
+func sanitizeCacheFingerprint(fingerprint string) string {
+	fingerprint = strings.TrimSpace(strings.ToLower(fingerprint))
+	if fingerprint == "" {
+		return ""
+	}
+
+	var builder strings.Builder
+	builder.Grow(len(fingerprint))
+	for _, char := range fingerprint {
+		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') || char == '-' || char == '_' || char == '.' {
+			builder.WriteRune(char)
+			continue
+		}
+		builder.WriteRune('-')
+	}
+
+	return strings.Trim(builder.String(), "-._")
+}
+
+func parseBranchCacheNamespace(projectID uint, rawBranch string) string {
+	branch := strings.TrimSpace(rawBranch)
+	if branch == "" {
+		return fmt.Sprintf("project-%d", projectID)
+	}
+	return buildCacheNamespace(projectID, branch)
+}
+
+func parseCacheScopeFromQuery(projectID uint, branch string, fingerprint string) (string, string, error) {
+	cacheNamespace := parseBranchCacheNamespace(projectID, branch)
+	cacheFingerprint := sanitizeCacheFingerprint(fingerprint)
+
+	if cacheFingerprint != "" && strings.TrimSpace(branch) == "" {
+		return "", "", fmt.Errorf("branch is required when fingerprint is provided")
+	}
+
+	return cacheNamespace, cacheFingerprint, nil
+}
+
+func requireBranch(rawBranch string) (string, error) {
+	branch := strings.TrimSpace(rawBranch)
+	if branch == "" {
+		return "", fmt.Errorf("branch query parameter is required")
+	}
+	return branch, nil
+}
+
+func (bc *BuildController) ensureProjectOwnership(userID uint, projectID uint) error {
+	var project dbEngine.Project
+	return dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userID).First(&project).Error
+}
+
+// CachePurgeHandler godoc
+//
+//	@Summary		Purge build cache
+//	@Description	Purge cache objects for a project, optionally filtered by branch
+//	@Tags			builds
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int		true	"Project ID"
+//	@Param			branch	query	string	false	"Branch name"
+//	@Param			fingerprint	query	string	false	"Cache fingerprint"
+//	@Success		200		{object}	buildModels.CachePurgeResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		401		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/project/{id}/cache [delete]
+func (bc *BuildController) CachePurgeHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	projectID, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := bc.ensureProjectOwnership(userInfo.ID, uint(projectID)); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
+		return
+	}
+
+	cacheNamespace, cacheFingerprint, err := parseCacheScopeFromQuery(uint(projectID), r.URL.Query().Get("branch"), r.URL.Query().Get("fingerprint"))
+	if err != nil {
+		helpers.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	deletedObjects, err := s3Engine.DeleteCacheScope(cacheNamespace, cacheFingerprint)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to purge cache", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, buildModels.CachePurgeResponse{
+		Status:         "purged",
+		Namespace:      cacheNamespace,
+		Fingerprint:    cacheFingerprint,
+		DeletedObjects: deletedObjects,
+	})
+}
+
+// CacheMetricsHandler godoc
+//
+//	@Summary		Cache metrics
+//	@Description	Get cache metrics for a project, optionally filtered by branch
+//	@Tags			builds
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int		true	"Project ID"
+//	@Param			branch	query	string	false	"Branch name"
+//	@Param			fingerprint	query	string	false	"Cache fingerprint"
+//	@Success		200		{object}	buildModels.CacheMetricsResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		401		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/project/{id}/cache/metrics [get]
+func (bc *BuildController) CacheMetricsHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	projectID, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := bc.ensureProjectOwnership(userInfo.ID, uint(projectID)); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
+		return
+	}
+
+	cacheNamespace, cacheFingerprint, err := parseCacheScopeFromQuery(uint(projectID), r.URL.Query().Get("branch"), r.URL.Query().Get("fingerprint"))
+	if err != nil {
+		helpers.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cacheMetrics, err := s3Engine.GetCacheScopeMetrics(cacheNamespace, cacheFingerprint)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to fetch cache metrics", http.StatusInternalServerError)
+		return
+	}
+
+	opMetrics := s3Engine.GetCacheOperationalMetrics()
+
+	helpers.WriteJSON(w, buildModels.CacheMetricsResponse{
+		Namespace:         cacheMetrics.Namespace,
+		Fingerprint:       cacheMetrics.Fingerprint,
+		Prefix:            cacheMetrics.Prefix,
+		ObjectCount:       cacheMetrics.ObjectCount,
+		TotalSizeBytes:    cacheMetrics.TotalSizeBytes,
+		LastModifiedAt:    cacheMetrics.LastModifiedAt,
+		PurgeRequests:     opMetrics.PurgeRequests,
+		PurgedObjects:     opMetrics.PurgedObjects,
+		MetricsRequests:   opMetrics.MetricsRequests,
+		GeneratedAt:       time.Now().UTC(),
+		RetentionTTLHours: 24 * 14,
+	})
+}
+
+// CacheEntriesHandler godoc
+//
+//	@Summary		Cache entries
+//	@Description	List cache fingerprints for a project branch
+//	@Tags			builds
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	int		true	"Project ID"
+//	@Param			branch	query	string	true	"Branch name"
+//	@Success		200		{object}	buildModels.CacheEntriesResponse
+//	@Failure		400		{object}	map[string]string
+//	@Failure		401		{object}	map[string]string
+//	@Failure		404		{object}	map[string]string
+//	@Failure		500		{object}	map[string]string
+//	@Router			/project/{id}/cache/entries [get]
+func (bc *BuildController) CacheEntriesHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := bc.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	projectID, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := bc.ensureProjectOwnership(userInfo.ID, uint(projectID)); err != nil {
+		if err == gorm.ErrRecordNotFound {
+			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
+		return
+	}
+
+	branch, err := requireBranch(r.URL.Query().Get("branch"))
+	if err != nil {
+		helpers.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	cacheNamespace := parseBranchCacheNamespace(uint(projectID), branch)
+	entries, err := s3Engine.ListCacheEntries(cacheNamespace)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to list cache entries", http.StatusInternalServerError)
+		return
+	}
+
+	responseEntries := make([]buildModels.CacheEntryDTO, 0, len(entries))
+	for _, entry := range entries {
+		responseEntries = append(responseEntries, buildModels.CacheEntryDTO{
+			Fingerprint:    entry.Fingerprint,
+			Prefix:         entry.Prefix,
+			ObjectCount:    entry.ObjectCount,
+			TotalSizeBytes: entry.TotalSizeBytes,
+			LastModifiedAt: entry.LastModifiedAt,
+		})
+	}
+
+	helpers.WriteJSON(w, buildModels.CacheEntriesResponse{
+		Namespace:   cacheNamespace,
+		Branch:      branch,
+		Entries:     responseEntries,
+		GeneratedAt: time.Now().UTC(),
+	})
+}
+
 // BuildDownloadHandler godoc
 //
 //	@Summary		Download build artifact
@@ -835,15 +1116,24 @@ func (bc *BuildController) BuildDownloadHandler(w http.ResponseWriter, r *http.R
 	}
 
 	vars := mux.Vars(r)
+	projectID, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
 	buildID, err := strconv.ParseUint(vars["buildId"], 10, 32)
 	if err != nil {
 		helpers.WriteErrorJSON(w, "Invalid build ID", http.StatusBadRequest)
 		return
 	}
 
-	// Get build from database
+	// Get build from database and verify ownership
 	var build dbEngine.Build
-	if err := dbEngine.DB.First(&build, buildID).Error; err != nil {
+	if err := dbEngine.DB.
+		Joins("JOIN projects ON builds.project_id = projects.id").
+		Where("builds.id = ? AND projects.id = ? AND projects.user_id = ?", buildID, projectID, userInfo.ID).
+		First(&build).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Build not found", http.StatusNotFound)
 		return
 	}

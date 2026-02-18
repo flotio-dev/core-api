@@ -89,6 +89,9 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id}/build/{buildId}/logs", buildCtrl.BuildLogsHandler).Methods("GET")
 	protected.HandleFunc("/project/{id}/build/{buildId}/download", buildCtrl.BuildDownloadHandler).Methods("GET")
 	protected.HandleFunc("/project/{id}/build/{buildId}/logs/sync", buildCtrl.BuildLogsSyncHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/cache", buildCtrl.CachePurgeHandler).Methods("DELETE")
+	protected.HandleFunc("/project/{id}/cache/metrics", buildCtrl.CacheMetricsHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/cache/entries", buildCtrl.CacheEntriesHandler).Methods("GET")
 
 	// Github routes (Github Module)
 	// Inject dependencies into Github Controller

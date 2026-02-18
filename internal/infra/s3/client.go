@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -11,6 +13,33 @@ import (
 )
 
 var client *minio.Client
+
+var cachePurgeRequests atomic.Uint64
+var cachePurgedObjects atomic.Uint64
+var cacheMetricsRequests atomic.Uint64
+
+type CacheNamespaceMetrics struct {
+	Namespace      string     `json:"namespace"`
+	Fingerprint    string     `json:"fingerprint,omitempty"`
+	Prefix         string     `json:"prefix"`
+	ObjectCount    int64      `json:"object_count"`
+	TotalSizeBytes int64      `json:"total_size_bytes"`
+	LastModifiedAt *time.Time `json:"last_modified_at,omitempty"`
+}
+
+type CacheEntry struct {
+	Fingerprint    string     `json:"fingerprint"`
+	Prefix         string     `json:"prefix"`
+	ObjectCount    int64      `json:"object_count"`
+	TotalSizeBytes int64      `json:"total_size_bytes"`
+	LastModifiedAt *time.Time `json:"last_modified_at,omitempty"`
+}
+
+type CacheOperationalMetrics struct {
+	PurgeRequests   uint64 `json:"purge_requests"`
+	PurgedObjects   uint64 `json:"purged_objects"`
+	MetricsRequests uint64 `json:"metrics_requests"`
+}
 
 // GetClient returns a singleton MinIO/S3 client
 func GetClient() (*minio.Client, error) {
@@ -53,6 +82,34 @@ func GetPrefix() string {
 		prefix = "builds"
 	}
 	return prefix
+}
+
+// GetCachePrefix returns the S3 prefix/folder for storing dependency caches
+func GetCachePrefix() string {
+	prefix := os.Getenv("AWS_S3_CACHE_PREFIX")
+	if prefix == "" {
+		prefix = "build-cache"
+	}
+	return strings.Trim(prefix, "/")
+}
+
+// BuildCacheNamespacePrefix returns the S3 prefix path for a cache namespace.
+// Example: build-cache/project-12/main/
+func BuildCacheNamespacePrefix(cacheNamespace string) string {
+	cacheNamespace = strings.Trim(cacheNamespace, "/")
+	if cacheNamespace == "" {
+		return GetCachePrefix() + "/"
+	}
+	return fmt.Sprintf("%s/%s/", GetCachePrefix(), cacheNamespace)
+}
+
+func buildCacheScopePrefix(cacheNamespace string, cacheFingerprint string) string {
+	basePrefix := BuildCacheNamespacePrefix(cacheNamespace)
+	cacheFingerprint = strings.Trim(strings.ToLower(cacheFingerprint), "/")
+	if cacheFingerprint == "" {
+		return basePrefix
+	}
+	return fmt.Sprintf("%s%s/", basePrefix, cacheFingerprint)
 }
 
 // getEndpoint returns the S3 endpoint (without protocol)
@@ -262,4 +319,173 @@ func DeleteObject(key string) error {
 	}
 
 	return nil
+}
+
+// GetCacheNamespaceMetrics returns object count and total size for a given cache namespace prefix.
+func GetCacheNamespaceMetrics(cacheNamespace string) (CacheNamespaceMetrics, error) {
+	return GetCacheScopeMetrics(cacheNamespace, "")
+}
+
+// GetCacheScopeMetrics returns object count and total size for a given cache namespace,
+// optionally narrowed to a cache fingerprint.
+func GetCacheScopeMetrics(cacheNamespace string, cacheFingerprint string) (CacheNamespaceMetrics, error) {
+	cacheMetricsRequests.Add(1)
+
+	minioClient, err := GetClient()
+	if err != nil {
+		return CacheNamespaceMetrics{}, err
+	}
+
+	bucket := GetBucket()
+	prefix := buildCacheScopePrefix(cacheNamespace, cacheFingerprint)
+	ctx := context.Background()
+
+	metrics := CacheNamespaceMetrics{
+		Namespace:   cacheNamespace,
+		Fingerprint: strings.TrimSpace(cacheFingerprint),
+		Prefix:      prefix,
+	}
+
+	objectCh := minioClient.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+
+	var latest time.Time
+	for object := range objectCh {
+		if object.Err != nil {
+			return CacheNamespaceMetrics{}, fmt.Errorf("error listing cache objects: %v", object.Err)
+		}
+
+		metrics.ObjectCount++
+		metrics.TotalSizeBytes += object.Size
+		if object.LastModified.After(latest) {
+			latest = object.LastModified
+		}
+	}
+
+	if !latest.IsZero() {
+		lastModified := latest
+		metrics.LastModifiedAt = &lastModified
+	}
+
+	return metrics, nil
+}
+
+// DeleteCacheNamespace deletes all objects under a given cache namespace prefix.
+func DeleteCacheNamespace(cacheNamespace string) (int, error) {
+	return DeleteCacheScope(cacheNamespace, "")
+}
+
+// DeleteCacheScope deletes all objects under a cache namespace,
+// optionally narrowed to a cache fingerprint.
+func DeleteCacheScope(cacheNamespace string, cacheFingerprint string) (int, error) {
+	cachePurgeRequests.Add(1)
+
+	minioClient, err := GetClient()
+	if err != nil {
+		return 0, err
+	}
+
+	bucket := GetBucket()
+	prefix := buildCacheScopePrefix(cacheNamespace, cacheFingerprint)
+	ctx := context.Background()
+
+	objectCh := minioClient.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+
+	deletedCount := 0
+	var deleteErrors []error
+	for object := range objectCh {
+		if object.Err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("error listing cache object: %v", object.Err))
+			continue
+		}
+
+		if err := minioClient.RemoveObject(ctx, bucket, object.Key, minio.RemoveObjectOptions{}); err != nil {
+			deleteErrors = append(deleteErrors, fmt.Errorf("failed to delete cache object %s: %v", object.Key, err))
+			continue
+		}
+
+		deletedCount++
+	}
+
+	if deletedCount > 0 {
+		cachePurgedObjects.Add(uint64(deletedCount))
+	}
+
+	if len(deleteErrors) > 0 {
+		return deletedCount, fmt.Errorf("failed to delete some cache objects: %v", deleteErrors)
+	}
+
+	return deletedCount, nil
+}
+
+// GetCacheOperationalMetrics returns in-memory counters for cache operations.
+func GetCacheOperationalMetrics() CacheOperationalMetrics {
+	return CacheOperationalMetrics{
+		PurgeRequests:   cachePurgeRequests.Load(),
+		PurgedObjects:   cachePurgedObjects.Load(),
+		MetricsRequests: cacheMetricsRequests.Load(),
+	}
+}
+
+// ListCacheEntries lists cache entries grouped by fingerprint under the given namespace.
+func ListCacheEntries(cacheNamespace string) ([]CacheEntry, error) {
+	minioClient, err := GetClient()
+	if err != nil {
+		return nil, err
+	}
+
+	bucket := GetBucket()
+	prefix := BuildCacheNamespacePrefix(cacheNamespace)
+	ctx := context.Background()
+
+	entriesByFingerprint := make(map[string]*CacheEntry)
+	objectCh := minioClient.ListObjects(ctx, bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	})
+
+	for object := range objectCh {
+		if object.Err != nil {
+			return nil, fmt.Errorf("error listing cache entries: %v", object.Err)
+		}
+
+		relativeKey := strings.TrimPrefix(object.Key, prefix)
+		if relativeKey == "" {
+			continue
+		}
+
+		parts := strings.SplitN(relativeKey, "/", 2)
+		fingerprint := strings.TrimSpace(parts[0])
+		if fingerprint == "" {
+			continue
+		}
+
+		entry, exists := entriesByFingerprint[fingerprint]
+		if !exists {
+			entry = &CacheEntry{
+				Fingerprint: fingerprint,
+				Prefix:      buildCacheScopePrefix(cacheNamespace, fingerprint),
+			}
+			entriesByFingerprint[fingerprint] = entry
+		}
+
+		entry.ObjectCount++
+		entry.TotalSizeBytes += object.Size
+		if entry.LastModifiedAt == nil || object.LastModified.After(*entry.LastModifiedAt) {
+			lastModified := object.LastModified
+			entry.LastModifiedAt = &lastModified
+		}
+	}
+
+	entries := make([]CacheEntry, 0, len(entriesByFingerprint))
+	for _, entry := range entriesByFingerprint {
+		entries = append(entries, *entry)
+	}
+
+	return entries, nil
 }
