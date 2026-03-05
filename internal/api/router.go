@@ -79,6 +79,12 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id}", projectCtrl.ProjectPutHandler).Methods("PUT")
 	protected.HandleFunc("/project/{id}", projectCtrl.ProjectDeleteHandler).Methods("DELETE")
 
+	// Android signing keystore routes (Project Module)
+	keystoreCtrl := projectHandler.NewKeystoreController(uService)
+	protected.HandleFunc("/project/{id}/android/keystore", keystoreCtrl.UploadKeystoreHandler).Methods("POST")
+	protected.HandleFunc("/project/{id}/android/keystores", keystoreCtrl.GetKeystoresHandler).Methods("GET")
+	protected.HandleFunc("/project/{id}/android/keystore/{buildType}", keystoreCtrl.DeleteKeystoreHandler).Methods("DELETE")
+
 	// Build routes (Build Module)
 	// Inject dependencies into Build Controller
 	buildCtrl := buildHandler.NewBuildController(ghService, uService)

@@ -1,8 +1,10 @@
 package s3
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -430,6 +432,66 @@ func GetCacheOperationalMetrics() CacheOperationalMetrics {
 		PurgedObjects:   cachePurgedObjects.Load(),
 		MetricsRequests: cacheMetricsRequests.Load(),
 	}
+}
+
+// GetKeystorePrefix returns the S3 prefix used for storing Android keystores.
+func GetKeystorePrefix() string {
+	prefix := os.Getenv("AWS_S3_KEYSTORE_PREFIX")
+	if prefix == "" {
+		prefix = "keystores"
+	}
+	return strings.Trim(prefix, "/")
+}
+
+// GetKeystoreKey returns the S3 object key for a keystore file.
+// Pattern: keystores/{projectID}/{keystoreID}.jks
+func GetKeystoreKey(projectID uint, keystoreID string) string {
+	return fmt.Sprintf("%s/%d/%s.jks", GetKeystorePrefix(), projectID, keystoreID)
+}
+
+// UploadKeystore uploads a keystore binary to S3 and returns the S3 object key.
+func UploadKeystore(projectID uint, keystoreID string, data []byte) (string, error) {
+	minioClient, err := GetClient()
+	if err != nil {
+		return "", err
+	}
+
+	bucket := GetBucket()
+	key := GetKeystoreKey(projectID, keystoreID)
+	ctx := context.Background()
+
+	_, err = minioClient.PutObject(ctx, bucket, key, bytes.NewReader(data), int64(len(data)), minio.PutObjectOptions{
+		ContentType: "application/octet-stream",
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to upload keystore: %v", err)
+	}
+
+	return key, nil
+}
+
+// DownloadKeystore downloads a keystore binary from S3.
+func DownloadKeystore(key string) ([]byte, error) {
+	minioClient, err := GetClient()
+	if err != nil {
+		return nil, err
+	}
+
+	bucket := GetBucket()
+	ctx := context.Background()
+
+	obj, err := minioClient.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get keystore object: %v", err)
+	}
+	defer obj.Close()
+
+	data, err := io.ReadAll(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read keystore object: %v", err)
+	}
+
+	return data, nil
 }
 
 // ListCacheEntries lists cache entries grouped by fingerprint under the given namespace.

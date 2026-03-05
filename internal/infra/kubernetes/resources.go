@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	appCrypto "github.com/flotio-dev/core-api/internal/common/crypto"
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
+	s3Client "github.com/flotio-dev/core-api/internal/infra/s3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -103,25 +105,35 @@ func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, p
 // @Failure		500	{object}	map[string]string
 // @Router		/internal/kubernetes/secret [post]
 func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
-	// Check if database is initialized
 	if dbEngine.DB == nil {
-		// No database connection, skip keystore
 		return "", nil
 	}
 
-	// Fetch active keystore from database
-	var keystore dbEngine.Keystore
-	if err := dbEngine.DB.Where("project_id = ? AND is_active = ?", projectID, true).First(&keystore).Error; err != nil {
-		return "", nil // No keystore configured (not an error)
+	// Prefer "release" signing config, fall back to "debug"
+	var config dbEngine.AndroidSigningConfig
+	if err := dbEngine.DB.Where("project_id = ? AND build_type = ?", projectID, "release").First(&config).Error; err != nil {
+		if err2 := dbEngine.DB.Where("project_id = ? AND build_type = ?", projectID, "debug").First(&config).Error; err2 != nil {
+			return "", nil // No signing config configured (not an error)
+		}
+	}
+
+	// Download keystore binary from S3
+	keystoreData, err := s3Client.DownloadKeystore(config.KeystorePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to download keystore from storage: %v", err)
+	}
+
+	// Decrypt passwords
+	keystorePassword, err := appCrypto.Decrypt(config.KeystorePasswordEncrypted)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt keystore password: %v", err)
+	}
+	keyPassword, err := appCrypto.Decrypt(config.KeyPasswordEncrypted)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt key password: %v", err)
 	}
 
 	secretName := fmt.Sprintf("build-%d-keystore", buildID)
-
-	// Decode keystore file from base64
-	keystoreData, err := base64.StdEncoding.DecodeString(keystore.KeystoreFile)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode keystore file: %v", err)
-	}
 
 	secret := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -137,9 +149,9 @@ func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, proj
 			"keystore.jks": keystoreData,
 		},
 		StringData: map[string]string{
-			"store-password": keystore.StorePassword,
-			"key-alias":      keystore.KeyAlias,
-			"key-password":   keystore.KeyPassword,
+			"store-password": keystorePassword,
+			"key-alias":      config.KeyAlias,
+			"key-password":   keyPassword,
 		},
 	}
 

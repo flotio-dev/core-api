@@ -69,17 +69,19 @@ type Env struct {
 	IsBase64  bool    `json:"is_base64"` // True if Value is base64 encoded (for binary files)
 }
 
-// Keystore model - stores Android signing credentials
-type Keystore struct {
+// AndroidSigningConfig model - stores Android signing credentials.
+// A project can have one config per build_type ("debug" or "release").
+// The keystore binary is stored in S3; only the path is persisted here.
+// Passwords are encrypted at rest using AES-256-GCM.
+type AndroidSigningConfig struct {
 	gorm.Model
-	ProjectID     uint    `json:"project_id"`
-	Project       Project `json:"project"`
-	Name          string  `json:"name"`           // Friendly name
-	KeystoreFile  string  `json:"keystore_file"`  // Base64 encoded keystore file
-	StorePassword string  `json:"store_password"` // Encrypted
-	KeyAlias      string  `json:"key_alias"`
-	KeyPassword   string  `json:"key_password"` // Encrypted
-	IsActive      bool    `json:"is_active"`    // Only one active keystore per project
+	ProjectID                uint    `json:"project_id"`
+	Project                  Project `gorm:"foreignKey:ProjectID" json:"project"`
+	BuildType                string  `json:"build_type"`   // "debug" | "release"
+	KeystorePath             string  `json:"keystore_path"` // S3 object key
+	KeyAlias                 string  `json:"key_alias"`
+	KeystorePasswordEncrypted string `json:"keystore_password_encrypted"`
+	KeyPasswordEncrypted     string  `json:"key_password_encrypted"`
 }
 
 type Organization struct {
