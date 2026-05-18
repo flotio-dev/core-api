@@ -4,6 +4,10 @@ definitions:
       apk_url:
         description: S3 key for the build artifact (e.g., "builds/123/app-release.apk")
         type: string
+      build_mode:
+        type: string
+      build_target:
+        type: string
       container_id:
         description: Kubernetes container ID
         type: string
@@ -14,6 +18,10 @@ definitions:
       duration:
         description: build duration in seconds
         type: integer
+      flutter_channel:
+        type: string
+      git_branch:
+        type: string
       id:
         type: integer
       logs:
@@ -21,14 +29,13 @@ definitions:
           $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Log'
         type: array
       platform:
-        description: e.g., android, ios
         type: string
       project:
         $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project'
       project_id:
         type: integer
       status:
-        description: pending, running, success, failed
+        description: waiting, pending, running, success, failed, cancelled
         type: string
       updatedAt:
         type: string
@@ -53,14 +60,26 @@ definitions:
       project:
         $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project'
       project_id:
+        description: 'Nullable: can be associated to a project'
         type: integer
       type:
         description: '"env" for environment variable, "file" for file'
         type: string
       updatedAt:
         type: string
+      user:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.User'
+      user_id:
+        type: integer
       value:
         description: Variable value or file content (base64 for binary)
+        type: string
+    type: object
+  github_com_flotio-dev_core-api_internal_common_database.EnvVariable:
+    properties:
+      key:
+        type: string
+      value:
         type: string
     type: object
   github_com_flotio-dev_core-api_internal_common_database.GithubInstallation:
@@ -83,6 +102,56 @@ definitions:
         type: integer
       target_id:
         type: integer
+      updatedAt:
+        type: string
+      user:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.User'
+      user_id:
+        type: integer
+    type: object
+  github_com_flotio-dev_core-api_internal_common_database.GooglePlayCredentials:
+    properties:
+      createdAt:
+        type: string
+      credentials:
+        description: Base64 encoded JSON
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      id:
+        type: integer
+      name:
+        description: Friendly name
+        type: string
+      updatedAt:
+        type: string
+      user:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.User'
+      user_id:
+        type: integer
+    type: object
+  github_com_flotio-dev_core-api_internal_common_database.Keystore:
+    properties:
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      id:
+        type: integer
+      key_alias:
+        type: string
+      key_password:
+        description: Encrypted
+        type: string
+      keystore_file:
+        description: Base64 encoded keystore file
+        type: string
+      name:
+        description: Friendly name
+        type: string
+      store_password:
+        description: Encrypted
+        type: string
       updatedAt:
         type: string
       user:
@@ -131,28 +200,16 @@ definitions:
     type: object
   github_com_flotio-dev_core-api_internal_common_database.Project:
     properties:
-      build_folder:
-        type: string
       builds:
         items:
           $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build'
         type: array
+      config:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig'
       createdAt:
         type: string
       deletedAt:
         $ref: '#/definitions/gorm.DeletedAt'
-      envs:
-        items:
-          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env'
-        type: array
-      flutter_version:
-        type: string
-      git_repo:
-        type: string
-      git_token:
-        type: string
-      git_username:
-        type: string
       id:
         type: integer
       name:
@@ -163,6 +220,137 @@ definitions:
         $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.User'
       user_id:
         type: integer
+    type: object
+  github_com_flotio-dev_core-api_internal_common_database.ProjectConfig:
+    properties:
+      android_build_args:
+        type: string
+      android_build_format:
+        description: '"apk" or "aab"'
+        type: string
+      build_mode:
+        description: '"debug", "release", "profile"'
+        type: string
+      build_trigger:
+        type: string
+      cocoapods_version:
+        type: string
+      createdAt:
+        type: string
+      deletedAt:
+        $ref: '#/definitions/gorm.DeletedAt'
+      dependency_caching:
+        type: boolean
+      dependency_dirs:
+        items:
+          type: string
+        type: array
+      do_not_send_for_review:
+        type: boolean
+      email_recipients:
+        items:
+          type: string
+        type: array
+      enable_android_code_signing:
+        description: Distribution
+        type: boolean
+      enable_email_notifications:
+        description: Notifications
+        type: boolean
+      enable_flutter_analyze:
+        type: boolean
+      enable_flutter_driver:
+        type: boolean
+      enable_flutter_test:
+        type: boolean
+      enable_google_play_publishing:
+        type: boolean
+      env_variables:
+        items:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.EnvVariable'
+        type: array
+      flutter_analyze_args:
+        type: string
+      flutter_driver_args:
+        type: string
+      flutter_driver_targets:
+        items:
+          type: string
+        type: array
+      flutter_test_args:
+        type: string
+      flutter_version:
+        description: Build
+        type: string
+      git_repo:
+        description: Git Connection
+        type: string
+      git_token:
+        type: string
+      git_username:
+        type: string
+      google_play_credentials_id:
+        type: integer
+      google_play_track:
+        type: string
+      id:
+        type: integer
+      ios_build_args:
+        type: string
+      keystore_id:
+        description: Linked User-level Assets
+        type: integer
+      platforms:
+        items:
+          type: string
+        type: array
+      post_build_script:
+        type: string
+      post_clone_script:
+        description: Scripts
+        type: string
+      post_test_script:
+        type: string
+      pre_build_script:
+        type: string
+      pre_publish_script:
+        type: string
+      pre_test_script:
+        type: string
+      project_id:
+        type: integer
+      project_path:
+        type: string
+      publish_even_if_tests_fail:
+        type: boolean
+      rollout_fraction:
+        type: number
+      submit_as_draft:
+        type: boolean
+      test:
+        description: Testing
+        type: boolean
+      update_priority:
+        type: integer
+      updatedAt:
+        type: string
+      watched_branch_patterns:
+        items:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.WatchedBranchPattern'
+        type: array
+      watched_tag_patterns:
+        items:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.WatchedTagPattern'
+        type: array
+      web_build_args:
+        type: string
+      webhook_urls:
+        description: Webhooks
+        items:
+          type: string
+        type: array
+      xcode_version:
+        type: string
     type: object
   github_com_flotio-dev_core-api_internal_common_database.User:
     properties:
@@ -185,6 +373,25 @@ definitions:
       username:
         type: string
     type: object
+  github_com_flotio-dev_core-api_internal_common_database.WatchedBranchPattern:
+    properties:
+      pattern:
+        type: string
+      target:
+        description: '"source" or "target"'
+        type: string
+      type:
+        description: '"include" or "exclude"'
+        type: string
+    type: object
+  github_com_flotio-dev_core-api_internal_common_database.WatchedTagPattern:
+    properties:
+      pattern:
+        type: string
+      type:
+        description: '"include" or "exclude"'
+        type: string
+    type: object
   github_com_flotio-dev_core-api_internal_models.APIErrorResponse:
     properties:
       code:
@@ -198,12 +405,20 @@ definitions:
     properties:
       apk_url:
         type: string
+      build_mode:
+        type: string
+      build_target:
+        type: string
       container_id:
         type: string
       created_at:
         type: string
       duration:
         type: integer
+      flutter_channel:
+        type: string
+      git_branch:
+        type: string
       id:
         type: integer
       platform:
@@ -239,6 +454,68 @@ definitions:
         items:
           $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO'
         type: array
+    type: object
+  github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntriesResponse:
+    properties:
+      branch:
+        type: string
+      entries:
+        items:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntryDTO'
+        type: array
+      generated_at:
+        type: string
+      namespace:
+        type: string
+    type: object
+  github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntryDTO:
+    properties:
+      fingerprint:
+        type: string
+      last_modified_at:
+        type: string
+      object_count:
+        type: integer
+      prefix:
+        type: string
+      total_size_bytes:
+        type: integer
+    type: object
+  github_com_flotio-dev_core-api_internal_modules_build_model.CacheMetricsResponse:
+    properties:
+      fingerprint:
+        type: string
+      generated_at:
+        type: string
+      last_modified_at:
+        type: string
+      metrics_requests:
+        type: integer
+      namespace:
+        type: string
+      object_count:
+        type: integer
+      prefix:
+        type: string
+      purge_requests:
+        type: integer
+      purged_objects:
+        type: integer
+      retention_ttl_hours:
+        type: integer
+      total_size_bytes:
+        type: integer
+    type: object
+  github_com_flotio-dev_core-api_internal_modules_build_model.CachePurgeResponse:
+    properties:
+      deleted_objects:
+        type: integer
+      fingerprint:
+        type: string
+      namespace:
+        type: string
+      status:
+        type: string
     type: object
   github_com_flotio-dev_core-api_internal_modules_build_model.DeleteResponse:
     properties:
@@ -403,6 +680,14 @@ definitions:
       buildTarget:
         description: apk, aab, ios, web
         type: string
+      cacheEnabled:
+        type: boolean
+      cacheNamespace:
+        type: string
+      cacheTTLHours:
+        type: integer
+      cacheUploadOnSuccess:
+        type: boolean
       flutterChannel:
         description: stable, beta, dev
         type: string
@@ -416,6 +701,8 @@ definitions:
         type: string
       project:
         $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project'
+      projectConfig:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig'
     type: object
   internal_modules_build_handler.BuildDownloadResponse:
     properties:
@@ -449,17 +736,25 @@ definitions:
       status:
         type: string
     type: object
+  internal_modules_project_handler.FlutterVersion:
+    properties:
+      channel:
+        type: string
+      version:
+        type: string
+    type: object
+  internal_modules_project_handler.FlutterVersionsResponse:
+    properties:
+      versions:
+        items:
+          $ref: '#/definitions/internal_modules_project_handler.FlutterVersion'
+        type: array
+    type: object
   internal_modules_project_handler.Project:
     properties:
-      build_folder:
-        type: string
+      config:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig'
       created_at:
-        type: string
-      flutter_version:
-        type: string
-      git_repo:
-        type: string
-      git_username:
         type: string
       id:
         type: integer
@@ -470,23 +765,15 @@ definitions:
       user_id:
         type: integer
     type: object
+  internal_modules_project_handler.ProjectConfigResponse:
+    properties:
+      config:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig'
+    type: object
   internal_modules_project_handler.ProjectCreateRequest:
     properties:
-      build_folder:
-        example: .
-        type: string
-      flutter_version:
-        example: 3.19.0
-        type: string
-      git_repo:
-        example: https://github.com/user/repo.git
-        type: string
-      git_token:
-        example: ghp_xxx
-        type: string
-      git_username:
-        example: username
-        type: string
+      config:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig'
       name:
         example: My Flutter App
         type: string
@@ -498,21 +785,8 @@ definitions:
     type: object
   internal_modules_project_handler.ProjectUpdateRequest:
     properties:
-      build_folder:
-        example: .
-        type: string
-      flutter_version:
-        example: 3.19.0
-        type: string
-      git_repo:
-        example: https://github.com/user/repo.git
-        type: string
-      git_token:
-        example: ghp_xxx
-        type: string
-      git_username:
-        example: username
-        type: string
+      config:
+        $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig'
       name:
         example: Updated App Name
         type: string
@@ -727,6 +1001,254 @@ paths:
       summary: Register a new user
       tags:
       - auth
+  /env:
+    get:
+      consumes:
+      - application/json
+      description: Get all environment assets/files for the authenticated user, optionally
+        filtered by project_id
+      parameters:
+      - description: Filter by Project ID
+        in: query
+        name: project_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get environment assets
+      tags:
+      - environment
+    post:
+      consumes:
+      - application/json
+      description: Create a new environment variable or configuration file for the
+        user
+      parameters:
+      - description: Environment asset data
+        in: body
+        name: env
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create environment asset
+      tags:
+      - environment
+  /env/{envId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an environment asset by its ID
+      parameters:
+      - description: Environment asset ID
+        in: path
+        name: envId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete environment asset
+      tags:
+      - environment
+    get:
+      consumes:
+      - application/json
+      description: Get a specific environment asset by its ID
+      parameters:
+      - description: Environment asset ID
+        in: path
+        name: envId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get environment asset by ID
+      tags:
+      - environment
+    put:
+      consumes:
+      - application/json
+      description: Update an existing environment asset
+      parameters:
+      - description: Environment asset ID
+        in: path
+        name: envId
+        required: true
+        type: integer
+      - description: Updated environment asset data
+        in: body
+        name: env
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update environment asset
+      tags:
+      - environment
+  /flutter/versions:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of available Flutter versions from the official releases
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_project_handler.FlutterVersionsResponse'
+      summary: Get available Flutter versions
+      tags:
+      - flutter
   /github/disconnect:
     delete:
       description: Supprime l'enregistrement `GithubInstallation` de l'utilisateur
@@ -918,6 +1440,117 @@ paths:
       summary: Get GitHub Repositories
       tags:
       - github
+  /google-play-credentials:
+    get:
+      consumes:
+      - application/json
+      description: Get all Google Play distribution credentials owned by the authenticated
+        user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user Google Play credentials
+      tags:
+      - google-play-credentials
+    post:
+      consumes:
+      - application/json
+      description: Upload new Google Play distribution credentials for the authenticated
+        user
+      parameters:
+      - description: Google Play credentials data
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.GooglePlayCredentials'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create Google Play credentials
+      tags:
+      - google-play-credentials
+  /google-play-credentials/{credentialsId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specific Google Play credentials entry by ID
+      parameters:
+      - description: Credentials ID
+        in: path
+        name: credentialsId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete Google Play credentials
+      tags:
+      - google-play-credentials
   /internal/kubernetes/build/{buildID}/resources:
     delete:
       consumes:
@@ -1229,6 +1862,115 @@ paths:
       summary: Create Secret for keystore
       tags:
       - kubernetes
+  /keystore:
+    get:
+      consumes:
+      - application/json
+      description: Get all keystores owned by the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user keystores
+      tags:
+      - keystore
+    post:
+      consumes:
+      - application/json
+      description: Upload a new keystore for the authenticated user
+      parameters:
+      - description: Keystore data
+        in: body
+        name: keystore
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.Keystore'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create user keystore
+      tags:
+      - keystore
+  /keystore/{keystoreId}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specific keystore by ID
+      parameters:
+      - description: Keystore ID
+        in: path
+        name: keystoreId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete user keystore
+      tags:
+      - keystore
   /project:
     get:
       consumes:
@@ -1773,127 +2515,32 @@ paths:
       summary: List builds
       tags:
       - builds
-  /project/{id}/env:
-    get:
-      consumes:
-      - application/json
-      description: Get all environment variables for a project
-      parameters:
-      - description: Project ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Get environment variables
-      tags:
-      - environment
-    post:
-      consumes:
-      - application/json
-      description: Create a new environment variable for a project
-      parameters:
-      - description: Project ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Environment variable data
-        in: body
-        name: env
-        required: true
-        schema:
-          additionalProperties:
-            type: string
-          type: object
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            additionalProperties: true
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      security:
-      - BearerAuth: []
-      summary: Create environment variable
-      tags:
-      - environment
-  /project/{id}/env/{envId}:
+  /project/{id}/cache:
     delete:
       consumes:
       - application/json
-      description: Delete an environment variable by its ID
+      description: Purge cache objects for a project, optionally filtered by branch
       parameters:
       - description: Project ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Environment variable ID
-        in: path
-        name: envId
-        required: true
-        type: integer
+      - description: Branch name
+        in: query
+        name: branch
+        type: string
+      - description: Cache fingerprint
+        in: query
+        name: fingerprint
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CachePurgeResponse'
         "400":
           description: Bad Request
           schema:
@@ -1918,34 +2565,32 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
-      summary: Delete environment variable
+      summary: Purge build cache
       tags:
-      - environment
+      - builds
+  /project/{id}/cache/entries:
     get:
       consumes:
       - application/json
-      description: Get a specific environment variable by its ID
+      description: List cache fingerprints for a project branch
       parameters:
       - description: Project ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Environment variable ID
-        in: path
-        name: envId
+      - description: Branch name
+        in: query
+        name: branch
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntriesResponse'
         "400":
           description: Bad Request
           schema:
@@ -1970,42 +2615,35 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - BearerAuth: []
-      summary: Get environment variable by ID
+      summary: Cache entries
       tags:
-      - environment
-    put:
+      - builds
+  /project/{id}/cache/metrics:
+    get:
       consumes:
       - application/json
-      description: Update an existing environment variable
+      description: Get cache metrics for a project, optionally filtered by branch
       parameters:
       - description: Project ID
         in: path
         name: id
         required: true
         type: integer
-      - description: Environment variable ID
-        in: path
-        name: envId
-        required: true
-        type: integer
-      - description: Updated environment variable data
-        in: body
-        name: env
-        required: true
-        schema:
-          additionalProperties:
-            type: string
-          type: object
+      - description: Branch name
+        in: query
+        name: branch
+        type: string
+      - description: Cache fingerprint
+        in: query
+        name: fingerprint
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CacheMetricsResponse'
         "400":
           description: Bad Request
           schema:
@@ -2030,11 +2668,139 @@ paths:
             additionalProperties:
               type: string
             type: object
+      summary: Cache metrics
+      tags:
+      - builds
+  /project/{id}/config:
+    delete:
+      consumes:
+      - application/json
+      description: Delete or reset the configuration for a specific project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
       security:
       - BearerAuth: []
-      summary: Update environment variable
+      summary: Delete project configuration
       tags:
-      - environment
+      - config
+    get:
+      consumes:
+      - application/json
+      description: Get the configuration for a specific project
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_project_handler.ProjectConfigResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get project configuration
+      tags:
+      - config
+    post:
+      consumes:
+      - application/json
+      description: Create or update the configuration for a specific project (Supports
+        partial updates)
+      parameters:
+      - description: Project ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Configuration data
+        in: body
+        name: config
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_modules_project_handler.ProjectConfigResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update project configuration
+      tags:
+      - config
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer {token}"

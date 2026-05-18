@@ -30,18 +30,19 @@ func main() {
 	log.Printf("✓ Test build ID: %d\n", testBuildID)
 
 	// Create a mock project (no database)
-	gitRepo := "https://github.com/flotio-dev/test_apk.git"
-	buildFolder := "."
 	testProject := dbEngine.Project{
-		Name:        "Test Application (Test)",
-		GitRepo:     &gitRepo,
-		BuildFolder: &buildFolder,
+		Name: "Test Application (Test)",
+	}
+	testProjectConfig := dbEngine.ProjectConfig{
+		GitRepo:     "https://github.com/flotio-dev/test_apk.git",
+		ProjectPath: ".",
 	}
 
 	// Configure the build
 	buildConfig := kubernetesEngine.BuildConfig{
 		BuildID:        testBuildID,
 		Project:        testProject,
+		ProjectConfig:  &testProjectConfig,
 		Platform:       "android",
 		BuildMode:      "release",
 		BuildTarget:    "apk",
@@ -55,16 +56,8 @@ func main() {
 	log.Println("Build Configuration:")
 	log.Printf("  Build ID: %d\n", buildConfig.BuildID)
 	log.Printf("  Project: %s\n", buildConfig.Project.Name)
-	displayGitRepo := ""
-	if buildConfig.Project.GitRepo != nil {
-		displayGitRepo = *buildConfig.Project.GitRepo
-	}
-	log.Printf("  Git Repo: %s\n", displayGitRepo)
-	displayBuildFolder := ""
-	if buildConfig.Project.BuildFolder != nil {
-		displayBuildFolder = *buildConfig.Project.BuildFolder
-	}
-	log.Printf("  Build Folder: %s\n", displayBuildFolder)
+	log.Printf("  Git Repo: %s\n", buildConfig.ProjectConfig.GitRepo)
+	log.Printf("  Build Folder: %s\n", buildConfig.ProjectConfig.ProjectPath)
 	log.Printf("  Platform: %s\n", buildConfig.Platform)
 	log.Printf("  Build Mode: %s\n", buildConfig.BuildMode)
 	log.Printf("  Build Target: %s\n", buildConfig.BuildTarget)
