@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"strconv"
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -91,6 +93,35 @@ func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, p
 	return configMapName, nil
 }
 
+// CreateConfigMapForRunScript creates a ConfigMap containing the modular build runner script
+func CreateConfigMapForRunScript(clientset *kubernetes.Clientset, buildID uint, script string, namespace string) (string, error) {
+	configMapName := fmt.Sprintf("build-run-script-%d", buildID)
+
+	configMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app":      "flotio-build",
+				"build-id": strconv.Itoa(int(buildID)),
+			},
+		},
+		Data: map[string]string{
+			"build.sh": script,
+		},
+	}
+
+	_, err := clientset.CoreV1().ConfigMaps(namespace).Create(context.TODO(), configMap, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return configMapName, nil
+		}
+		return "", err
+	}
+
+	return configMapName, nil
+}
+
 // CreateSecretForKeystore creates a Secret containing the keystore and credentials
 // @Summary		Create Secret for keystore
 // @Description	Creates a Kubernetes Secret containing the Android keystore and credentials for signing
@@ -110,9 +141,18 @@ func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, proj
 	}
 
 	// Fetch active keystore from database
-	var keystore dbEngine.Keystore
-	if err := dbEngine.DB.Where("project_id = ? AND is_active = ?", projectID, true).First(&keystore).Error; err != nil {
+	var config dbEngine.ProjectConfig
+	if err := dbEngine.DB.Where("project_id = ?", projectID).First(&config).Error; err != nil {
+		return "", nil // No config, no keystore (not an error)
+	}
+
+	if config.KeystoreID == nil {
 		return "", nil // No keystore configured (not an error)
+	}
+
+	var keystore dbEngine.Keystore
+	if err := dbEngine.DB.First(&keystore, *config.KeystoreID).Error; err != nil {
+		return "", nil // Keystore not found (not an error)
 	}
 
 	secretName := fmt.Sprintf("build-%d-keystore", buildID)

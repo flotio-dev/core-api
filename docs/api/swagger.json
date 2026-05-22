@@ -311,6 +311,385 @@
                 }
             }
         },
+        "/env": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all environment assets/files for the authenticated user, optionally filtered by project_id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get environment assets",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter by Project ID",
+                        "name": "project_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new environment variable or configuration file for the user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Create environment asset",
+                "parameters": [
+                    {
+                        "description": "Environment asset data",
+                        "name": "env",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/env/{envId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a specific environment asset by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get environment asset by ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Environment asset ID",
+                        "name": "envId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an existing environment asset",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Update environment asset",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Environment asset ID",
+                        "name": "envId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated environment asset data",
+                        "name": "env",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete an environment asset by its ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Delete environment asset",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Environment asset ID",
+                        "name": "envId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/flutter/versions": {
+            "get": {
+                "description": "Get a list of available Flutter versions from the official releases",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "flutter"
+                ],
+                "summary": "Get available Flutter versions",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_project_handler.FlutterVersionsResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/github/disconnect": {
             "delete": {
                 "security": [
@@ -602,6 +981,176 @@
                         "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/google-play-credentials": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all Google Play distribution credentials owned by the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-play-credentials"
+                ],
+                "summary": "Get user Google Play credentials",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload new Google Play distribution credentials for the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-play-credentials"
+                ],
+                "summary": "Create Google Play credentials",
+                "parameters": [
+                    {
+                        "description": "Google Play credentials data",
+                        "name": "credentials",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.GooglePlayCredentials"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/google-play-credentials/{credentialsId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a specific Google Play credentials entry by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "google-play-credentials"
+                ],
+                "summary": "Delete Google Play credentials",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Credentials ID",
+                        "name": "credentialsId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     }
                 }
@@ -1058,6 +1607,176 @@
                         "description": "Secret name",
                         "schema": {
                             "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/keystore": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all keystores owned by the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "keystore"
+                ],
+                "summary": "Get user keystores",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload a new keystore for the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "keystore"
+                ],
+                "summary": "Create user keystore",
+                "parameters": [
+                    {
+                        "description": "Keystore data",
+                        "name": "keystore",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Keystore"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/keystore/{keystoreId}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a specific keystore by ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "keystore"
+                ],
+                "summary": "Delete user keystore",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Keystore ID",
+                        "name": "keystoreId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
                     "500": {
@@ -1887,14 +2606,9 @@
                 }
             }
         },
-        "/project/{id}/env": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get all environment variables for a project",
+        "/project/{id}/cache": {
+            "delete": {
+                "description": "Purge cache objects for a project, optionally filtered by branch",
                 "consumes": [
                     "application/json"
                 ],
@@ -1902,9 +2616,9 @@
                     "application/json"
                 ],
                 "tags": [
-                    "environment"
+                    "builds"
                 ],
-                "summary": "Get environment variables",
+                "summary": "Purge build cache",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1912,89 +2626,25 @@
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Branch name",
+                        "name": "branch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cache fingerprint",
+                        "name": "fingerprint",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new environment variable for a project",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "environment"
-                ],
-                "summary": "Create environment variable",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Project ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Environment variable data",
-                        "name": "env",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CachePurgeResponse"
                         }
                     },
                     "400": {
@@ -2036,14 +2686,9 @@
                 }
             }
         },
-        "/project/{id}/env/{envId}": {
+        "/project/{id}/cache/entries": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get a specific environment variable by its ID",
+                "description": "List cache fingerprints for a project branch",
                 "consumes": [
                     "application/json"
                 ],
@@ -2051,9 +2696,9 @@
                     "application/json"
                 ],
                 "tags": [
-                    "environment"
+                    "builds"
                 ],
-                "summary": "Get environment variable by ID",
+                "summary": "Cache entries",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2063,10 +2708,10 @@
                         "required": true
                     },
                     {
-                        "type": "integer",
-                        "description": "Environment variable ID",
-                        "name": "envId",
-                        "in": "path",
+                        "type": "string",
+                        "description": "Branch name",
+                        "name": "branch",
+                        "in": "query",
                         "required": true
                     }
                 ],
@@ -2074,8 +2719,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntriesResponse"
                         }
                     },
                     "400": {
@@ -2115,14 +2759,11 @@
                         }
                     }
                 }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update an existing environment variable",
+            }
+        },
+        "/project/{id}/cache/metrics": {
+            "get": {
+                "description": "Get cache metrics for a project, optionally filtered by branch",
                 "consumes": [
                     "application/json"
                 ],
@@ -2130,9 +2771,9 @@
                     "application/json"
                 ],
                 "tags": [
-                    "environment"
+                    "builds"
                 ],
-                "summary": "Update environment variable",
+                "summary": "Cache metrics",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2142,31 +2783,23 @@
                         "required": true
                     },
                     {
-                        "type": "integer",
-                        "description": "Environment variable ID",
-                        "name": "envId",
-                        "in": "path",
-                        "required": true
+                        "type": "string",
+                        "description": "Branch name",
+                        "name": "branch",
+                        "in": "query"
                     },
                     {
-                        "description": "Updated environment variable data",
-                        "name": "env",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
+                        "type": "string",
+                        "description": "Cache fingerprint",
+                        "name": "fingerprint",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CacheMetricsResponse"
                         }
                     },
                     "400": {
@@ -2176,6 +2809,141 @@
                             "additionalProperties": {
                                 "type": "string"
                             }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/project/{id}/config": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the configuration for a specific project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Get project configuration",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectConfigResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create or update the configuration for a specific project (Supports partial updates)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "config"
+                ],
+                "summary": "Update project configuration",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Configuration data",
+                        "name": "config",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_project_handler.ProjectConfigResponse"
                         }
                     },
                     "401": {
@@ -2213,7 +2981,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete an environment variable by its ID",
+                "description": "Delete or reset the configuration for a specific project",
                 "consumes": [
                     "application/json"
                 ],
@@ -2221,9 +2989,9 @@
                     "application/json"
                 ],
                 "tags": [
-                    "environment"
+                    "config"
                 ],
-                "summary": "Delete environment variable",
+                "summary": "Delete project configuration",
                 "parameters": [
                     {
                         "type": "integer",
@@ -2231,25 +2999,11 @@
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Environment variable ID",
-                        "name": "envId",
-                        "in": "path",
-                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -2296,6 +3050,12 @@
                     "description": "S3 key for the build artifact (e.g., \"builds/123/app-release.apk\")",
                     "type": "string"
                 },
+                "build_mode": {
+                    "type": "string"
+                },
+                "build_target": {
+                    "type": "string"
+                },
                 "container_id": {
                     "description": "Kubernetes container ID",
                     "type": "string"
@@ -2310,6 +3070,12 @@
                     "description": "build duration in seconds",
                     "type": "integer"
                 },
+                "flutter_channel": {
+                    "type": "string"
+                },
+                "git_branch": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "integer"
                 },
@@ -2320,7 +3086,6 @@
                     }
                 },
                 "platform": {
-                    "description": "e.g., android, ios",
                     "type": "string"
                 },
                 "project": {
@@ -2330,7 +3095,7 @@
                     "type": "integer"
                 },
                 "status": {
-                    "description": "pending, running, success, failed",
+                    "description": "waiting, pending, running, success, failed, cancelled",
                     "type": "string"
                 },
                 "updatedAt": {
@@ -2366,6 +3131,7 @@
                     "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
                 },
                 "project_id": {
+                    "description": "Nullable: can be associated to a project",
                     "type": "integer"
                 },
                 "type": {
@@ -2375,8 +3141,25 @@
                 "updatedAt": {
                     "type": "string"
                 },
+                "user": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
                 "value": {
                     "description": "Variable value or file content (base64 for binary)",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_common_database.EnvVariable": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -2410,6 +3193,79 @@
                 },
                 "target_id": {
                     "type": "integer"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_common_database.GooglePlayCredentials": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "credentials": {
+                    "description": "Base64 encoded JSON",
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "$ref": "#/definitions/gorm.DeletedAt"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "description": "Friendly name",
+                    "type": "string"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_common_database.Keystore": {
+            "type": "object",
+            "properties": {
+                "createdAt": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "$ref": "#/definitions/gorm.DeletedAt"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "key_alias": {
+                    "type": "string"
+                },
+                "key_password": {
+                    "description": "Encrypted",
+                    "type": "string"
+                },
+                "keystore_file": {
+                    "description": "Base64 encoded keystore file",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Friendly name",
+                    "type": "string"
+                },
+                "store_password": {
+                    "description": "Encrypted",
+                    "type": "string"
                 },
                 "updatedAt": {
                     "type": "string"
@@ -2484,38 +3340,20 @@
         "github_com_flotio-dev_core-api_internal_common_database.Project": {
             "type": "object",
             "properties": {
-                "build_folder": {
-                    "type": "string"
-                },
                 "builds": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build"
                     }
                 },
+                "config": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
+                },
                 "createdAt": {
                     "type": "string"
                 },
                 "deletedAt": {
                     "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "envs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env"
-                    }
-                },
-                "flutter_version": {
-                    "type": "string"
-                },
-                "git_repo": {
-                    "type": "string"
-                },
-                "git_token": {
-                    "type": "string"
-                },
-                "git_username": {
-                    "type": "string"
                 },
                 "id": {
                     "type": "integer"
@@ -2531,6 +3369,198 @@
                 },
                 "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_common_database.ProjectConfig": {
+            "type": "object",
+            "properties": {
+                "android_build_args": {
+                    "type": "string"
+                },
+                "android_build_format": {
+                    "description": "\"apk\" or \"aab\"",
+                    "type": "string"
+                },
+                "build_mode": {
+                    "description": "\"debug\", \"release\", \"profile\"",
+                    "type": "string"
+                },
+                "build_trigger": {
+                    "type": "string"
+                },
+                "cocoapods_version": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "deletedAt": {
+                    "$ref": "#/definitions/gorm.DeletedAt"
+                },
+                "dependency_caching": {
+                    "type": "boolean"
+                },
+                "dependency_dirs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "do_not_send_for_review": {
+                    "type": "boolean"
+                },
+                "email_recipients": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "enable_android_code_signing": {
+                    "description": "Distribution",
+                    "type": "boolean"
+                },
+                "enable_email_notifications": {
+                    "description": "Notifications",
+                    "type": "boolean"
+                },
+                "enable_flutter_analyze": {
+                    "type": "boolean"
+                },
+                "enable_flutter_driver": {
+                    "type": "boolean"
+                },
+                "enable_flutter_test": {
+                    "type": "boolean"
+                },
+                "enable_google_play_publishing": {
+                    "type": "boolean"
+                },
+                "env_variables": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.EnvVariable"
+                    }
+                },
+                "flutter_analyze_args": {
+                    "type": "string"
+                },
+                "flutter_driver_args": {
+                    "type": "string"
+                },
+                "flutter_driver_targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "flutter_test_args": {
+                    "type": "string"
+                },
+                "flutter_version": {
+                    "description": "Build",
+                    "type": "string"
+                },
+                "git_repo": {
+                    "description": "Git Connection",
+                    "type": "string"
+                },
+                "git_token": {
+                    "type": "string"
+                },
+                "git_username": {
+                    "type": "string"
+                },
+                "google_play_credentials_id": {
+                    "type": "integer"
+                },
+                "google_play_track": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "ios_build_args": {
+                    "type": "string"
+                },
+                "keystore_id": {
+                    "description": "Linked User-level Assets",
+                    "type": "integer"
+                },
+                "platforms": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "post_build_script": {
+                    "type": "string"
+                },
+                "post_clone_script": {
+                    "description": "Scripts",
+                    "type": "string"
+                },
+                "post_test_script": {
+                    "type": "string"
+                },
+                "pre_build_script": {
+                    "type": "string"
+                },
+                "pre_publish_script": {
+                    "type": "string"
+                },
+                "pre_test_script": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "integer"
+                },
+                "project_path": {
+                    "type": "string"
+                },
+                "publish_even_if_tests_fail": {
+                    "type": "boolean"
+                },
+                "rollout_fraction": {
+                    "type": "number"
+                },
+                "submit_as_draft": {
+                    "type": "boolean"
+                },
+                "test": {
+                    "description": "Testing",
+                    "type": "boolean"
+                },
+                "update_priority": {
+                    "type": "integer"
+                },
+                "updatedAt": {
+                    "type": "string"
+                },
+                "watched_branch_patterns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.WatchedBranchPattern"
+                    }
+                },
+                "watched_tag_patterns": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.WatchedTagPattern"
+                    }
+                },
+                "web_build_args": {
+                    "type": "string"
+                },
+                "webhook_urls": {
+                    "description": "Webhooks",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "xcode_version": {
+                    "type": "string"
                 }
             }
         },
@@ -2566,6 +3596,34 @@
                 }
             }
         },
+        "github_com_flotio-dev_core-api_internal_common_database.WatchedBranchPattern": {
+            "type": "object",
+            "properties": {
+                "pattern": {
+                    "type": "string"
+                },
+                "target": {
+                    "description": "\"source\" or \"target\"",
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"include\" or \"exclude\"",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_common_database.WatchedTagPattern": {
+            "type": "object",
+            "properties": {
+                "pattern": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "\"include\" or \"exclude\"",
+                    "type": "string"
+                }
+            }
+        },
         "github_com_flotio-dev_core-api_internal_models.APIErrorResponse": {
             "type": "object",
             "properties": {
@@ -2586,6 +3644,12 @@
                 "apk_url": {
                     "type": "string"
                 },
+                "build_mode": {
+                    "type": "string"
+                },
+                "build_target": {
+                    "type": "string"
+                },
                 "container_id": {
                     "type": "string"
                 },
@@ -2594,6 +3658,12 @@
                 },
                 "duration": {
                     "type": "integer"
+                },
+                "flutter_channel": {
+                    "type": "string"
+                },
+                "git_branch": {
+                    "type": "string"
                 },
                 "id": {
                     "type": "integer"
@@ -2648,6 +3718,101 @@
                     "items": {
                         "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.BuildDTO"
                     }
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntriesResponse": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntryDTO"
+                    }
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_build_model.CacheEntryDTO": {
+            "type": "object",
+            "properties": {
+                "fingerprint": {
+                    "type": "string"
+                },
+                "last_modified_at": {
+                    "type": "string"
+                },
+                "object_count": {
+                    "type": "integer"
+                },
+                "prefix": {
+                    "type": "string"
+                },
+                "total_size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_build_model.CacheMetricsResponse": {
+            "type": "object",
+            "properties": {
+                "fingerprint": {
+                    "type": "string"
+                },
+                "generated_at": {
+                    "type": "string"
+                },
+                "last_modified_at": {
+                    "type": "string"
+                },
+                "metrics_requests": {
+                    "type": "integer"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "object_count": {
+                    "type": "integer"
+                },
+                "prefix": {
+                    "type": "string"
+                },
+                "purge_requests": {
+                    "type": "integer"
+                },
+                "purged_objects": {
+                    "type": "integer"
+                },
+                "retention_ttl_hours": {
+                    "type": "integer"
+                },
+                "total_size_bytes": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_build_model.CachePurgeResponse": {
+            "type": "object",
+            "properties": {
+                "deleted_objects": {
+                    "type": "integer"
+                },
+                "fingerprint": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },
@@ -2893,6 +4058,18 @@
                     "description": "apk, aab, ios, web",
                     "type": "string"
                 },
+                "cacheEnabled": {
+                    "type": "boolean"
+                },
+                "cacheNamespace": {
+                    "type": "string"
+                },
+                "cacheTTLHours": {
+                    "type": "integer"
+                },
+                "cacheUploadOnSuccess": {
+                    "type": "boolean"
+                },
                 "flutterChannel": {
                     "description": "stable, beta, dev",
                     "type": "string"
@@ -2911,6 +4088,9 @@
                 },
                 "project": {
                     "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
+                },
+                "projectConfig": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
                 }
             }
         },
@@ -2963,22 +4143,35 @@
                 }
             }
         },
+        "internal_modules_project_handler.FlutterVersion": {
+            "type": "object",
+            "properties": {
+                "channel": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_modules_project_handler.FlutterVersionsResponse": {
+            "type": "object",
+            "properties": {
+                "versions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_project_handler.FlutterVersion"
+                    }
+                }
+            }
+        },
         "internal_modules_project_handler.Project": {
             "type": "object",
             "properties": {
-                "build_folder": {
-                    "type": "string"
+                "config": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
                 },
                 "created_at": {
-                    "type": "string"
-                },
-                "flutter_version": {
-                    "type": "string"
-                },
-                "git_repo": {
-                    "type": "string"
-                },
-                "git_username": {
                     "type": "string"
                 },
                 "id": {
@@ -2995,28 +4188,19 @@
                 }
             }
         },
+        "internal_modules_project_handler.ProjectConfigResponse": {
+            "type": "object",
+            "properties": {
+                "config": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
+                }
+            }
+        },
         "internal_modules_project_handler.ProjectCreateRequest": {
             "type": "object",
             "properties": {
-                "build_folder": {
-                    "type": "string",
-                    "example": "."
-                },
-                "flutter_version": {
-                    "type": "string",
-                    "example": "3.19.0"
-                },
-                "git_repo": {
-                    "type": "string",
-                    "example": "https://github.com/user/repo.git"
-                },
-                "git_token": {
-                    "type": "string",
-                    "example": "ghp_xxx"
-                },
-                "git_username": {
-                    "type": "string",
-                    "example": "username"
+                "config": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
                 },
                 "name": {
                     "type": "string",
@@ -3035,25 +4219,8 @@
         "internal_modules_project_handler.ProjectUpdateRequest": {
             "type": "object",
             "properties": {
-                "build_folder": {
-                    "type": "string",
-                    "example": "."
-                },
-                "flutter_version": {
-                    "type": "string",
-                    "example": "3.19.0"
-                },
-                "git_repo": {
-                    "type": "string",
-                    "example": "https://github.com/user/repo.git"
-                },
-                "git_token": {
-                    "type": "string",
-                    "example": "ghp_xxx"
-                },
-                "git_username": {
-                    "type": "string",
-                    "example": "username"
+                "config": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
                 },
                 "name": {
                     "type": "string",
