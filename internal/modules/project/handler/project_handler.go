@@ -390,7 +390,6 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 		
 		projectConfig.EnableAndroidCodeSigning = c.EnableAndroidCodeSigning
 		projectConfig.EnableGooglePlayPublishing = c.EnableGooglePlayPublishing
-		projectConfig.GooglePlayCredentialsJson = c.GooglePlayCredentialsJson
 		projectConfig.GooglePlayTrack = c.GooglePlayTrack
 		projectConfig.UpdatePriority = c.UpdatePriority
 		projectConfig.RolloutFraction = c.RolloutFraction

@@ -101,7 +101,7 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
-	if err := c.Service.UpdateInstallation(existingInst.ID, payload.InstallationID); err != nil {
+	if err := c.Service.UpdateInstallation(user.ID, payload.InstallationID); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
 			Message: fmt.Sprintf("DB error: %v", err),
