@@ -50,21 +50,13 @@ type LogsResponse struct {
 
 // Request structs for API documentation
 type ProjectCreateRequest struct {
-	Name           string  `json:"name" example:"My Flutter App"`
-	GitRepo        *string `json:"git_repo,omitempty" example:"https://github.com/user/repo.git"`
-	BuildFolder    *string `json:"build_folder,omitempty" example:"."`
-	FlutterVersion *string `json:"flutter_version,omitempty" example:"3.19.0"`
-	GitUsername    *string `json:"git_username,omitempty" example:"username"`
-	GitToken       *string `json:"git_token,omitempty" example:"ghp_xxx"`
+	Name   string                  `json:"name" example:"My Flutter App"`
+	Config *dbEngine.ProjectConfig `json:"config,omitempty"`
 }
 
 type ProjectUpdateRequest struct {
-	Name           string  `json:"name,omitempty" example:"Updated App Name"`
-	GitRepo        *string `json:"git_repo,omitempty" example:"https://github.com/user/repo.git"`
-	BuildFolder    *string `json:"build_folder,omitempty" example:"."`
-	FlutterVersion *string `json:"flutter_version,omitempty" example:"3.19.0"`
-	GitUsername    *string `json:"git_username,omitempty" example:"username"`
-	GitToken       *string `json:"git_token,omitempty" example:"ghp_xxx"`
+	Name   string                  `json:"name,omitempty" example:"Updated App Name"`
+	Config *dbEngine.ProjectConfig `json:"config,omitempty"`
 }
 
 type BuildRequest struct {
@@ -79,15 +71,12 @@ type BuildRequest struct {
 
 // Simplified structs for Swagger documentation
 type Project struct {
-	ID             uint      `json:"id"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	Name           string    `json:"name"`
-	GitRepo        *string   `json:"git_repo,omitempty"`
-	BuildFolder    *string   `json:"build_folder,omitempty"`
-	FlutterVersion *string   `json:"flutter_version,omitempty"`
-	GitUsername    *string   `json:"git_username,omitempty"`
-	UserID         uint      `json:"user_id"`
+	ID        uint                    `json:"id"`
+	CreatedAt time.Time               `json:"created_at"`
+	UpdatedAt time.Time               `json:"updated_at"`
+	Name      string                  `json:"name"`
+	UserID    uint                    `json:"user_id"`
+	Config    *dbEngine.ProjectConfig `json:"config"`
 }
 
 type Build struct {
@@ -104,16 +93,22 @@ type Build struct {
 
 // Conversion functions
 func convertDBProject(p dbEngine.Project) Project {
+	var configPtr *dbEngine.ProjectConfig
+	if p.Config != nil {
+		configPtr = p.Config
+	} else {
+		var config dbEngine.ProjectConfig
+		if err := dbEngine.DB.Where("project_id = ?", p.ID).First(&config).Error; err == nil {
+			configPtr = &config
+		}
+	}
 	return Project{
-		ID:             p.ID,
-		CreatedAt:      p.CreatedAt,
-		UpdatedAt:      p.UpdatedAt,
-		Name:           p.Name,
-		GitRepo:        p.GitRepo,
-		BuildFolder:    p.BuildFolder,
-		FlutterVersion: p.FlutterVersion,
-		GitUsername:    p.GitUsername,
-		UserID:         p.UserID,
+		ID:        p.ID,
+		CreatedAt: p.CreatedAt,
+		UpdatedAt: p.UpdatedAt,
+		Name:      p.Name,
+		UserID:    p.UserID,
+		Config:    configPtr,
 	}
 }
 
@@ -171,7 +166,7 @@ func (c *ProjectController) ProjectsGetHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var projects []dbEngine.Project
-	if err := dbEngine.DB.Where("user_id = ?", userInfo.ID).Find(&projects).Error; err != nil {
+	if err := dbEngine.DB.Preload("Config").Where("user_id = ?", userInfo.ID).Find(&projects).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to fetch projects", http.StatusInternalServerError)
 		return
 	}
@@ -211,19 +206,28 @@ func (c *ProjectController) ProjectCreateHandler(w http.ResponseWriter, r *http.
 	}
 
 	project := dbEngine.Project{
-		Name:           req.Name,
-		GitRepo:        req.GitRepo,
-		BuildFolder:    req.BuildFolder,
-		FlutterVersion: req.FlutterVersion,
-		GitUsername:    req.GitUsername,
-		GitToken:       req.GitToken,
-		UserID:         userInfo.ID,
+		Name:   req.Name,
+		UserID: userInfo.ID,
 	}
 
 	if err := dbEngine.DB.Create(&project).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to create project", http.StatusInternalServerError)
 		return
 	}
+
+	// Create associated ProjectConfig
+	var projectConfig dbEngine.ProjectConfig
+	if req.Config != nil {
+		projectConfig = *req.Config
+	}
+	projectConfig.ProjectID = project.ID
+
+	if err := dbEngine.DB.Create(&projectConfig).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to create project configuration", http.StatusInternalServerError)
+		return
+	}
+
+	project.Config = &projectConfig
 
 	helpers.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
 }
@@ -260,7 +264,7 @@ func (c *ProjectController) ProjectGetHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var project dbEngine.Project
-	if err := dbEngine.DB.Preload("Builds").Preload("Envs").Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
+	if err := dbEngine.DB.Preload("Builds").Preload("Config").Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
@@ -311,7 +315,7 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var project dbEngine.Project
-	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
+	if err := dbEngine.DB.Preload("Config").Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 			return
@@ -323,26 +327,93 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 	if req.Name != "" {
 		project.Name = req.Name
 	}
-	if req.GitRepo != nil {
-		project.GitRepo = req.GitRepo
-	}
-	if req.BuildFolder != nil {
-		project.BuildFolder = req.BuildFolder
-	}
-	if req.FlutterVersion != nil {
-		project.FlutterVersion = req.FlutterVersion
-	}
-	if req.GitUsername != nil {
-		project.GitUsername = req.GitUsername
-	}
-	if req.GitToken != nil {
-		project.GitToken = req.GitToken
-	}
 
 	if err := dbEngine.DB.Save(&project).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to update project", http.StatusInternalServerError)
 		return
 	}
+
+	// Update or Create ProjectConfig
+	var projectConfig dbEngine.ProjectConfig
+	hasConfig := true
+	if err := dbEngine.DB.Where("project_id = ?", project.ID).First(&projectConfig).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			hasConfig = false
+			projectConfig.ProjectID = project.ID
+		} else {
+			helpers.WriteErrorJSON(w, "Failed to fetch project configuration", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// If the request contains a full nested config, apply its fields!
+	if req.Config != nil {
+		c := req.Config
+		projectConfig.Platforms = c.Platforms
+		projectConfig.BuildTrigger = c.BuildTrigger
+		projectConfig.WatchedBranchPatterns = c.WatchedBranchPatterns
+		projectConfig.WatchedTagPatterns = c.WatchedTagPatterns
+		projectConfig.EnvVariables = c.EnvVariables
+		projectConfig.DependencyCaching = c.DependencyCaching
+		projectConfig.DependencyDirs = c.DependencyDirs
+		
+		if c.GitRepo != "" { projectConfig.GitRepo = c.GitRepo }
+		if c.GitUsername != "" { projectConfig.GitUsername = c.GitUsername }
+		if c.GitToken != "" { projectConfig.GitToken = c.GitToken }
+		
+		projectConfig.WebhookURLs = c.WebhookURLs
+		projectConfig.PostCloneScript = c.PostCloneScript
+		projectConfig.PreTestScript = c.PreTestScript
+		projectConfig.PostTestScript = c.PostTestScript
+		projectConfig.PreBuildScript = c.PreBuildScript
+		projectConfig.PostBuildScript = c.PostBuildScript
+		projectConfig.PrePublishScript = c.PrePublishScript
+		
+		projectConfig.Test = c.Test
+		projectConfig.EnableFlutterAnalyze = c.EnableFlutterAnalyze
+		projectConfig.FlutterAnalyzeArgs = c.FlutterAnalyzeArgs
+		projectConfig.EnableFlutterTest = c.EnableFlutterTest
+		projectConfig.FlutterTestArgs = c.FlutterTestArgs
+		projectConfig.EnableFlutterDriver = c.EnableFlutterDriver
+		projectConfig.FlutterDriverArgs = c.FlutterDriverArgs
+		projectConfig.FlutterDriverTargets = c.FlutterDriverTargets
+		
+		if c.FlutterVersion != "" { projectConfig.FlutterVersion = c.FlutterVersion }
+		projectConfig.XcodeVersion = c.XcodeVersion
+		projectConfig.CocoaPodsVersion = c.CocoaPodsVersion
+		if c.ProjectPath != "" { projectConfig.ProjectPath = c.ProjectPath }
+		projectConfig.AndroidBuildFormat = c.AndroidBuildFormat
+		projectConfig.BuildMode = c.BuildMode
+		projectConfig.AndroidBuildArgs = c.AndroidBuildArgs
+		projectConfig.IosBuildArgs = c.IosBuildArgs
+		projectConfig.WebBuildArgs = c.WebBuildArgs
+		
+		projectConfig.EnableAndroidCodeSigning = c.EnableAndroidCodeSigning
+		projectConfig.EnableGooglePlayPublishing = c.EnableGooglePlayPublishing
+		projectConfig.GooglePlayTrack = c.GooglePlayTrack
+		projectConfig.UpdatePriority = c.UpdatePriority
+		projectConfig.RolloutFraction = c.RolloutFraction
+		projectConfig.DoNotSendForReview = c.DoNotSendForReview
+		projectConfig.SubmitAsDraft = c.SubmitAsDraft
+		projectConfig.PublishEvenIfTestsFail = c.PublishEvenIfTestsFail
+		
+		projectConfig.EnableEmailNotifications = c.EnableEmailNotifications
+		projectConfig.EmailRecipients = c.EmailRecipients
+	}
+
+	var configErr error
+	if hasConfig {
+		configErr = dbEngine.DB.Save(&projectConfig).Error
+	} else {
+		configErr = dbEngine.DB.Create(&projectConfig).Error
+	}
+
+	if configErr != nil {
+		helpers.WriteErrorJSON(w, "Failed to update project configuration", http.StatusInternalServerError)
+		return
+	}
+
+	project.Config = &projectConfig
 
 	helpers.WriteJSON(w, ProjectResponse{Project: convertDBProject(project)})
 }

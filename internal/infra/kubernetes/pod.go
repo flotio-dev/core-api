@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"gorm.io/gorm"
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	s3Engine "github.com/flotio-dev/core-api/internal/infra/s3"
@@ -25,6 +26,7 @@ import (
 type BuildConfig struct {
 	BuildID              uint
 	Project              dbEngine.Project
+	ProjectConfig        *dbEngine.ProjectConfig
 	Platform             string
 	BuildMode            string // release, debug, profile
 	BuildTarget          string // apk, aab, ios, web
@@ -80,6 +82,24 @@ func CreateBuildPod(config BuildConfig) error {
 	namespace := getNamespace()
 	podName := GetPodName(config.BuildID)
 
+	// Use ProjectConfig from config if provided, otherwise fetch it
+	projectConfig := config.ProjectConfig
+	if projectConfig == nil {
+		projectConfig = &dbEngine.ProjectConfig{}
+		if err := dbEngine.DB.Where("project_id = ?", config.Project.ID).First(projectConfig).Error; err != nil && err != gorm.ErrRecordNotFound {
+			return fmt.Errorf("failed to fetch project config: %v", err)
+		}
+	}
+
+	// Generate Runner Script
+	runnerScript := GenerateBuildRunnerScript(config, projectConfig)
+
+	// Create ConfigMap for run script
+	runScriptConfigMapName, err := CreateConfigMapForRunScript(clientset, config.BuildID, runnerScript, namespace)
+	if err != nil {
+		return fmt.Errorf("failed to create run script ConfigMap: %v", err)
+	}
+
 	// Create ConfigMap for environment files
 	configMapName, err := CreateConfigMapForEnvFiles(clientset, config.BuildID, config.Project.ID, namespace)
 	if err != nil {
@@ -98,7 +118,15 @@ func CreateBuildPod(config BuildConfig) error {
 	// Build environment variables
 	envVars := buildEnvironmentVariables(config)
 
-	// Add environment variables from database
+	// Add environment variables from ProjectConfig
+	for _, envVar := range projectConfig.EnvVariables {
+		envVars = append(envVars, v1.EnvVar{
+			Name:  envVar.Key,
+			Value: envVar.Value,
+		})
+	}
+
+	// Add environment variables from database (deprecated Env model)
 	if dbEngine.DB != nil {
 		var dbEnvs []dbEngine.Env
 		if err := dbEngine.DB.Where("project_id = ? AND type = ?", config.Project.ID, "env").Find(&dbEnvs).Error; err == nil {
@@ -112,7 +140,13 @@ func CreateBuildPod(config BuildConfig) error {
 	}
 
 	// Build volume mounts
-	volumeMounts := []v1.VolumeMount{}
+	volumeMounts := []v1.VolumeMount{
+		{
+			Name:      "run-script",
+			MountPath: "/usr/local/bin/build.sh",
+			SubPath:   "build.sh",
+		},
+	}
 
 	// Add ConfigMap volume mount if exists
 	if configMapName != "" {
@@ -165,7 +199,19 @@ func CreateBuildPod(config BuildConfig) error {
 	}
 
 	// Build volumes
-	volumes := []v1.Volume{}
+	volumes := []v1.Volume{
+		{
+			Name: "run-script",
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: runScriptConfigMapName,
+					},
+					DefaultMode: int32Ptr(0755),
+				},
+			},
+		},
+	}
 
 	// Add ConfigMap volume if exists
 	if configMapName != "" {
@@ -358,12 +404,10 @@ func getConfiguredMaxConcurrentBuildPods() (int, bool, error) {
 // buildEnvironmentVariables creates the environment variables for the build container
 func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 	gitRepo := ""
-	if config.Project.GitRepo != nil {
-		gitRepo = *config.Project.GitRepo
-	}
 	buildFolder := ""
-	if config.Project.BuildFolder != nil {
-		buildFolder = *config.Project.BuildFolder
+	if config.ProjectConfig != nil {
+		gitRepo = config.ProjectConfig.GitRepo
+		buildFolder = config.ProjectConfig.ProjectPath
 	}
 
 	cacheNamespace := strings.TrimSpace(config.CacheNamespace)
@@ -779,6 +823,8 @@ func GetBuildArtifacts(buildID uint) (map[string]string, error) {
 
 	return artifacts, nil
 }
+
+func int32Ptr(i int32) *int32 { return &i }
 
 // Helper functions
 func getKubernetesConfig() (*rest.Config, error) {

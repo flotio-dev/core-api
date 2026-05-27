@@ -56,26 +56,23 @@ func stringPtrValue(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
-func hasProjectGitCredentials(project dbEngine.Project) (string, string, bool) {
-	username := stringPtrValue(project.GitUsername)
-	token := stringPtrValue(project.GitToken)
+func hasProjectGitCredentials(config dbEngine.ProjectConfig) (string, string, bool) {
+	username := strings.TrimSpace(config.GitUsername)
+	token := strings.TrimSpace(config.GitToken)
 	if username == "" || token == "" {
 		return username, token, false
 	}
 	return username, token, true
 }
 
-func isGitHubHTTPSRepo(gitRepo *string) bool {
-	if gitRepo == nil {
-		return false
-	}
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(*gitRepo)), "https://github.com")
+func isGitHubHTTPSRepo(gitRepo string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(gitRepo)), "https://github.com")
 }
 
-func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint, project dbEngine.Project) (string, string) {
-	projectUsername, projectToken, projectHasCredentials := hasProjectGitCredentials(project)
+func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint, projectConfig dbEngine.ProjectConfig) (string, string) {
+	projectUsername, projectToken, projectHasCredentials := hasProjectGitCredentials(projectConfig)
 
-	if !isGitHubHTTPSRepo(project.GitRepo) {
+	if !isGitHubHTTPSRepo(projectConfig.GitRepo) {
 		if projectHasCredentials {
 			return projectUsername, projectToken
 		}
@@ -205,10 +202,20 @@ func buildHasMore(status string) bool {
 func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Build, project dbEngine.Project, userID uint) error {
 	normalizeBuildDefaults(build)
 
-	gitUsername, gitToken := c.resolveGitCredentials(ctx, userID, project)
+	// Load ProjectConfig
+	var projectConfig dbEngine.ProjectConfig
+	if err := dbEngine.DB.Where("project_id = ?", project.ID).First(&projectConfig).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("project configuration not found")
+		}
+		return fmt.Errorf("failed to fetch project config: %v", err)
+	}
+
+	gitUsername, gitToken := c.resolveGitCredentials(ctx, userID, projectConfig)
 	buildConfig := kubernetesEngine.BuildConfig{
 		BuildID:              build.ID,
 		Project:              project,
+		ProjectConfig:        &projectConfig,
 		Platform:             build.Platform,
 		BuildMode:            build.BuildMode,
 		BuildTarget:          build.BuildTarget,
@@ -216,7 +223,7 @@ func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Bui
 		GitBranch:            build.GitBranch,
 		GitUsername:          gitUsername,
 		GitToken:             gitToken,
-		CacheEnabled:         true,
+		CacheEnabled:         projectConfig.DependencyCaching,
 		CacheUploadOnSuccess: true,
 		CacheNamespace:       buildCacheNamespace(project.ID, build.GitBranch),
 		CacheTTLHours:        24 * 14,
