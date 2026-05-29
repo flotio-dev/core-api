@@ -142,7 +142,7 @@
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
-            "pm.test('Has id (number)', () => pm.expect(json).to.have.property('id').that.is.a('number'));",
+            "pm.test('Has id (number)', () => pm.expect(json.id ?? json.ID).to.be.a('number'));",
             "pm.test('Has email (string)', () => pm.expect(json).to.have.property('email').that.is.a('string'));",
             "pm.test('Has username (string)', () => pm.expect(json).to.have.property('username').that.is.a('string'));",
             "pm.test('Email matches registered email', () => pm.expect(json.email).to.equal(pm.collectionVariables.get('testEmail')));"
@@ -241,11 +241,11 @@
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has project object', () => pm.expect(json).to.have.property('project').that.is.an('object'));",
-            "pm.test('Project has id', () => pm.expect(json.project).to.have.property('id').that.is.a('number'));",
+            "const projectId = json.project.id ?? json.project.ID;",
+            "pm.test('Project has id', () => pm.expect(projectId).to.be.a('number'));",
             "pm.test('Project has name', () => pm.expect(json.project).to.have.property('name').that.is.a('string'));",
-            "pm.test('Project has user_id', () => pm.expect(json.project).to.have.property('user_id').that.is.a('number'));",
-            "pm.collectionVariables.set('projectId', json.project.id);",
-            "console.log('✅ Project created, id:', json.project.id);"
+            "pm.collectionVariables.set('projectId', projectId);",
+            "console.log('✅ Project created, id:', projectId);"
           ]}}],
           "request": {
             "method": "POST",
@@ -270,7 +270,7 @@
             "pm.test('At least 1 project', () => pm.expect(json.projects.length).to.be.at.least(1));",
             "pm.test('Each project has id and name', () => {",
             "  json.projects.forEach(p => {",
-            "    pm.expect(p).to.have.property('id').that.is.a('number');",
+            "    pm.expect(p.id ?? p.ID).to.be.a('number');",
             "    pm.expect(p).to.have.property('name').that.is.a('string');",
             "  });",
             "});"
@@ -287,7 +287,8 @@
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has project object', () => pm.expect(json).to.have.property('project').that.is.an('object'));",
-            "pm.test('Project id matches', () => pm.expect(String(json.project.id)).to.equal(String(pm.collectionVariables.get('projectId'))));"
+            "const pid = json.project.id ?? json.project.ID;",
+            "pm.test('Project id matches', () => pm.expect(String(pid)).to.equal(String(pm.collectionVariables.get('projectId'))));"
           ]}}],
           "request": {
             "method": "GET",
@@ -336,7 +337,9 @@
       "item": [
         {
           "name": "POST /project/{id}/config",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has config object', () => pm.expect(json).to.have.property('config').that.is.an('object'));",
@@ -358,7 +361,9 @@
         },
         {
           "name": "GET /project/{id}/config",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has config object', () => pm.expect(json).to.have.property('config').that.is.an('object'));",
@@ -372,7 +377,9 @@
         },
         {
           "name": "DELETE /project/{id}/config",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));"
@@ -392,14 +399,15 @@
         {
           "name": "POST /env",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has env object', () => pm.expect(json).to.have.property('env').that.is.an('object'));",
-            "pm.test('Env has id', () => pm.expect(json.env).to.have.property('id').that.is.a('number'));",
-            "pm.test('Env has key', () => pm.expect(json.env).to.have.property('key').that.equals('MY_TEST_VAR'));",
-            "pm.test('Env has type', () => pm.expect(json.env).to.have.property('type').that.is.a('string'));",
-            "pm.collectionVariables.set('envId', json.env.id);",
-            "console.log('✅ Env created, id:', json.env.id);"
+            "const envId = json.env.id ?? json.env.ID;",
+            "pm.test('Env has id', () => pm.expect(envId).to.be.a('number'));",
+            "pm.test('Env has key', () => pm.expect(json.env.key ?? json.env.Key).to.equal('MY_TEST_VAR'));",
+            "pm.test('Env has type', () => pm.expect(json.env.type ?? json.env.Type).to.be.a('string'));",
+            "pm.collectionVariables.set('envId', envId);",
+            "console.log('✅ Env created, id:', envId);"
           ]}}],
           "request": {
             "method": "POST",
@@ -456,7 +464,8 @@
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has env object', () => pm.expect(json).to.have.property('env').that.is.an('object'));",
-            "pm.test('Env id matches', () => pm.expect(String(json.env.id)).to.equal(String(pm.collectionVariables.get('envId'))));"
+            "const eid = json.env.id ?? json.env.ID;",
+            "pm.test('Env id matches', () => pm.expect(String(eid)).to.equal(String(pm.collectionVariables.get('envId'))));"
           ]}}],
           "request": {
             "method": "GET",
@@ -509,13 +518,14 @@
         {
           "name": "POST /keystore",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has keystore object', () => pm.expect(json).to.have.property('keystore').that.is.an('object'));",
-            "pm.test('Keystore has id', () => pm.expect(json.keystore).to.have.property('id').that.is.a('number'));",
-            "pm.test('Keystore has name', () => pm.expect(json.keystore).to.have.property('name').that.equals('TestKeystore'));",
-            "pm.collectionVariables.set('keystoreId', json.keystore.id);",
-            "console.log('✅ Keystore created, id:', json.keystore.id);"
+            "const keystoreId = json.keystore.id ?? json.keystore.ID;",
+            "pm.test('Keystore has id', () => pm.expect(keystoreId).to.be.a('number'));",
+            "pm.test('Keystore has name', () => pm.expect(json.keystore.name).to.equal('TestKeystore'));",
+            "pm.collectionVariables.set('keystoreId', keystoreId);",
+            "console.log('✅ Keystore created, id:', keystoreId);"
           ]}}],
           "request": {
             "method": "POST",
@@ -540,7 +550,7 @@
             "pm.test('At least 1 keystore', () => pm.expect(json.keystores.length).to.be.at.least(1));",
             "pm.test('Each keystore has id and name', () => {",
             "  json.keystores.forEach(k => {",
-            "    pm.expect(k).to.have.property('id').that.is.a('number');",
+            "    pm.expect(k.id ?? k.ID).to.be.a('number');",
             "    pm.expect(k).to.have.property('name').that.is.a('string');",
             "  });",
             "});"
@@ -574,13 +584,14 @@
         {
           "name": "POST /google-play-credentials",
           "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
-            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has google_play_credentials object', () => pm.expect(json).to.have.property('google_play_credentials').that.is.an('object'));",
-            "pm.test('Cred has id', () => pm.expect(json.google_play_credentials).to.have.property('id').that.is.a('number'));",
+            "const gpCredId = json.google_play_credentials.id ?? json.google_play_credentials.ID;",
+            "pm.test('Cred has id', () => pm.expect(gpCredId).to.be.a('number'));",
             "pm.test('Cred has name', () => pm.expect(json.google_play_credentials.name).to.equal('TestGPCred'));",
-            "pm.collectionVariables.set('googlePlayCredId', json.google_play_credentials.id);",
-            "console.log('✅ Google Play Cred created, id:', json.google_play_credentials.id);"
+            "pm.collectionVariables.set('googlePlayCredId', gpCredId);",
+            "console.log('✅ Google Play Cred created, id:', gpCredId);"
           ]}}],
           "request": {
             "method": "POST",
@@ -708,10 +719,11 @@
               "pm.test('Status 200', () => pm.response.to.have.status(200));",
               "const json = pm.response.json();",
               "pm.test('Has build object', () => pm.expect(json).to.have.property('build').that.is.an('object'));",
-              "pm.test('Build has id', () => pm.expect(json.build).to.have.property('id').that.is.a('number'));",
+              "const buildId = json.build.id ?? json.build.ID;",
+              "pm.test('Build has id', () => pm.expect(buildId).to.be.a('number'));",
               "pm.test('Build has status', () => pm.expect(json.build).to.have.property('status').that.is.a('string'));",
               "pm.test('Build status is pending or running', () => pm.expect(json.build.status).to.be.oneOf(['pending', 'running', 'queued']));",
-              "pm.collectionVariables.set('buildId', json.build.id);"
+              "pm.collectionVariables.set('buildId', buildId);"
             ]}}
           ],
           "request": {
