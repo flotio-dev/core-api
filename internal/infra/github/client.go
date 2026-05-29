@@ -20,6 +20,11 @@ func NewGitHubClientManager() (*GitHubClientManager, error) {
 	appID := os.Getenv("GITHUB_APP_ID")
 	privateKeyPath := os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH")
 
+	if privateKeyPath == "" {
+		fmt.Println("[github] GITHUB_APP_PRIVATE_KEY_PATH not set — GitHub integration disabled")
+		return &GitHubClientManager{}, nil
+	}
+
 	appIDInt, err := parseInt64(appID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid GITHUB_APP_ID: %w", err)
