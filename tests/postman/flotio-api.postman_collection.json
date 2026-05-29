@@ -336,7 +336,9 @@
       "item": [
         {
           "name": "POST /project/{id}/config",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has config object', () => pm.expect(json).to.have.property('config').that.is.an('object'));",
@@ -358,7 +360,9 @@
         },
         {
           "name": "GET /project/{id}/config",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has config object', () => pm.expect(json).to.have.property('config').that.is.an('object'));",
@@ -372,7 +376,9 @@
         },
         {
           "name": "DELETE /project/{id}/config",
-          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
             "pm.test('Status 200', () => pm.response.to.have.status(200));",
             "const json = pm.response.json();",
             "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));"
