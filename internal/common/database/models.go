@@ -18,11 +18,11 @@ type User struct {
 // Project model
 type Project struct {
 	gorm.Model
-	Name           string  `json:"name"`
-	UserID         uint    `json:"user_id"`
-	User           User    `json:"user"`
-	Builds         []Build `gorm:"foreignKey:ProjectID" json:"builds"`
-	Config         *ProjectConfig `gorm:"foreignKey:ProjectID" json:"config"`
+	Name   string         `json:"name"`
+	UserID uint           `json:"user_id"`
+	User   User           `json:"user"`
+	Builds []Build        `gorm:"foreignKey:ProjectID" json:"builds"`
+	Config *ProjectConfig `gorm:"foreignKey:ProjectID" json:"config"`
 }
 
 // ProjectConfig model
@@ -33,25 +33,24 @@ type ProjectConfig struct {
 	BuildTrigger          string                 `json:"build_trigger"`
 	WatchedBranchPatterns []WatchedBranchPattern `gorm:"serializer:json" json:"watched_branch_patterns"`
 	WatchedTagPatterns    []WatchedTagPattern    `gorm:"serializer:json" json:"watched_tag_patterns"`
-	EnvVariables          []EnvVariable          `gorm:"serializer:json" json:"env_variables"`
 	DependencyCaching     bool                   `json:"dependency_caching"`
 	DependencyDirs        []string               `gorm:"serializer:json" json:"dependency_dirs"`
 
 	// Git Connection
-	GitRepo        string `json:"git_repo"`
-	GitUsername    string `json:"git_username"`
-	GitToken       string `json:"git_token"`
+	GitRepo     string `json:"git_repo"`
+	GitUsername string `json:"git_username"`
+	GitToken    string `json:"git_token"`
 
 	// Webhooks
 	WebhookURLs []string `gorm:"serializer:json" json:"webhook_urls"`
 
 	// Scripts
-	PostCloneScript   string `json:"post_clone_script"`
-	PreTestScript     string `json:"pre_test_script"`
-	PostTestScript    string `json:"post_test_script"`
-	PreBuildScript    string `json:"pre_build_script"`
-	PostBuildScript   string `json:"post_build_script"`
-	PrePublishScript  string `json:"pre_publish_script"`
+	PostCloneScript  string `json:"post_clone_script"`
+	PreTestScript    string `json:"pre_test_script"`
+	PostTestScript   string `json:"post_test_script"`
+	PreBuildScript   string `json:"pre_build_script"`
+	PostBuildScript  string `json:"post_build_script"`
+	PrePublishScript string `json:"pre_publish_script"`
 
 	// Testing
 	Test                 bool     `json:"test"`
@@ -69,7 +68,7 @@ type ProjectConfig struct {
 	CocoaPodsVersion   string `json:"cocoapods_version"`
 	ProjectPath        string `json:"project_path"`
 	AndroidBuildFormat string `json:"android_build_format"` // "apk" or "aab"
-	BuildMode          string `json:"build_mode"`          // "debug", "release", "profile"
+	BuildMode          string `json:"build_mode"`           // "debug", "release", "profile"
 	AndroidBuildArgs   string `json:"android_build_args"`
 	IosBuildArgs       string `json:"ios_build_args"`
 	WebBuildArgs       string `json:"web_build_args"`
@@ -102,11 +101,6 @@ type WatchedBranchPattern struct {
 type WatchedTagPattern struct {
 	Pattern string `json:"pattern"`
 	Type    string `json:"type"` // "include" or "exclude"
-}
-
-type EnvVariable struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
 }
 
 // Build model
@@ -150,25 +144,29 @@ type Env struct {
 	IsBase64  bool     `json:"is_base64"` // True if Value is base64 encoded (for binary files)
 }
 
-// Keystore model - stores Android signing credentials, owned by User
+// Keystore model - stores Android signing credentials, owned by User.
+// Secret fields are encrypted at rest (AES-256-GCM) and never serialized in API
+// responses (json:"-").
 type Keystore struct {
 	gorm.Model
 	UserID        uint   `json:"user_id"`
 	User          User   `json:"user"`
-	Name          string `json:"name"`           // Friendly name
-	KeystoreFile  string `json:"keystore_file"`  // Base64 encoded keystore file
-	StorePassword string `json:"store_password"` // Encrypted
-	KeyAlias      string `json:"key_alias"`
-	KeyPassword   string `json:"key_password"` // Encrypted
+	Name          string `json:"name"`      // Friendly name
+	KeystoreFile  string `json:"-"`         // Base64-encoded .jks, encrypted at rest
+	StorePassword string `json:"-"`         // Encrypted at rest
+	KeyAlias      string `json:"key_alias"` // Not secret
+	KeyPassword   string `json:"-"`         // Encrypted at rest
 }
 
-// GooglePlayCredentials model - stores Google Play distribution keys, owned by User
+// GooglePlayCredentials model - stores Google Play distribution keys, owned by User.
+// Credentials are encrypted at rest (AES-256-GCM) and never serialized in API
+// responses (json:"-").
 type GooglePlayCredentials struct {
 	gorm.Model
 	UserID      uint   `json:"user_id"`
 	User        User   `json:"user"`
-	Name        string `json:"name"`        // Friendly name
-	Credentials string `json:"credentials"` // Base64 encoded JSON
+	Name        string `json:"name"` // Friendly name
+	Credentials string `json:"-"`    // Base64-encoded JSON service account key, encrypted at rest
 }
 
 type Organization struct {

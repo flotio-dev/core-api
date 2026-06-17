@@ -16,9 +16,10 @@ on:
       - ".env.example"
       - "build/flutter-build.Dockerfile"
       - "build/build-image.sh"
+      - "tests/postman/**"
 
   pull_request:
-    branches: ["main"]
+    branches: ["main", "dev"]
     paths:
       - "cmd/**"
       - "pkg/**"
@@ -27,13 +28,79 @@ on:
       - "go.mod"
       - "go.sum"
       - "openapi.yaml"
+      - "tests/postman/**"
+
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
 
 jobs:
+  # ── 1. Tests API (Postman / Newman) ────────────────────────────────────────
+  test:
+    name: API Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject secrets into .env.ci
+        run: |
+          sed -i "s|ACCESS_TOKEN_SECRET=.*|ACCESS_TOKEN_SECRET=${{ secrets.ACCESS_TOKEN_SECRET || 'ci-access-secret-32chars-minimum!' }}|" .env.ci
+          sed -i "s|REFRESH_TOKEN_SECRET=.*|REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET || 'ci-refresh-secret-32chars-minimum!' }}|" .env.ci
+          sed -i "s|SECRETS_ENCRYPTION_KEY=.*|SECRETS_ENCRYPTION_KEY=${{ secrets.SECRETS_ENCRYPTION_KEY || 'Y2ktc2VjcmV0cy1lbmNyeXB0aW9uLWtleS0zMmJ5dGU=' }}|" .env.ci
+
+      - name: Start CI stack
+        run: docker compose -f docker-compose.ci.yml up -d --build
+
+      - name: Wait for core-api
+        run: |
+          echo "Waiting for core-api on :8080..."
+          timeout 90 bash -c '
+            until curl -sf http://localhost:8080/healthz > /dev/null 2>&1; do
+              echo "  ...not ready yet"; sleep 3
+            done
+          '
+          echo "✅ core-api ready"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run Postman tests
+        run: |
+          mkdir -p tests/postman/results
+          newman run tests/postman/flotio-api.postman_collection.json \
+            --environment tests/postman/flotio-ci.postman_environment.json \
+            --reporters cli,htmlextra \
+            --reporter-htmlextra-export tests/postman/results/report.html \
+            --reporter-htmlextra-title "Flotio API — ${{ github.ref_name }} #${{ github.run_number }}" \
+            --reporter-htmlextra-logs \
+            --timeout-request 10000 \
+            --bail
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: postman-report-${{ github.run_number }}
+          path: tests/postman/results/report.html
+          retention-days: 30
+
+      - name: Stop CI stack
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v
+
+  # ── 2. Build & Push image Docker ───────────────────────────────────────────
   build:
+    name: Build & Push
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -69,7 +136,6 @@ jobs:
           fi
 
           new="$major.$minor"
-
           echo "version=$new" >> $GITHUB_OUTPUT
 
       - name: Create Git tag
@@ -96,7 +162,9 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
 
+  # ── 3. Update GitOps repo ──────────────────────────────────────────────────
   update-gitops:
+    name: Update GitOps
     needs: build
     if: github.event_name == 'push'
     runs-on: ubuntu-latest

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	_ "github.com/flotio-dev/core-api/docs/api"
@@ -27,7 +28,8 @@ func Router() http.Handler {
 	ghRepository := githubRepo.NewGithubRepository(dbEngine.DB)
 	ghClientManager, err := githubEngine.NewGitHubClientManager()
 	if err != nil {
-		panic("Failed to create GitHub Client Manager: " + err.Error())
+		log.Printf("[github] GitHub Client Manager disabled: %v", err)
+		ghClientManager = &githubEngine.GitHubClientManager{}
 	}
 	ghService := githubService.NewGithubService(
 		ghRepository,
@@ -77,11 +79,15 @@ func Router() http.Handler {
 
 	// Project routes (Project Module)
 	projectCtrl := projectHandler.NewProjectController(uService)
+	configCtrl := projectHandler.NewConfigController(uService)
 	protected.HandleFunc("/project", projectCtrl.ProjectsGetHandler).Methods("GET")
 	protected.HandleFunc("/project", projectCtrl.ProjectCreateHandler).Methods("POST")
 	protected.HandleFunc("/project/{id:[0-9]+}", projectCtrl.ProjectGetHandler).Methods("GET")
 	protected.HandleFunc("/project/{id:[0-9]+}", projectCtrl.ProjectPutHandler).Methods("PUT")
 	protected.HandleFunc("/project/{id:[0-9]+}", projectCtrl.ProjectDeleteHandler).Methods("DELETE")
+	protected.HandleFunc("/project/{id:[0-9]+}/config", configCtrl.ConfigGetHandler).Methods("GET")
+	protected.HandleFunc("/project/{id:[0-9]+}/config", configCtrl.ConfigPostHandler).Methods("POST")
+	protected.HandleFunc("/project/{id:[0-9]+}/config", configCtrl.ConfigDeleteHandler).Methods("DELETE")
 
 	// Keystore routes (User Module - Assets)
 	keystoreCtrl := projectHandler.NewKeystoreController(uService)

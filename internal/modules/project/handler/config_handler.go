@@ -153,7 +153,6 @@ func (c *ConfigController) ConfigPostHandler(w http.ResponseWriter, r *http.Requ
 	if has("build_trigger") { config.BuildTrigger = req.BuildTrigger }
 	if has("watched_branch_patterns") { config.WatchedBranchPatterns = req.WatchedBranchPatterns }
 	if has("watched_tag_patterns") { config.WatchedTagPatterns = req.WatchedTagPatterns }
-	if has("env_variables") { config.EnvVariables = req.EnvVariables }
 	if has("dependency_caching") { config.DependencyCaching = req.DependencyCaching }
 	if has("dependency_dirs") { config.DependencyDirs = req.DependencyDirs }
 	

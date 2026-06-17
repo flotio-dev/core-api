@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/flotio-dev/core-api/internal/common/crypto"
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -157,8 +158,24 @@ func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, proj
 
 	secretName := fmt.Sprintf("build-%d-keystore", buildID)
 
-	// Decode keystore file from base64
-	keystoreData, err := base64.StdEncoding.DecodeString(keystore.KeystoreFile)
+	// Decrypt secrets at rest before use. Decrypt passes through legacy
+	// plaintext (values without the "enc:v1:" prefix), so this keeps working
+	// for keystores stored before encryption was rolled out.
+	keystoreFile, err := crypto.Decrypt(keystore.KeystoreFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt keystore file: %v", err)
+	}
+	storePassword, err := crypto.Decrypt(keystore.StorePassword)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt store password: %v", err)
+	}
+	keyPassword, err := crypto.Decrypt(keystore.KeyPassword)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt key password: %v", err)
+	}
+
+	// The keystore file is stored as base64; decode it to raw bytes.
+	keystoreData, err := base64.StdEncoding.DecodeString(keystoreFile)
 	if err != nil {
 		return "", fmt.Errorf("failed to decode keystore file: %v", err)
 	}
@@ -177,9 +194,9 @@ func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, proj
 			"keystore.jks": keystoreData,
 		},
 		StringData: map[string]string{
-			"store-password": keystore.StorePassword,
+			"store-password": storePassword,
 			"key-alias":      keystore.KeyAlias,
-			"key-password":   keystore.KeyPassword,
+			"key-password":   keyPassword,
 		},
 	}
 

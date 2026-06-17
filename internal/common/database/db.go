@@ -10,6 +10,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	"github.com/flotio-dev/core-api/internal/common/crypto"
 )
 
 var DB *gorm.DB
@@ -34,7 +36,69 @@ func InitDB() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
+	// Encrypt any secret still stored as plaintext (one-off, idempotent).
+	if err := encryptLegacySecrets(); err != nil {
+		log.Fatalf("Failed to encrypt legacy secrets: %v", err)
+	}
+
 	log.Println("Database connected and migrated")
+}
+
+// encryptLegacySecrets encrypts secrets that predate encryption-at-rest.
+// It is idempotent: values already encrypted (carrying the "enc:v1:" prefix)
+// are skipped, so it is safe to run on every startup.
+func encryptLegacySecrets() error {
+	var keystores []Keystore
+	if err := DB.Find(&keystores).Error; err != nil {
+		return err
+	}
+	for _, k := range keystores {
+		updates := map[string]interface{}{}
+		if k.KeystoreFile != "" && !crypto.IsEncrypted(k.KeystoreFile) {
+			enc, err := crypto.Encrypt(k.KeystoreFile)
+			if err != nil {
+				return err
+			}
+			updates["keystore_file"] = enc
+		}
+		if k.StorePassword != "" && !crypto.IsEncrypted(k.StorePassword) {
+			enc, err := crypto.Encrypt(k.StorePassword)
+			if err != nil {
+				return err
+			}
+			updates["store_password"] = enc
+		}
+		if k.KeyPassword != "" && !crypto.IsEncrypted(k.KeyPassword) {
+			enc, err := crypto.Encrypt(k.KeyPassword)
+			if err != nil {
+				return err
+			}
+			updates["key_password"] = enc
+		}
+		if len(updates) > 0 {
+			if err := DB.Model(&Keystore{}).Where("id = ?", k.ID).Updates(updates).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	var creds []GooglePlayCredentials
+	if err := DB.Find(&creds).Error; err != nil {
+		return err
+	}
+	for _, c := range creds {
+		if c.Credentials != "" && !crypto.IsEncrypted(c.Credentials) {
+			enc, err := crypto.Encrypt(c.Credentials)
+			if err != nil {
+				return err
+			}
+			if err := DB.Model(&GooglePlayCredentials{}).Where("id = ?", c.ID).Update("credentials", enc).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func InitRedis() {
