@@ -33,7 +33,6 @@ type ProjectConfig struct {
 	BuildTrigger          string                 `json:"build_trigger"`
 	WatchedBranchPatterns []WatchedBranchPattern `gorm:"serializer:json" json:"watched_branch_patterns"`
 	WatchedTagPatterns    []WatchedTagPattern    `gorm:"serializer:json" json:"watched_tag_patterns"`
-	EnvVariables          []EnvVariable          `gorm:"serializer:json" json:"env_variables"`
 	DependencyCaching     bool                   `json:"dependency_caching"`
 	DependencyDirs        []string               `gorm:"serializer:json" json:"dependency_dirs"`
 
@@ -102,11 +101,6 @@ type WatchedBranchPattern struct {
 type WatchedTagPattern struct {
 	Pattern string `json:"pattern"`
 	Type    string `json:"type"` // "include" or "exclude"
-}
-
-type EnvVariable struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
 }
 
 // Build model

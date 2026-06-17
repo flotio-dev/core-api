@@ -36,22 +36,7 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 	}
 	sb.WriteString("echo \"- OS Info: $(uname -a)\"\n")
 	sb.WriteString("echo \"- Memory Info: $(free -h | grep Mem | awk '{print $2}')\"\n")
-	
-	sb.WriteString("\necho \"- Injected Environment Variables:\"\n")
-	if projectConfig != nil && len(projectConfig.EnvVariables) > 0 {
-		for _, envVar := range projectConfig.EnvVariables {
-			// Mask values that look like tokens or passwords
-			displayValue := envVar.Value
-			lowerKey := strings.ToLower(envVar.Key)
-			if strings.Contains(lowerKey, "token") || strings.Contains(lowerKey, "password") || strings.Contains(lowerKey, "key") || strings.Contains(lowerKey, "secret") {
-				displayValue = "********"
-			}
-			sb.WriteString(fmt.Sprintf("echo \"  • %s: %s\"\n", envVar.Key, displayValue))
-		}
-	} else {
-		sb.WriteString("echo \"  • No project-specific environment variables injected\"\n")
-	}
-	sb.WriteString("\n")
+	sb.WriteString("echo \"- Environment variables injected from /env assets\"\n")
 
 	// Phase 2: Clone
 	sb.WriteString("log_step \"Cloning Repository\"\n")

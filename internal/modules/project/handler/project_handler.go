@@ -353,7 +353,6 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 		projectConfig.BuildTrigger = c.BuildTrigger
 		projectConfig.WatchedBranchPatterns = c.WatchedBranchPatterns
 		projectConfig.WatchedTagPatterns = c.WatchedTagPatterns
-		projectConfig.EnvVariables = c.EnvVariables
 		projectConfig.DependencyCaching = c.DependencyCaching
 		projectConfig.DependencyDirs = c.DependencyDirs
 		

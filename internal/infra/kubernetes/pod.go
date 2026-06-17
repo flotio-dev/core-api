@@ -118,15 +118,7 @@ func CreateBuildPod(config BuildConfig) error {
 	// Build environment variables
 	envVars := buildEnvironmentVariables(config)
 
-	// Add environment variables from ProjectConfig
-	for _, envVar := range projectConfig.EnvVariables {
-		envVars = append(envVars, v1.EnvVar{
-			Name:  envVar.Key,
-			Value: envVar.Value,
-		})
-	}
-
-	// Add environment variables from database (deprecated Env model)
+	// Add environment variables from /env assets (Env model)
 	if dbEngine.DB != nil {
 		var dbEnvs []dbEngine.Env
 		if err := dbEngine.DB.Where("project_id = ? AND type = ?", config.Project.ID, "env").Find(&dbEnvs).Error; err == nil {
