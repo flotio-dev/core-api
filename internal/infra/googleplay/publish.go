@@ -41,9 +41,105 @@ func (c *Client) uploadBundle(ctx context.Context, packageName, editID string, a
 	return bundle, nil
 }
 
+// commitEdit validates the edit transaction, making the changes effective.
+func (c *Client) commitEdit(ctx context.Context, packageName, editID string) error {
+	if _, err := c.service.Edits.Commit(packageName, editID).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("googleplay: commit edit for %s: %w", packageName, err)
+	}
+	return nil
+}
+
+// PublishInput describes a full Google Play publication request.
+type PublishInput struct {
+	PackageName      string
+	AAB              io.Reader // signed .aab content
+	Track            string    // internal, alpha, beta, production
+	RolloutFraction  float64   // 0..1 for a staged rollout; <=0 or >=1 means full
+	Draft            bool      // publish as draft instead of rolling out
+	Name             string    // optional release name (e.g. versionName)
+	ReleaseNotes     string    // optional changelog
+	ReleaseNotesLang string    // BCP-47 language for the notes; defaults to en-US
+}
+
+// PublishResult reports the outcome of a publication.
+type PublishResult struct {
+	VersionCode int64
+	Track       string
+	Status      string
+}
+
+// Publish runs the full edits transaction: open, upload the AAB, assign it to a
+// track and commit. The edit is aborted if any step fails so no dangling
+// transaction is left behind.
+func (c *Client) Publish(ctx context.Context, in PublishInput) (*PublishResult, error) {
+	if in.Track == "" {
+		return nil, errors.New("googleplay: empty track")
+	}
+
+	editID, err := c.insertEdit(ctx, in.PackageName)
+	if err != nil {
+		return nil, err
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			c.abortEdit(ctx, in.PackageName, editID)
+		}
+	}()
+
+	bundle, err := c.uploadBundle(ctx, in.PackageName, editID, in.AAB)
+	if err != nil {
+		return nil, err
+	}
+
+	assignment := TrackAssignment{
+		Track:            in.Track,
+		VersionCode:      bundle.VersionCode,
+		RolloutFraction:  in.RolloutFraction,
+		Draft:            in.Draft,
+		Name:             in.Name,
+		ReleaseNotes:     in.ReleaseNotes,
+		ReleaseNotesLang: in.ReleaseNotesLang,
+	}
+	if err := c.assignTrack(ctx, in.PackageName, editID, assignment); err != nil {
+		return nil, err
+	}
+
+	if err := c.commitEdit(ctx, in.PackageName, editID); err != nil {
+		return nil, err
+	}
+	committed = true
+
+	return &PublishResult{
+		VersionCode: bundle.VersionCode,
+		Track:       in.Track,
+		Status:      resolveReleaseStatus(in.Draft, in.RolloutFraction),
+	}, nil
+}
+
 // defaultReleaseNotesLang is used when release notes are provided without a
 // specific BCP-47 language tag.
 const defaultReleaseNotesLang = "en-US"
+
+// Google Play release statuses.
+const (
+	releaseStatusDraft      = "draft"
+	releaseStatusInProgress = "inProgress"
+	releaseStatusCompleted  = "completed"
+)
+
+// resolveReleaseStatus maps the draft/rollout intent to a Play release status.
+// It is pure for testing.
+func resolveReleaseStatus(draft bool, rolloutFraction float64) string {
+	switch {
+	case draft:
+		return releaseStatusDraft
+	case rolloutFraction > 0 && rolloutFraction < 1:
+		return releaseStatusInProgress
+	default:
+		return releaseStatusCompleted
+	}
+}
 
 // TrackAssignment describes how a versionCode is released on a track.
 type TrackAssignment struct {
@@ -80,14 +176,9 @@ func buildTrackRelease(a TrackAssignment) *androidpublisher.TrackRelease {
 		VersionCodes: []int64{a.VersionCode},
 	}
 
-	switch {
-	case a.Draft:
-		release.Status = "draft"
-	case a.RolloutFraction > 0 && a.RolloutFraction < 1:
-		release.Status = "inProgress"
+	release.Status = resolveReleaseStatus(a.Draft, a.RolloutFraction)
+	if release.Status == releaseStatusInProgress {
 		release.UserFraction = a.RolloutFraction
-	default:
-		release.Status = "completed"
 	}
 
 	if a.ReleaseNotes != "" {

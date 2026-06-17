@@ -2,6 +2,27 @@ package googleplay
 
 import "testing"
 
+func TestResolveReleaseStatus(t *testing.T) {
+	cases := []struct {
+		name     string
+		draft    bool
+		fraction float64
+		want     string
+	}{
+		{"full rollout", false, 0, releaseStatusCompleted},
+		{"staged rollout", false, 0.1, releaseStatusInProgress},
+		{"fraction >= 1 is full", false, 1, releaseStatusCompleted},
+		{"draft wins over rollout", true, 0.5, releaseStatusDraft},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveReleaseStatus(tc.draft, tc.fraction); got != tc.want {
+				t.Fatalf("got %q want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBuildTrackRelease(t *testing.T) {
 	t.Run("full rollout", func(t *testing.T) {
 		r := buildTrackRelease(TrackAssignment{Track: "production", VersionCode: 5})
