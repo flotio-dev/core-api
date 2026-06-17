@@ -1,0 +1,903 @@
+{
+  "info": {
+    "_postman_id": "flotio-api-tests-v1",
+    "name": "Flotio API Tests",
+    "description": "Suite de tests complète pour le core-api Flotio.\nFlux : Register → Login → CRUD → Logout\n\nVariables dynamiques stockées en cours d'exécution :\n- accessToken, refreshToken\n- projectId, envId, keystoreId, googlePlayCredId\n\nPour skipper GitHub/Builds : mettre skipGitHub/skipBuilds à 'true' dans l'environnement.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "accessToken",      "value": "" },
+    { "key": "refreshToken",     "value": "" },
+    { "key": "testEmail",        "value": "" },
+    { "key": "testPassword",     "value": "Test@1234!" },
+    { "key": "projectId",        "value": "" },
+    { "key": "envId",            "value": "" },
+    { "key": "keystoreId",       "value": "" },
+    { "key": "googlePlayCredId", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('testEmail')) {",
+          "  pm.collectionVariables.set('testEmail', `test-${Date.now()}@flotio-test.dev`);",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+
+    {
+      "name": "🏥 Health",
+      "item": [
+        {
+          "name": "GET /healthz",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Body is ok', () => pm.expect(pm.response.text()).to.equal('ok'));",
+            "pm.test('Response under 500ms', () => pm.expect(pm.response.responseTime).to.be.below(500));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/healthz", "host": ["{{baseUrl}}"], "path": ["healthz"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "POST /auth/register",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Content-Type JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+            "pm.test('Response time < 2s', () => pm.expect(pm.response.responseTime).to.be.below(2000));",
+            "const json = pm.response.json();",
+            "pm.test('Has access_token', () => pm.expect(json).to.have.property('access_token').that.is.a('string').and.not.empty);",
+            "pm.test('Has refresh_token', () => pm.expect(json).to.have.property('refresh_token').that.is.a('string').and.not.empty);",
+            "pm.test('Has expires_in', () => pm.expect(json).to.have.property('expires_in'));",
+            "pm.collectionVariables.set('accessToken', json.access_token);",
+            "pm.collectionVariables.set('refreshToken', json.refresh_token);",
+            "console.log('✅ Registered:', pm.collectionVariables.get('testEmail'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"username\": \"testuser\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "POST /auth/register – 400 duplicate email",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 400 or 409 on duplicate email', () => {",
+            "  pm.expect(pm.response.code).to.be.oneOf([400, 409, 422]);",
+            "});"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"username\": \"testuser2\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+          }
+        },
+        {
+          "name": "POST /auth/login",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Content-Type JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+            "const json = pm.response.json();",
+            "pm.test('Has access_token', () => pm.expect(json).to.have.property('access_token').that.is.a('string').and.not.empty);",
+            "pm.test('Has refresh_token', () => pm.expect(json).to.have.property('refresh_token').that.is.a('string').and.not.empty);",
+            "pm.test('Has expires_in', () => pm.expect(json).to.have.property('expires_in'));",
+            "pm.collectionVariables.set('accessToken', json.access_token);",
+            "pm.collectionVariables.set('refreshToken', json.refresh_token);",
+            "console.log('✅ Logged in, token stored');"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "POST /auth/login – 401 wrong password",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 401 on wrong password', () => {",
+            "  pm.expect(pm.response.code).to.be.oneOf([401, 400]);",
+            "});"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"WrongPassword!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+          }
+        },
+        {
+          "name": "GET /auth/@me",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has id (number)', () => pm.expect(json.id ?? json.ID).to.be.a('number'));",
+            "pm.test('Has email (string)', () => pm.expect(json).to.have.property('email').that.is.a('string'));",
+            "pm.test('Has username (string)', () => pm.expect(json).to.have.property('username').that.is.a('string'));",
+            "pm.test('Email matches registered email', () => pm.expect(json.email).to.equal(pm.collectionVariables.get('testEmail')));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/auth/@me", "host": ["{{baseUrl}}"], "path": ["auth", "@me"] }
+          }
+        },
+        {
+          "name": "GET /auth/@me – 401 no token",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 401 without token', () => pm.response.to.have.status(401));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/auth/@me", "host": ["{{baseUrl}}"], "path": ["auth", "@me"] }
+          }
+        },
+        {
+          "name": "PUT /auth/@me",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"updateduser\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/@me", "host": ["{{baseUrl}}"], "path": ["auth", "@me"] }
+          }
+        },
+        {
+          "name": "POST /auth/refresh",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has new access_token', () => pm.expect(json).to.have.property('access_token').that.is.a('string').and.not.empty);",
+            "pm.test('Has new refresh_token', () => pm.expect(json).to.have.property('refresh_token').that.is.a('string').and.not.empty);",
+            "pm.collectionVariables.set('accessToken', json.access_token);",
+            "pm.collectionVariables.set('refreshToken', json.refresh_token);",
+            "console.log('✅ Tokens refreshed');"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/refresh", "host": ["{{baseUrl}}"], "path": ["auth", "refresh"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🐦 Flutter",
+      "item": [
+        {
+          "name": "GET /flutter/versions",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Response time < 5s', () => pm.expect(pm.response.responseTime).to.be.below(5000));",
+            "const json = pm.response.json();",
+            "pm.test('Is array or has versions', () => {",
+            "  pm.expect(Array.isArray(json) || Array.isArray(json.versions)).to.be.true;",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/flutter/versions", "host": ["{{baseUrl}}"], "path": ["flutter", "versions"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📁 Projects",
+      "item": [
+        {
+          "name": "POST /project",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has project object', () => pm.expect(json).to.have.property('project').that.is.an('object'));",
+            "const projectId = json.project.id ?? json.project.ID;",
+            "pm.test('Project has id', () => pm.expect(projectId).to.be.a('number'));",
+            "pm.test('Project has name', () => pm.expect(json.project).to.have.property('name').that.is.a('string'));",
+            "pm.collectionVariables.set('projectId', projectId);",
+            "console.log('✅ Project created, id:', projectId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Project CI\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/project", "host": ["{{baseUrl}}"], "path": ["project"] }
+          }
+        },
+        {
+          "name": "GET /project",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has projects array', () => pm.expect(json).to.have.property('projects').that.is.an('array'));",
+            "pm.test('At least 1 project', () => pm.expect(json.projects.length).to.be.at.least(1));",
+            "pm.test('Each project has id and name', () => {",
+            "  json.projects.forEach(p => {",
+            "    pm.expect(p.id ?? p.ID).to.be.a('number');",
+            "    pm.expect(p).to.have.property('name').that.is.a('string');",
+            "  });",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project", "host": ["{{baseUrl}}"], "path": ["project"] }
+          }
+        },
+        {
+          "name": "GET /project/{id}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has project object', () => pm.expect(json).to.have.property('project').that.is.an('object'));",
+            "const pid = json.project.id ?? json.project.ID;",
+            "pm.test('Project id matches', () => pm.expect(String(pid)).to.equal(String(pm.collectionVariables.get('projectId'))));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}"] }
+          }
+        },
+        {
+          "name": "GET /project/{id} – 404 unknown id",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 404 for unknown project', () => pm.response.to.have.status(404));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/999999", "host": ["{{baseUrl}}"], "path": ["project", "999999"] }
+          }
+        },
+        {
+          "name": "PUT /project/{id}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has project object', () => pm.expect(json).to.have.property('project').that.is.an('object'));",
+            "pm.test('Name was updated', () => pm.expect(json.project.name).to.equal('Test Project CI Updated'));"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Project CI Updated\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "⚙️ Project Config",
+      "item": [
+        {
+          "name": "POST /project/{id}/config",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has config object', () => pm.expect(json).to.have.property('config').that.is.an('object'));",
+            "pm.test('git_repo is set', () => pm.expect(json.config).to.have.property('git_repo').that.is.a('string'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"git_repo\": \"https://github.com/test/test-app\",\n  \"flutter_version\": \"3.24.0\",\n  \"build_mode\": \"release\",\n  \"platforms\": [\"android\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/config", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "config"] }
+          }
+        },
+        {
+          "name": "GET /project/{id}/config",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has config object', () => pm.expect(json).to.have.property('config').that.is.an('object'));",
+            "pm.test('git_repo matches', () => pm.expect(json.config.git_repo).to.equal('https://github.com/test/test-app'));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/config", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "config"] }
+          }
+        },
+        {
+          "name": "DELETE /project/{id}/config",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": ["pm.execution.skipRequest();"] }},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/config", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "config"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🌿 Environment Assets",
+      "item": [
+        {
+          "name": "POST /env",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has env object', () => pm.expect(json).to.have.property('env').that.is.an('object'));",
+            "const envId = json.env.id ?? json.env.ID;",
+            "pm.test('Env has id', () => pm.expect(envId).to.be.a('number'));",
+            "pm.test('Env has key', () => pm.expect(json.env.key ?? json.env.Key).to.equal('MY_TEST_VAR'));",
+            "pm.test('Env has type', () => pm.expect(json.env.type ?? json.env.Type).to.be.a('string'));",
+            "pm.collectionVariables.set('envId', envId);",
+            "console.log('✅ Env created, id:', envId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"project_id\": {{projectId}},\n  \"key\": \"MY_TEST_VAR\",\n  \"value\": \"hello-world\",\n  \"type\": \"env\",\n  \"path\": \"\",\n  \"is_base64\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/env", "host": ["{{baseUrl}}"], "path": ["env"] }
+          }
+        },
+        {
+          "name": "GET /env",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has envs array', () => pm.expect(json).to.have.property('envs').that.is.an('array'));",
+            "pm.test('At least 1 env', () => pm.expect(json.envs.length).to.be.at.least(1));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/env", "host": ["{{baseUrl}}"], "path": ["env"] }
+          }
+        },
+        {
+          "name": "GET /env?project_id={id}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has envs array', () => pm.expect(json).to.have.property('envs').that.is.an('array'));",
+            "pm.test('All envs belong to project', () => {",
+            "  json.envs.forEach(e => pm.expect(String(e.project_id)).to.equal(String(pm.collectionVariables.get('projectId'))));",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/env?project_id={{projectId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["env"],
+              "query": [{ "key": "project_id", "value": "{{projectId}}" }]
+            }
+          }
+        },
+        {
+          "name": "GET /env/{envId}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has env object', () => pm.expect(json).to.have.property('env').that.is.an('object'));",
+            "const eid = json.env.id ?? json.env.ID;",
+            "pm.test('Env id matches', () => pm.expect(String(eid)).to.equal(String(pm.collectionVariables.get('envId'))));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/env/{{envId}}", "host": ["{{baseUrl}}"], "path": ["env", "{{envId}}"] }
+          }
+        },
+        {
+          "name": "PUT /env/{envId}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has env object', () => pm.expect(json).to.have.property('env').that.is.an('object'));",
+            "pm.test('Value was updated', () => pm.expect(json.env.value).to.equal('updated-value'));"
+          ]}}],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"MY_TEST_VAR\",\n  \"value\": \"updated-value\",\n  \"type\": \"env\",\n  \"path\": \"\",\n  \"is_base64\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/env/{{envId}}", "host": ["{{baseUrl}}"], "path": ["env", "{{envId}}"] }
+          }
+        },
+        {
+          "name": "DELETE /env/{envId}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));",
+            "console.log('✅ Env deleted');"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/env/{{envId}}", "host": ["{{baseUrl}}"], "path": ["env", "{{envId}}"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔑 Keystores",
+      "item": [
+        {
+          "name": "POST /keystore",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has keystore object', () => pm.expect(json).to.have.property('keystore').that.is.an('object'));",
+            "const keystoreId = json.keystore.id ?? json.keystore.ID;",
+            "pm.test('Keystore has id', () => pm.expect(keystoreId).to.be.a('number'));",
+            "pm.test('Keystore has name', () => pm.expect(json.keystore.name).to.equal('TestKeystore'));",
+            "pm.collectionVariables.set('keystoreId', keystoreId);",
+            "console.log('✅ Keystore created, id:', keystoreId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TestKeystore\",\n  \"keystore_file\": \"dGVzdC1rZXlzdG9yZS1iYXNlNjQ=\",\n  \"store_password\": \"storepass\",\n  \"key_alias\": \"myalias\",\n  \"key_password\": \"keypass\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/keystore", "host": ["{{baseUrl}}"], "path": ["keystore"] }
+          }
+        },
+        {
+          "name": "GET /keystore",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has keystores array', () => pm.expect(json).to.have.property('keystores').that.is.an('array'));",
+            "pm.test('At least 1 keystore', () => pm.expect(json.keystores.length).to.be.at.least(1));",
+            "pm.test('Each keystore has id and name', () => {",
+            "  json.keystores.forEach(k => {",
+            "    pm.expect(k.id ?? k.ID).to.be.a('number');",
+            "    pm.expect(k).to.have.property('name').that.is.a('string');",
+            "  });",
+            "});"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/keystore", "host": ["{{baseUrl}}"], "path": ["keystore"] }
+          }
+        },
+        {
+          "name": "DELETE /keystore/{keystoreId}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));",
+            "console.log('✅ Keystore deleted');"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/keystore/{{keystoreId}}", "host": ["{{baseUrl}}"], "path": ["keystore", "{{keystoreId}}"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🎮 Google Play Credentials",
+      "item": [
+        {
+          "name": "POST /google-play-credentials",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has google_play_credentials object', () => pm.expect(json).to.have.property('google_play_credentials').that.is.an('object'));",
+            "const gpCredId = json.google_play_credentials.id ?? json.google_play_credentials.ID;",
+            "pm.test('Cred has id', () => pm.expect(gpCredId).to.be.a('number'));",
+            "pm.test('Cred has name', () => pm.expect(json.google_play_credentials.name).to.equal('TestGPCred'));",
+            "pm.collectionVariables.set('googlePlayCredId', gpCredId);",
+            "console.log('✅ Google Play Cred created, id:', gpCredId);"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"TestGPCred\",\n  \"credentials\": \"eyJ0eXBlIjoic2VydmljZV9hY2NvdW50IiwicHJvamVjdF9pZCI6InRlc3QiLCJwcml2YXRlX2tleV9pZCI6InRlc3QiLCJwcml2YXRlX2tleSI6InRlc3QiLCJjbGllbnRfZW1haWwiOiJ0ZXN0QHRlc3QuY29tIiwiY2xpZW50X2lkIjoidGVzdCJ9\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/google-play-credentials", "host": ["{{baseUrl}}"], "path": ["google-play-credentials"] }
+          }
+        },
+        {
+          "name": "GET /google-play-credentials",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has google_play_credentials array', () => pm.expect(json).to.have.property('google_play_credentials').that.is.an('array'));",
+            "pm.test('At least 1 credential', () => pm.expect(json.google_play_credentials.length).to.be.at.least(1));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/google-play-credentials", "host": ["{{baseUrl}}"], "path": ["google-play-credentials"] }
+          }
+        },
+        {
+          "name": "DELETE /google-play-credentials/{credentialsId}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));",
+            "console.log('✅ Google Play Cred deleted');"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/google-play-credentials/{{googlePlayCredId}}", "host": ["{{baseUrl}}"], "path": ["google-play-credentials", "{{googlePlayCredId}}"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🐙 GitHub Integration",
+      "item": [
+        {
+          "name": "GET /github/installations",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipGitHub') === 'true') { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200 or 404', () => {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  const json = pm.response.json();",
+              "  pm.test('Has installation_id', () => pm.expect(json).to.have.property('installation_id'));",
+              "}"
+            ]}}
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/github/installations", "host": ["{{baseUrl}}"], "path": ["github", "installations"] }
+          }
+        },
+        {
+          "name": "GET /github/repos",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipGitHub') === 'true') { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200 or 404', () => {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+              "});",
+              "if (pm.response.code === 200) {",
+              "  const json = pm.response.json();",
+              "  pm.test('Has repositories array', () => pm.expect(json).to.have.property('repositories').that.is.an('array'));",
+              "}"
+            ]}}
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/github/repos", "host": ["{{baseUrl}}"], "path": ["github", "repos"] }
+          }
+        },
+        {
+          "name": "DELETE /github/disconnect",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipGitHub') === 'true') { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200 or 404', () => {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+              "});"
+            ]}}
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/github/disconnect", "host": ["{{baseUrl}}"], "path": ["github", "disconnect"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔨 Builds",
+      "item": [
+        {
+          "name": "POST /project/{id}/build",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipBuilds') === 'true') { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has build object', () => pm.expect(json).to.have.property('build').that.is.an('object'));",
+              "const buildId = json.build.id ?? json.build.ID;",
+              "pm.test('Build has id', () => pm.expect(buildId).to.be.a('number'));",
+              "pm.test('Build has status', () => pm.expect(json.build).to.have.property('status').that.is.a('string'));",
+              "pm.test('Build status is pending or running', () => pm.expect(json.build.status).to.be.oneOf(['pending', 'running', 'queued']));",
+              "pm.collectionVariables.set('buildId', buildId);"
+            ]}}
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"platform\": \"android\",\n  \"build_mode\": \"release\",\n  \"build_target\": \"apk\",\n  \"flutter_channel\": \"stable\",\n  \"git_branch\": \"main\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/build", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "build"] }
+          }
+        },
+        {
+          "name": "GET /project/{id}/builds",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipBuilds') === 'true') { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has builds array', () => pm.expect(json).to.have.property('builds').that.is.an('array'));"
+            ]}}
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/builds", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "builds"] }
+          }
+        },
+        {
+          "name": "PUT /project/{id}/build/{buildId}/cancel",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipBuilds') === 'true') { pm.execution.skipRequest(); }",
+              "if (!pm.collectionVariables.get('buildId')) { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has build object', () => pm.expect(json).to.have.property('build').that.is.an('object'));"
+            ]}}
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/build/{{buildId}}/cancel", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "build", "{{buildId}}", "cancel"] }
+          }
+        },
+        {
+          "name": "GET /project/{id}/build/{buildId}/logs",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipBuilds') === 'true') { pm.execution.skipRequest(); }",
+              "if (!pm.collectionVariables.get('buildId')) { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has logs array', () => pm.expect(json).to.have.property('logs').that.is.an('array'));"
+            ]}}
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/build/{{buildId}}/logs", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "build", "{{buildId}}", "logs"] }
+          }
+        },
+        {
+          "name": "DELETE /project/{id}/build/{buildId}",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipBuilds') === 'true') { pm.execution.skipRequest(); }",
+              "if (!pm.collectionVariables.get('buildId')) { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));"
+            ]}}
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/build/{{buildId}}", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "build", "{{buildId}}"] }
+          }
+        },
+        {
+          "name": "GET /project/{id}/cache/metrics",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipBuilds') === 'true') { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has namespace', () => pm.expect(json).to.have.property('namespace'));",
+              "pm.test('Has object_count', () => pm.expect(json).to.have.property('object_count'));"
+            ]}}
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/cache/metrics", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "cache", "metrics"] }
+          }
+        },
+        {
+          "name": "DELETE /project/{id}/cache",
+          "event": [
+            { "listen": "prerequest", "script": { "type": "text/javascript", "exec": [
+              "if (pm.environment.get('skipBuilds') === 'true') { pm.execution.skipRequest(); }"
+            ]}},
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const json = pm.response.json();",
+              "pm.test('Has status field', () => pm.expect(json).to.have.property('status'));"
+            ]}}
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}/cache", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}", "cache"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🧹 Cleanup",
+      "item": [
+        {
+          "name": "DELETE /project/{id}",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));",
+            "console.log('✅ Project deleted, cleanup complete');"
+          ]}}],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": { "raw": "{{baseUrl}}/project/{{projectId}}", "host": ["{{baseUrl}}"], "path": ["project", "{{projectId}}"] }
+          }
+        },
+        {
+          "name": "POST /auth/logout",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const json = pm.response.json();",
+            "pm.test('Has status field', () => pm.expect(json).to.have.property('status').that.is.a('string'));",
+            "pm.collectionVariables.set('accessToken', '');",
+            "pm.collectionVariables.set('refreshToken', '');",
+            "console.log('✅ Logged out, tokens cleared');"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/auth/logout", "host": ["{{baseUrl}}"], "path": ["auth", "logout"] }
+          }
+        }
+      ]
+    }
+
+  ]
+}

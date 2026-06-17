@@ -1,0 +1,52 @@
+name: flotio-ci
+
+# Stack minimale pour la CI : postgres + redis + core-api uniquement
+# Usage (depuis core-api/) : docker compose -f docker-compose.ci.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: flotio-ci-postgres
+    environment:
+      POSTGRES_DB: flotio
+      POSTGRES_USER: flotio
+      POSTGRES_PASSWORD: flotio
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flotio -d flotio"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - flotio-ci-net
+
+  redis:
+    image: redis:8.4-alpine
+    container_name: flotio-ci-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - flotio-ci-net
+
+  core-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.ci
+    container_name: flotio-ci-core-api
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.ci
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - flotio-ci-net
+
+networks:
+  flotio-ci-net:
+    driver: bridge
