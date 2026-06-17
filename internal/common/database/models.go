@@ -74,6 +74,7 @@ type ProjectConfig struct {
 	WebBuildArgs       string `json:"web_build_args"`
 
 	// Distribution
+	PackageName                string  `json:"package_name"` // Android applicationId, identifies the app on the Play Store
 	EnableAndroidCodeSigning   bool    `json:"enable_android_code_signing"`
 	EnableGooglePlayPublishing bool    `json:"enable_google_play_publishing"`
 	GooglePlayTrack            string  `json:"google_play_track"`
