@@ -31,7 +31,7 @@ func InitDB() {
 	}
 
 	// Auto migrate
-	err = DB.AutoMigrate(&User{}, &Project{}, &Build{}, &Log{}, &Env{}, &Organization{}, &GithubInstallation{}, &ProjectConfig{}, &Keystore{}, &GooglePlayCredentials{})
+	err = DB.AutoMigrate(&User{}, &Project{}, &Build{}, &Log{}, &Env{}, &Organization{}, &GithubInstallation{}, &ProjectConfig{}, &Keystore{}, &GooglePlayCredentials{}, &Release{})
 	if err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
