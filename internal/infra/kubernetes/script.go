@@ -7,6 +7,20 @@ import (
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 )
 
+// versionBuildFlags returns the Flutter version flags to bake into the build.
+// Empty version name and zero version code yield no flags (the build falls back
+// to the values declared in pubspec.yaml).
+func versionBuildFlags(versionName string, versionCode int64) string {
+	flags := ""
+	if versionName != "" {
+		flags += " --build-name=" + versionName
+	}
+	if versionCode > 0 {
+		flags += fmt.Sprintf(" --build-number=%d", versionCode)
+	}
+	return flags
+}
+
 // GenerateBuildRunnerScript generates a modular shell script based on ProjectConfig
 func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.ProjectConfig) string {
 	var sb strings.Builder
@@ -187,7 +201,9 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 		} else {
 			buildCmd = fmt.Sprintf("flutter build apk --%s", mode)
 		}
-		
+
+		buildCmd += versionBuildFlags(config.VersionName, config.VersionCode)
+
 		if projectConfig != nil && projectConfig.AndroidBuildArgs != "" {
 			buildCmd += " " + projectConfig.AndroidBuildArgs
 		}
