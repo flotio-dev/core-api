@@ -10,6 +10,7 @@ import (
 	"github.com/rs/cors"
 
 	api "github.com/flotio-dev/core-api/internal/api"
+	"github.com/flotio-dev/core-api/internal/common/crypto"
 	db "github.com/flotio-dev/core-api/internal/common/database"
 )
 
@@ -19,6 +20,11 @@ import (
 // @description Type "Bearer {token}"
 func main() {
 	godotenv.Load()
+
+	// Fail closed: refuse to start without a valid secrets encryption key.
+	if err := crypto.Init(); err != nil {
+		log.Fatalf("Secrets encryption not configured: %v", err)
+	}
 
 	db.InitDB()
 	db.InitRedis()

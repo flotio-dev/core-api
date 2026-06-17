@@ -50,6 +50,7 @@ jobs:
         run: |
           sed -i "s|ACCESS_TOKEN_SECRET=.*|ACCESS_TOKEN_SECRET=${{ secrets.ACCESS_TOKEN_SECRET || 'ci-access-secret-32chars-minimum!' }}|" .env.ci
           sed -i "s|REFRESH_TOKEN_SECRET=.*|REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET || 'ci-refresh-secret-32chars-minimum!' }}|" .env.ci
+          sed -i "s|SECRETS_ENCRYPTION_KEY=.*|SECRETS_ENCRYPTION_KEY=${{ secrets.SECRETS_ENCRYPTION_KEY || 'Y2ktc2VjcmV0cy1lbmNyeXB0aW9uLWtleS0zMmJ5dGU=' }}|" .env.ci
 
       - name: Start CI stack
         run: docker compose -f docker-compose.ci.yml up -d --build
