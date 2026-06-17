@@ -15,19 +15,14 @@ import (
 // upload whose versionCode is not strictly greater than every previously
 // uploaded bundle, even ones not assigned to a track.
 func (c *Client) LatestVersionCode(ctx context.Context, packageName string) (int64, error) {
-	if packageName == "" {
-		return 0, fmt.Errorf("googleplay: empty package name")
-	}
-
-	edit, err := c.service.Edits.Insert(packageName, &androidpublisher.AppEdit{}).Context(ctx).Do()
+	editID, err := c.insertEdit(ctx, packageName)
 	if err != nil {
-		return 0, fmt.Errorf("googleplay: open edit for %s: %w", packageName, err)
+		return 0, err
 	}
-	// Read-only: discard the edit instead of committing it. Best-effort cleanup;
-	// abandoned edits also expire on their own.
-	defer func() { _ = c.service.Edits.Delete(packageName, edit.Id).Context(ctx).Do() }()
+	// Read-only: discard the edit instead of committing it.
+	defer c.abortEdit(ctx, packageName, editID)
 
-	list, err := c.service.Edits.Bundles.List(packageName, edit.Id).Context(ctx).Do()
+	list, err := c.service.Edits.Bundles.List(packageName, editID).Context(ctx).Do()
 	if err != nil {
 		return 0, fmt.Errorf("googleplay: list bundles for %s: %w", packageName, err)
 	}
