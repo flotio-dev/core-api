@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 
+	"github.com/flotio-dev/core-api/internal/common/crypto"
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
@@ -79,10 +80,17 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsPostHandler(w htt
 		return
 	}
 
+	// Encrypt the service account JSON at rest before storing.
+	encCredentials, err := crypto.Encrypt(req.Credentials)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to encrypt credentials", http.StatusInternalServerError)
+		return
+	}
+
 	cred := dbEngine.GooglePlayCredentials{
 		UserID:      userInfo.ID,
 		Name:        req.Name,
-		Credentials: req.Credentials,
+		Credentials: encCredentials,
 	}
 
 	if err := dbEngine.DB.Create(&cred).Error; err != nil {
