@@ -18,11 +18,11 @@ type User struct {
 // Project model
 type Project struct {
 	gorm.Model
-	Name           string  `json:"name"`
-	UserID         uint    `json:"user_id"`
-	User           User    `json:"user"`
-	Builds         []Build `gorm:"foreignKey:ProjectID" json:"builds"`
-	Config         *ProjectConfig `gorm:"foreignKey:ProjectID" json:"config"`
+	Name   string         `json:"name"`
+	UserID uint           `json:"user_id"`
+	User   User           `json:"user"`
+	Builds []Build        `gorm:"foreignKey:ProjectID" json:"builds"`
+	Config *ProjectConfig `gorm:"foreignKey:ProjectID" json:"config"`
 }
 
 // ProjectConfig model
@@ -38,20 +38,20 @@ type ProjectConfig struct {
 	DependencyDirs        []string               `gorm:"serializer:json" json:"dependency_dirs"`
 
 	// Git Connection
-	GitRepo        string `json:"git_repo"`
-	GitUsername    string `json:"git_username"`
-	GitToken       string `json:"git_token"`
+	GitRepo     string `json:"git_repo"`
+	GitUsername string `json:"git_username"`
+	GitToken    string `json:"git_token"`
 
 	// Webhooks
 	WebhookURLs []string `gorm:"serializer:json" json:"webhook_urls"`
 
 	// Scripts
-	PostCloneScript   string `json:"post_clone_script"`
-	PreTestScript     string `json:"pre_test_script"`
-	PostTestScript    string `json:"post_test_script"`
-	PreBuildScript    string `json:"pre_build_script"`
-	PostBuildScript   string `json:"post_build_script"`
-	PrePublishScript  string `json:"pre_publish_script"`
+	PostCloneScript  string `json:"post_clone_script"`
+	PreTestScript    string `json:"pre_test_script"`
+	PostTestScript   string `json:"post_test_script"`
+	PreBuildScript   string `json:"pre_build_script"`
+	PostBuildScript  string `json:"post_build_script"`
+	PrePublishScript string `json:"pre_publish_script"`
 
 	// Testing
 	Test                 bool     `json:"test"`
@@ -69,7 +69,7 @@ type ProjectConfig struct {
 	CocoaPodsVersion   string `json:"cocoapods_version"`
 	ProjectPath        string `json:"project_path"`
 	AndroidBuildFormat string `json:"android_build_format"` // "apk" or "aab"
-	BuildMode          string `json:"build_mode"`          // "debug", "release", "profile"
+	BuildMode          string `json:"build_mode"`           // "debug", "release", "profile"
 	AndroidBuildArgs   string `json:"android_build_args"`
 	IosBuildArgs       string `json:"ios_build_args"`
 	WebBuildArgs       string `json:"web_build_args"`
