@@ -118,6 +118,8 @@ type Build struct {
 	ContainerID    string  `json:"container_id"` // Kubernetes container ID
 	Duration       int64   `json:"duration"`     // build duration in seconds
 	APKURL         string  `json:"apk_url"`      // S3 key for the build artifact (e.g., "builds/123/app-release.apk")
+	VersionName    string  `json:"version_name"` // Flutter --build-name baked into the artifact (empty = use pubspec)
+	VersionCode    int64   `json:"version_code"` // Flutter --build-number baked into the artifact (0 = use pubspec)
 	Logs           []Log   `gorm:"foreignKey:BuildID" json:"logs"`
 }
 

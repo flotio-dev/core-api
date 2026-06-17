@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"gorm.io/gorm"
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	s3Engine "github.com/flotio-dev/core-api/internal/infra/s3"
@@ -30,6 +30,8 @@ type BuildConfig struct {
 	Platform             string
 	BuildMode            string // release, debug, profile
 	BuildTarget          string // apk, aab, ios, web
+	VersionName          string // Flutter --build-name (empty = use pubspec)
+	VersionCode          int64  // Flutter --build-number (0 = use pubspec)
 	FlutterChannel       string // stable, beta, dev
 	GitBranch            string
 	GitUsername          string

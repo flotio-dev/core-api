@@ -219,6 +219,8 @@ func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Bui
 		Platform:             build.Platform,
 		BuildMode:            build.BuildMode,
 		BuildTarget:          build.BuildTarget,
+		VersionName:          build.VersionName,
+		VersionCode:          build.VersionCode,
 		FlutterChannel:       build.FlutterChannel,
 		GitBranch:            build.GitBranch,
 		GitUsername:          gitUsername,
