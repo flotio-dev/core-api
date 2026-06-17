@@ -40,3 +40,66 @@ func (c *Client) uploadBundle(ctx context.Context, packageName, editID string, a
 	}
 	return bundle, nil
 }
+
+// defaultReleaseNotesLang is used when release notes are provided without a
+// specific BCP-47 language tag.
+const defaultReleaseNotesLang = "en-US"
+
+// TrackAssignment describes how a versionCode is released on a track.
+type TrackAssignment struct {
+	Track            string  // internal, alpha, beta, production
+	VersionCode      int64   // the bundle to release
+	RolloutFraction  float64 // 0..1 for a staged rollout; <=0 or >=1 means full rollout
+	Draft            bool    // prepare the release as a draft instead of rolling it out
+	Name             string  // optional release name shown in the Console (e.g. versionName)
+	ReleaseNotes     string  // optional changelog
+	ReleaseNotesLang string  // BCP-47 language for the notes; defaults to en-US
+}
+
+// assignTrack assigns the bundle to a track within an open edit, applying the
+// rollout/draft status and optional release notes.
+func (c *Client) assignTrack(ctx context.Context, packageName, editID string, a TrackAssignment) error {
+	if a.Track == "" {
+		return errors.New("googleplay: empty track")
+	}
+	track := &androidpublisher.Track{
+		Track:    a.Track,
+		Releases: []*androidpublisher.TrackRelease{buildTrackRelease(a)},
+	}
+	if _, err := c.service.Edits.Tracks.Update(packageName, editID, a.Track, track).Context(ctx).Do(); err != nil {
+		return fmt.Errorf("googleplay: update track %s for %s: %w", a.Track, packageName, err)
+	}
+	return nil
+}
+
+// buildTrackRelease maps a TrackAssignment to an androidpublisher.TrackRelease,
+// resolving the release status and rollout fraction. It is pure for testing.
+func buildTrackRelease(a TrackAssignment) *androidpublisher.TrackRelease {
+	release := &androidpublisher.TrackRelease{
+		Name:         a.Name,
+		VersionCodes: []int64{a.VersionCode},
+	}
+
+	switch {
+	case a.Draft:
+		release.Status = "draft"
+	case a.RolloutFraction > 0 && a.RolloutFraction < 1:
+		release.Status = "inProgress"
+		release.UserFraction = a.RolloutFraction
+	default:
+		release.Status = "completed"
+	}
+
+	if a.ReleaseNotes != "" {
+		lang := a.ReleaseNotesLang
+		if lang == "" {
+			lang = defaultReleaseNotesLang
+		}
+		release.ReleaseNotes = []*androidpublisher.LocalizedText{{
+			Language: lang,
+			Text:     a.ReleaseNotes,
+		}}
+	}
+
+	return release
+}
