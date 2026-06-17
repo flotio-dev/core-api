@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"gorm.io/gorm"
 
+	"github.com/flotio-dev/core-api/internal/common/crypto"
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
@@ -82,13 +83,30 @@ func (c *KeystoreController) KeystorePostHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Encrypt secrets at rest before storing.
+	encFile, err := crypto.Encrypt(req.KeystoreFile)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to encrypt keystore", http.StatusInternalServerError)
+		return
+	}
+	encStore, err := crypto.Encrypt(req.StorePassword)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to encrypt keystore", http.StatusInternalServerError)
+		return
+	}
+	encKey, err := crypto.Encrypt(req.KeyPassword)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Failed to encrypt keystore", http.StatusInternalServerError)
+		return
+	}
+
 	keystore := dbEngine.Keystore{
 		UserID:        userInfo.ID,
 		Name:          req.Name,
-		KeystoreFile:  req.KeystoreFile,
-		StorePassword: req.StorePassword,
+		KeystoreFile:  encFile,
+		StorePassword: encStore,
 		KeyAlias:      req.KeyAlias,
-		KeyPassword:   req.KeyPassword,
+		KeyPassword:   encKey,
 	}
 
 	if err := dbEngine.DB.Create(&keystore).Error; err != nil {

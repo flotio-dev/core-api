@@ -144,25 +144,29 @@ type Env struct {
 	IsBase64  bool     `json:"is_base64"` // True if Value is base64 encoded (for binary files)
 }
 
-// Keystore model - stores Android signing credentials, owned by User
+// Keystore model - stores Android signing credentials, owned by User.
+// Secret fields are encrypted at rest (AES-256-GCM) and never serialized in API
+// responses (json:"-").
 type Keystore struct {
 	gorm.Model
 	UserID        uint   `json:"user_id"`
 	User          User   `json:"user"`
-	Name          string `json:"name"`           // Friendly name
-	KeystoreFile  string `json:"keystore_file"`  // Base64 encoded keystore file
-	StorePassword string `json:"store_password"` // Encrypted
-	KeyAlias      string `json:"key_alias"`
-	KeyPassword   string `json:"key_password"` // Encrypted
+	Name          string `json:"name"`      // Friendly name
+	KeystoreFile  string `json:"-"`         // Base64-encoded .jks, encrypted at rest
+	StorePassword string `json:"-"`         // Encrypted at rest
+	KeyAlias      string `json:"key_alias"` // Not secret
+	KeyPassword   string `json:"-"`         // Encrypted at rest
 }
 
-// GooglePlayCredentials model - stores Google Play distribution keys, owned by User
+// GooglePlayCredentials model - stores Google Play distribution keys, owned by User.
+// Credentials are encrypted at rest (AES-256-GCM) and never serialized in API
+// responses (json:"-").
 type GooglePlayCredentials struct {
 	gorm.Model
 	UserID      uint   `json:"user_id"`
 	User        User   `json:"user"`
-	Name        string `json:"name"`        // Friendly name
-	Credentials string `json:"credentials"` // Base64 encoded JSON
+	Name        string `json:"name"` // Friendly name
+	Credentials string `json:"-"`    // Base64-encoded JSON service account key, encrypted at rest
 }
 
 type Organization struct {
