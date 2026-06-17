@@ -194,6 +194,7 @@ func (c *ConfigController) ConfigPostHandler(w http.ResponseWriter, r *http.Requ
 	if has("web_build_args") { config.WebBuildArgs = req.WebBuildArgs }
 
 	// Distribution
+	if has("package_name") { config.PackageName = req.PackageName }
 	if has("enable_android_code_signing") { config.EnableAndroidCodeSigning = req.EnableAndroidCodeSigning }
 	if has("enable_google_play_publishing") { config.EnableGooglePlayPublishing = req.EnableGooglePlayPublishing }
 	if has("google_play_track") { config.GooglePlayTrack = req.GooglePlayTrack }

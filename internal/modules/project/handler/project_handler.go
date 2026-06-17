@@ -387,6 +387,7 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 		projectConfig.IosBuildArgs = c.IosBuildArgs
 		projectConfig.WebBuildArgs = c.WebBuildArgs
 		
+		projectConfig.PackageName = c.PackageName
 		projectConfig.EnableAndroidCodeSigning = c.EnableAndroidCodeSigning
 		projectConfig.EnableGooglePlayPublishing = c.EnableGooglePlayPublishing
 		projectConfig.GooglePlayTrack = c.GooglePlayTrack

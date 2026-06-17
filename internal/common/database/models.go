@@ -74,6 +74,7 @@ type ProjectConfig struct {
 	WebBuildArgs       string `json:"web_build_args"`
 
 	// Distribution
+	PackageName                string  `json:"package_name"` // Android applicationId, identifies the app on the Play Store
 	EnableAndroidCodeSigning   bool    `json:"enable_android_code_signing"`
 	EnableGooglePlayPublishing bool    `json:"enable_google_play_publishing"`
 	GooglePlayTrack            string  `json:"google_play_track"`
@@ -128,6 +129,21 @@ type Log struct {
 	LineNumber int    `json:"line_number"`
 	Content    string `json:"content"`
 	Timestamp  int64  `json:"timestamp"` // Unix timestamp
+}
+
+// Release model - represents a Google Play publication of a build's artifact.
+// A Release is distinct from a Build: one successful Build can be published as a
+// Release on a track, with its own version metadata and rollout state.
+type Release struct {
+	gorm.Model
+	ProjectID       uint    `json:"project_id"`
+	BuildID         uint    `json:"build_id"`
+	VersionName     string  `json:"version_name"`     // Human-readable version shown to users (e.g. "1.3.0")
+	VersionCode     int64   `json:"version_code"`     // Monotonic integer baked into the AAB
+	Track           string  `json:"track"`            // internal, alpha, beta, production
+	RolloutFraction float64 `json:"rollout_fraction"` // 0..1 for staged rollout (1 = full)
+	Status          string  `json:"status"`           // pending, uploading, in_progress, published, halted, failed
+	ReleaseNotes    string  `json:"release_notes"`
 }
 
 // Env model - supports both environment variables and files, owned by User
