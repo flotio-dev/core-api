@@ -3,6 +3,7 @@ package s3
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -210,7 +211,7 @@ func FindPrimaryArtifactKey(buildID uint, platform string) (string, error) {
 	// Search for artifacts in priority order
 	for _, ext := range priorityExtensions {
 		for _, artifact := range artifacts {
-			if len(artifact) >= len(ext) && artifact[len(artifact)-len(ext):] == ext {
+			if hasExtension(artifact, ext) {
 				return artifact, nil
 			}
 		}
@@ -222,6 +223,44 @@ func FindPrimaryArtifactKey(buildID uint, platform string) (string, error) {
 	}
 
 	return "", fmt.Errorf("no artifacts found for build %d", buildID)
+}
+
+// hasExtension reports whether name ends with ext.
+func hasExtension(name, ext string) bool {
+	return len(name) >= len(ext) && name[len(name)-len(ext):] == ext
+}
+
+// FindReleaseArtifactKey returns the .aab artifact key for a build. Google Play
+// requires an App Bundle, so an apk-only build cannot be published.
+func FindReleaseArtifactKey(buildID uint) (string, error) {
+	artifacts, err := ListBuildArtifacts(buildID)
+	if err != nil {
+		return "", err
+	}
+	for _, artifact := range artifacts {
+		if hasExtension(artifact, ".aab") {
+			return artifact, nil
+		}
+	}
+	return "", fmt.Errorf("no .aab artifact found for build %d", buildID)
+}
+
+// GetObject opens an object for streaming download. The caller must close the
+// returned reader.
+func GetObject(key string) (io.ReadCloser, error) {
+	minioClient, err := GetClient()
+	if err != nil {
+		return nil, err
+	}
+
+	bucket := GetBucket()
+	ctx := context.Background()
+
+	obj, err := minioClient.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open object %s: %v", key, err)
+	}
+	return obj, nil
 }
 
 // ObjectExists checks if an object exists in S3
