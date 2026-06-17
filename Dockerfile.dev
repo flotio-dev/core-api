@@ -1,0 +1,17 @@
+# syntax=docker/dockerfile:1
+ARG GO_VERSION=1.25
+FROM golang:${GO_VERSION}-alpine
+
+RUN apk add --no-cache git curl build-base \
+    && go install github.com/air-verse/air@latest \
+    && go install github.com/swaggo/swag/cmd/swag@latest
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+EXPOSE 8080
+
+CMD ["air", "-c", ".air.toml"]
