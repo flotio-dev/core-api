@@ -122,6 +122,7 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id:[0-9]+}/build/{buildId:[0-9]+}/publish", releaseCtrl.PublishHandler).Methods("POST")
 	protected.HandleFunc("/project/{id:[0-9]+}/release/{releaseId:[0-9]+}", releaseCtrl.ReleaseGetHandler).Methods("GET")
 	protected.HandleFunc("/project/{id:[0-9]+}/releases", releaseCtrl.ReleasesListHandler).Methods("GET")
+	protected.HandleFunc("/project/{id:[0-9]+}/google-play/access", releaseCtrl.AccessCheckHandler).Methods("GET")
 
 	// Github routes (Github Module)
 	// Inject dependencies into Github Controller

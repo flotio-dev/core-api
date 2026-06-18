@@ -10,6 +10,7 @@ import (
 	"github.com/flotio-dev/core-api/internal/common/crypto"
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
+	googleplay "github.com/flotio-dev/core-api/internal/infra/googleplay"
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
@@ -77,6 +78,12 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsPostHandler(w htt
 	}
 	if err := helpers.ReadJSON(r, &req); err != nil {
 		helpers.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Validate the uploaded service account JSON before storing it.
+	if err := googleplay.ValidateServiceAccountJSON(googleplay.DecodeServiceAccount(req.Credentials)); err != nil {
+		helpers.WriteErrorJSON(w, "Invalid service account JSON", http.StatusBadRequest)
 		return
 	}
 

@@ -9,7 +9,6 @@ package googleplay
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -64,10 +63,5 @@ func decodeCredentials(encryptedCredentials string) ([]byte, error) {
 	if decrypted == "" {
 		return nil, errors.New("googleplay: empty service account credentials")
 	}
-	// The uploaded credentials are base64-encoded JSON; fall back to treating the
-	// value as raw JSON if it is not valid base64.
-	if raw, err := base64.StdEncoding.DecodeString(decrypted); err == nil {
-		return raw, nil
-	}
-	return []byte(decrypted), nil
+	return DecodeServiceAccount(decrypted), nil
 }
