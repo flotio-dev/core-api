@@ -89,27 +89,16 @@ func (c *ReleaseController) PublishHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Load project config (package name, track, rollout, linked credentials).
-	var config dbEngine.ProjectConfig
-	if err := dbEngine.DB.Where("project_id = ?", projectID).First(&config).Error; err != nil {
-		helpers.WriteErrorJSON(w, "Project configuration not found", http.StatusBadRequest)
-		return
-	}
-	if config.PackageName == "" {
-		helpers.WriteErrorJSON(w, "package_name is not configured", http.StatusBadRequest)
-		return
-	}
-	if config.GooglePlayCredentialsID == nil {
-		helpers.WriteErrorJSON(w, "No Google Play credentials linked to the project", http.StatusBadRequest)
+	// Load project config + linked Google Play credentials.
+	config, credentials, err := loadGooglePlayContext(uint(projectID), userInfo.ID)
+	if err != nil {
+		helpers.WriteErrorJSON(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Load the linked credentials (and verify ownership).
-	var credentials dbEngine.GooglePlayCredentials
-	if err := dbEngine.DB.
-		Where("id = ? AND user_id = ?", *config.GooglePlayCredentialsID, userInfo.ID).
-		First(&credentials).Error; err != nil {
-		helpers.WriteErrorJSON(w, "Google Play credentials not found", http.StatusBadRequest)
+	// Verify the service account can act on the app before doing any work.
+	if status, msg := accessError(r.Context(), credentials.Credentials, config.PackageName); status != 0 {
+		helpers.WriteErrorJSON(w, msg, status)
 		return
 	}
 
@@ -306,6 +295,98 @@ func (c *ReleaseController) findOwnedRelease(releaseID, projectID, userID uint) 
 		Where("releases.id = ? AND projects.id = ? AND projects.user_id = ?", releaseID, projectID, userID).
 		First(&release).Error
 	return release, err
+}
+
+// AccessCheckHandler godoc
+//
+//	@Summary		Check Google Play access
+//	@Description	Verifies that the project's service account can publish the configured app
+//	@Tags			releases
+//	@Produce		json
+//	@Param			id	path	int	true	"Project ID"
+//	@Success		200	{object}	models.AccessCheckResponse
+//	@Failure		401	{object}	map[string]string
+//	@Router			/project/{id}/google-play/access [get]
+//	@Security		BearerAuth
+func (c *ReleaseController) AccessCheckHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	projectID, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	config, credentials, err := loadGooglePlayContext(uint(projectID), userInfo.ID)
+	if err != nil {
+		helpers.WriteJSON(w, models.AccessCheckResponse{Accessible: false, Reason: "not_configured", Message: err.Error()})
+		return
+	}
+
+	client, err := googleplay.NewClientFromCredentials(r.Context(), credentials.Credentials)
+	if err != nil {
+		helpers.WriteJSON(w, models.AccessCheckResponse{Accessible: false, Reason: "client_error", Message: "Failed to build Google Play client"})
+		return
+	}
+
+	if err := client.CheckAccess(r.Context(), config.PackageName); err != nil {
+		reason, msg := googleplay.ReasonUnknown, err.Error()
+		var pe *googleplay.PublishError
+		if errors.As(err, &pe) {
+			reason, msg = pe.Reason, pe.Msg
+		}
+		helpers.WriteJSON(w, models.AccessCheckResponse{Accessible: false, Reason: reason, Message: msg})
+		return
+	}
+
+	helpers.WriteJSON(w, models.AccessCheckResponse{Accessible: true})
+}
+
+// loadGooglePlayContext loads the project config and its linked, owned Google
+// Play credentials, validating that publication is configured.
+func loadGooglePlayContext(projectID, userID uint) (dbEngine.ProjectConfig, dbEngine.GooglePlayCredentials, error) {
+	var config dbEngine.ProjectConfig
+	if err := dbEngine.DB.Where("project_id = ?", projectID).First(&config).Error; err != nil {
+		return config, dbEngine.GooglePlayCredentials{}, errors.New("project configuration not found")
+	}
+	if config.PackageName == "" {
+		return config, dbEngine.GooglePlayCredentials{}, errors.New("package_name is not configured")
+	}
+	if config.GooglePlayCredentialsID == nil {
+		return config, dbEngine.GooglePlayCredentials{}, errors.New("no Google Play credentials linked to the project")
+	}
+	var credentials dbEngine.GooglePlayCredentials
+	if err := dbEngine.DB.
+		Where("id = ? AND user_id = ?", *config.GooglePlayCredentialsID, userID).
+		First(&credentials).Error; err != nil {
+		return config, credentials, errors.New("Google Play credentials not found")
+	}
+	return config, credentials, nil
+}
+
+// accessError verifies SA access and returns (httpStatus, message). A status of
+// 0 means access is granted.
+func accessError(ctx context.Context, encryptedCredentials, packageName string) (int, string) {
+	client, err := googleplay.NewClientFromCredentials(ctx, encryptedCredentials)
+	if err != nil {
+		return http.StatusInternalServerError, "Failed to build Google Play client"
+	}
+	if err := client.CheckAccess(ctx, packageName); err != nil {
+		var pe *googleplay.PublishError
+		if errors.As(err, &pe) {
+			if pe.Reason == googleplay.ReasonPermission {
+				return http.StatusForbidden, pe.Msg
+			}
+			return http.StatusBadGateway, pe.Msg
+		}
+		return http.StatusBadGateway, "Google Play access check failed"
+	}
+	return 0, ""
 }
 
 // parsePublishRequest decodes the optional request body, tolerating an empty body.

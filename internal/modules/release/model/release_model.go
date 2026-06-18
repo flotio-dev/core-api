@@ -34,3 +34,10 @@ type ReleaseResponse struct {
 type ReleasesResponse struct {
 	Releases []ReleaseDTO `json:"releases"`
 }
+
+// AccessCheckResponse reports whether the service account can publish the app.
+type AccessCheckResponse struct {
+	Accessible bool   `json:"accessible"`
+	Reason     string `json:"reason,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
