@@ -148,6 +148,20 @@ type Release struct {
 	ReleaseNotes    string  `json:"release_notes"`
 }
 
+// ReleaseAudit records who published what, when and with what result. It never
+// stores secrets (no credentials, keystore or tokens).
+type ReleaseAudit struct {
+	gorm.Model
+	UserID      uint   `json:"user_id"`
+	ProjectID   uint   `json:"project_id"`
+	ReleaseID   uint   `json:"release_id"`
+	PackageName string `json:"package_name"`
+	VersionCode int64  `json:"version_code"`
+	Track       string `json:"track"`
+	Action      string `json:"action"` // triggered, published, in_progress, draft, failed
+	Detail      string `json:"detail"` // human-readable, secret-free
+}
+
 // Env model - supports both environment variables and files, owned by User
 type Env struct {
 	gorm.Model

@@ -31,6 +31,9 @@ const (
 
 const defaultTrack = "internal"
 
+// actionTriggered is the audit action recorded when a publication is requested.
+const actionTriggered = "triggered"
+
 // ReleaseController handles Google Play publication operations.
 type ReleaseController struct {
 	userService *userServices.UserService
@@ -140,25 +143,34 @@ func (c *ReleaseController) PublishHandler(w http.ResponseWriter, r *http.Reques
 		ReleaseNotes:     req.ReleaseNotes,
 		ReleaseNotesLang: req.ReleaseNotesLang,
 	}
-	go runPublish(release.ID, build.ID, credentials.Credentials, input)
+	writeAudit(userInfo.ID, uint(projectID), release.ID, config.PackageName, build.VersionCode, track, actionTriggered, "publication requested")
+	go runPublish(userInfo.ID, uint(projectID), release.ID, build.ID, credentials.Credentials, input)
 
 	w.WriteHeader(http.StatusAccepted)
 	helpers.WriteJSON(w, models.ReleaseResponse{Release: convertDBRelease(release)})
 }
 
-// runPublish performs the upload+commit and updates the release status.
-func runPublish(releaseID, buildID uint, encryptedCredentials string, input googleplay.PublishInput) {
+// runPublish performs the upload+commit, updates the release status and records
+// the outcome in the audit log.
+func runPublish(userID, projectID, releaseID, buildID uint, encryptedCredentials string, input googleplay.PublishInput) {
 	ctx := context.Background()
+
+	fail := func(step string, err error) {
+		log.Printf("[release %d] %s failed: %v", releaseID, step, err)
+		setReleaseStatus(releaseID, statusFailed, 0)
+		writeAudit(userID, projectID, releaseID, input.PackageName, 0, input.Track, statusFailed, err.Error())
+	}
+
 	setReleaseStatus(releaseID, statusUploading, 0)
 
 	aabKey, err := s3Engine.FindReleaseArtifactKey(buildID)
 	if err != nil {
-		failRelease(releaseID, "resolve AAB", err)
+		fail("resolve AAB", err)
 		return
 	}
 	reader, err := s3Engine.GetObject(aabKey)
 	if err != nil {
-		failRelease(releaseID, "open AAB", err)
+		fail("open AAB", err)
 		return
 	}
 	defer reader.Close()
@@ -166,17 +178,19 @@ func runPublish(releaseID, buildID uint, encryptedCredentials string, input goog
 
 	client, err := googleplay.NewClientFromCredentials(ctx, encryptedCredentials)
 	if err != nil {
-		failRelease(releaseID, "build client", err)
+		fail("build client", err)
 		return
 	}
 
 	result, err := client.Publish(ctx, input)
 	if err != nil {
-		failRelease(releaseID, "publish", err)
+		fail("publish", err)
 		return
 	}
 
-	setReleaseStatus(releaseID, mapPublishStatus(result.Status), result.VersionCode)
+	status := mapPublishStatus(result.Status)
+	setReleaseStatus(releaseID, status, result.VersionCode)
+	writeAudit(userID, projectID, releaseID, input.PackageName, result.VersionCode, input.Track, status, "")
 }
 
 func setReleaseStatus(releaseID uint, status string, versionCode int64) {
@@ -189,9 +203,22 @@ func setReleaseStatus(releaseID uint, status string, versionCode int64) {
 	}
 }
 
-func failRelease(releaseID uint, step string, err error) {
-	log.Printf("[release %d] %s failed: %v", releaseID, step, err)
-	setReleaseStatus(releaseID, statusFailed, 0)
+// writeAudit records a publication event. Failures to write are logged, not
+// propagated (audit must never block a publication).
+func writeAudit(userID, projectID, releaseID uint, packageName string, versionCode int64, track, action, detail string) {
+	entry := dbEngine.ReleaseAudit{
+		UserID:      userID,
+		ProjectID:   projectID,
+		ReleaseID:   releaseID,
+		PackageName: packageName,
+		VersionCode: versionCode,
+		Track:       track,
+		Action:      action,
+		Detail:      detail,
+	}
+	if err := dbEngine.DB.Create(&entry).Error; err != nil {
+		log.Printf("[audit] failed to record %s for release %d: %v", action, releaseID, err)
+	}
 }
 
 // mapPublishStatus converts a Google Play release status to a Release status.
@@ -431,6 +458,70 @@ func convertDBReleases(releases []dbEngine.Release) []models.ReleaseDTO {
 	out := make([]models.ReleaseDTO, len(releases))
 	for i, r := range releases {
 		out[i] = convertDBRelease(r)
+	}
+	return out
+}
+
+// AuditListHandler godoc
+//
+//	@Summary		List publication audit entries
+//	@Description	List the Google Play publication audit log for a project
+//	@Tags			releases
+//	@Produce		json
+//	@Param			id	path	int	true	"Project ID"
+//	@Success		200	{object}	models.AuditListResponse
+//	@Failure		401	{object}	map[string]string
+//	@Router			/project/{id}/audit [get]
+//	@Security		BearerAuth
+func (c *ReleaseController) AuditListHandler(w http.ResponseWriter, r *http.Request) {
+	userInfo, err := c.userService.GetUserFromContext(r.Context())
+	if err != nil || userInfo == nil {
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	projectID, err := strconv.ParseUint(vars["id"], 10, 32)
+	if err != nil {
+		helpers.WriteErrorJSON(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	// Verify project ownership before listing.
+	var project dbEngine.Project
+	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+		return
+	}
+
+	var entries []dbEngine.ReleaseAudit
+	if err := dbEngine.DB.Where("project_id = ?", projectID).Order("created_at DESC").Find(&entries).Error; err != nil {
+		helpers.WriteErrorJSON(w, "Failed to fetch audit log", http.StatusInternalServerError)
+		return
+	}
+
+	helpers.WriteJSON(w, models.AuditListResponse{Audit: convertDBAudits(entries)})
+}
+
+func convertDBAudit(a dbEngine.ReleaseAudit) models.AuditDTO {
+	return models.AuditDTO{
+		ID:          a.ID,
+		CreatedAt:   a.CreatedAt,
+		UserID:      a.UserID,
+		ProjectID:   a.ProjectID,
+		ReleaseID:   a.ReleaseID,
+		PackageName: a.PackageName,
+		VersionCode: a.VersionCode,
+		Track:       a.Track,
+		Action:      a.Action,
+		Detail:      a.Detail,
+	}
+}
+
+func convertDBAudits(entries []dbEngine.ReleaseAudit) []models.AuditDTO {
+	out := make([]models.AuditDTO, len(entries))
+	for i, a := range entries {
+		out[i] = convertDBAudit(a)
 	}
 	return out
 }
