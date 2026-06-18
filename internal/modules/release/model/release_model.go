@@ -41,3 +41,21 @@ type AccessCheckResponse struct {
 	Reason     string `json:"reason,omitempty"`
 	Message    string `json:"message,omitempty"`
 }
+
+// AuditDTO is the API representation of a publication audit entry.
+type AuditDTO struct {
+	ID          uint      `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UserID      uint      `json:"user_id"`
+	ProjectID   uint      `json:"project_id"`
+	ReleaseID   uint      `json:"release_id"`
+	PackageName string    `json:"package_name"`
+	VersionCode int64     `json:"version_code"`
+	Track       string    `json:"track"`
+	Action      string    `json:"action"`
+	Detail      string    `json:"detail"`
+}
+
+type AuditListResponse struct {
+	Audit []AuditDTO `json:"audit"`
+}
