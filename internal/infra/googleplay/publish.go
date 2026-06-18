@@ -76,9 +76,13 @@ func (c *Client) Publish(ctx context.Context, in PublishInput) (*PublishResult, 
 		return nil, errors.New("googleplay: empty track")
 	}
 
-	editID, err := c.insertEdit(ctx, in.PackageName)
-	if err != nil {
-		return nil, err
+	var editID string
+	if err := withRetry(ctx, maxPublishAttempts, func() error {
+		var e error
+		editID, e = c.insertEdit(ctx, in.PackageName)
+		return e
+	}); err != nil {
+		return nil, classifyError(err)
 	}
 	committed := false
 	defer func() {
@@ -87,9 +91,10 @@ func (c *Client) Publish(ctx context.Context, in PublishInput) (*PublishResult, 
 		}
 	}()
 
+	// The upload streams the AAB and is not retried (the reader cannot rewind).
 	bundle, err := c.uploadBundle(ctx, in.PackageName, editID, in.AAB)
 	if err != nil {
-		return nil, err
+		return nil, classifyError(err)
 	}
 
 	assignment := TrackAssignment{
@@ -101,12 +106,19 @@ func (c *Client) Publish(ctx context.Context, in PublishInput) (*PublishResult, 
 		ReleaseNotes:     in.ReleaseNotes,
 		ReleaseNotesLang: in.ReleaseNotesLang,
 	}
-	if err := c.assignTrack(ctx, in.PackageName, editID, assignment); err != nil {
-		return nil, err
+	if err := withRetry(ctx, maxPublishAttempts, func() error {
+		return c.assignTrack(ctx, in.PackageName, editID, assignment)
+	}); err != nil {
+		return nil, classifyError(err)
 	}
 
-	if err := c.commitEdit(ctx, in.PackageName, editID); err != nil {
-		return nil, err
+	// Commit is retried only on transient errors. A retry after a committed but
+	// lost response fails non-transiently (the edit is gone), so it never
+	// double-publishes.
+	if err := withRetry(ctx, maxPublishAttempts, func() error {
+		return c.commitEdit(ctx, in.PackageName, editID)
+	}); err != nil {
+		return nil, classifyError(err)
 	}
 	committed = true
 
