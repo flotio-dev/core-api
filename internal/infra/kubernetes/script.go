@@ -292,8 +292,8 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 	sb.WriteString("log_step \"Collecting Artifacts\"\n")
 	sb.WriteString("mkdir -p \"$OUTPUT_DIR\"\n")
 	if config.Platform == "android" {
-		sb.WriteString("APK_FILE=$(find build/app/outputs/flutter-apk -name \"*.apk\" | head -n 1)\n")
-		sb.WriteString("AAB_FILE=$(find build/app/outputs/bundle -name \"*.aab\" | head -n 1)\n")
+		sb.WriteString("APK_FILE=$(find build/app/outputs/flutter-apk -name \"*.apk\" 2>/dev/null || true | head -n 1)\n")
+		sb.WriteString("AAB_FILE=$(find build/app/outputs/bundle -name \"*.aab\" 2>/dev/null || true | head -n 1)\n")
 		sb.WriteString("if [ -f \"$APK_FILE\" ]; then cp \"$APK_FILE\" \"$OUTPUT_DIR/app-${BUILD_ID}.apk\"; fi\n")
 		sb.WriteString("if [ -f \"$AAB_FILE\" ]; then cp \"$AAB_FILE\" \"$OUTPUT_DIR/app-${BUILD_ID}.aab\"; fi\n")
 	} else if config.Platform == "web" {
