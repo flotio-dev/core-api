@@ -84,9 +84,28 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 	// Phase 4: Flutter Setup
 	sb.WriteString("log_step \"Setting up Flutter\"\n")
 	if projectConfig != nil && projectConfig.FlutterVersion != "" {
-		sb.WriteString(fmt.Sprintf("fvm install %s\n", projectConfig.FlutterVersion))
-		sb.WriteString(fmt.Sprintf("fvm global %s\n", projectConfig.FlutterVersion))
-		sb.WriteString("alias flutter=\"fvm flutter\"\n")
+		// Download the specific Flutter SDK version directly from the official archive.
+		// FVM is not available in the build image; we fetch and extract the SDK instead.
+		version := projectConfig.FlutterVersion
+		sb.WriteString(fmt.Sprintf(
+			"FLUTTER_DIR=\"/opt/flutter-%s\"\n"+
+				"if [ ! -x \"$FLUTTER_DIR/bin/flutter\" ]; then\n"+
+				"  CHANNEL=\"${FLUTTER_CHANNEL:-stable}\"\n"+
+				"  SDK_URL=\"https://storage.googleapis.com/flutter_infra_release/releases/${CHANNEL}/linux/flutter_linux_%s-${CHANNEL}.tar.xz\"\n"+
+				"  echo \"  Downloading Flutter SDK from $SDK_URL\"\n"+
+				"  if wget -q --timeout=300 \"$SDK_URL\" -O flutter.tar.xz 2>/dev/null; then\n"+
+				"    tar -xf flutter.tar.xz -C /opt\n"+
+				"    mv /opt/flutter \"$FLUTTER_DIR\"\n"+
+				"    rm flutter.tar.xz\n"+
+				"    echo \"  ✓ Flutter %s installed\"\n"+
+				"  else\n"+
+				"    echo \"  ⚠ Failed to download Flutter %s — falling back to system Flutter\"\n"+
+				"  fi\n"+
+				"fi\n"+
+				"if [ -x \"$FLUTTER_DIR/bin/flutter\" ]; then\n"+
+				"  export PATH=\"$FLUTTER_DIR/bin:$PATH\"\n"+
+				"fi\n",
+			version, version, version, version))
 	}
 	sb.WriteString("flutter --version | head -n 1\n\n")
 
