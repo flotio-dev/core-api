@@ -110,7 +110,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/me": {
+        "/auth/@me": {
             "get": {
                 "security": [
                     {
