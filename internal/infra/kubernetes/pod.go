@@ -423,6 +423,7 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 		{Name: "BUILD_TARGET", Value: getBuildTarget(config.Platform, config.BuildTarget)},
 		{Name: "FLUTTER_CHANNEL", Value: getFlutterChannel(config.FlutterChannel)},
 		{Name: "ENV_FILES_DIR", Value: "/env-files"},
+		{Name: "OUTPUT_DIR", Value: "/outputs"},
 		{Name: "GIT_USERNAME", Value: config.GitUsername},
 		{Name: "GIT_PASSWORD", Value: config.GitToken},
 		// AWS S3 configuration for artifact storage (supports Garage/MinIO/AWS)
