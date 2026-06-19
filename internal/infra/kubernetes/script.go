@@ -7,6 +7,20 @@ import (
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 )
 
+// versionBuildFlags returns the Flutter version flags to bake into the build.
+// Empty version name and zero version code yield no flags (the build falls back
+// to the values declared in pubspec.yaml).
+func versionBuildFlags(versionName string, versionCode int64) string {
+	flags := ""
+	if versionName != "" {
+		flags += " --build-name=" + versionName
+	}
+	if versionCode > 0 {
+		flags += fmt.Sprintf(" --build-number=%d", versionCode)
+	}
+	return flags
+}
+
 // GenerateBuildRunnerScript generates a modular shell script based on ProjectConfig
 func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.ProjectConfig) string {
 	var sb strings.Builder
@@ -70,9 +84,28 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 	// Phase 4: Flutter Setup
 	sb.WriteString("log_step \"Setting up Flutter\"\n")
 	if projectConfig != nil && projectConfig.FlutterVersion != "" {
-		sb.WriteString(fmt.Sprintf("fvm install %s\n", projectConfig.FlutterVersion))
-		sb.WriteString(fmt.Sprintf("fvm global %s\n", projectConfig.FlutterVersion))
-		sb.WriteString("alias flutter=\"fvm flutter\"\n")
+		// Download the specific Flutter SDK version directly from the official archive.
+		// FVM is not available in the build image; we fetch and extract the SDK instead.
+		version := projectConfig.FlutterVersion
+		sb.WriteString(fmt.Sprintf(
+			"FLUTTER_DIR=\"/opt/flutter-%s\"\n"+
+				"if [ ! -x \"$FLUTTER_DIR/bin/flutter\" ]; then\n"+
+				"  CHANNEL=\"${FLUTTER_CHANNEL:-stable}\"\n"+
+				"  SDK_URL=\"https://storage.googleapis.com/flutter_infra_release/releases/${CHANNEL}/linux/flutter_linux_%s-${CHANNEL}.tar.xz\"\n"+
+				"  echo \"  Downloading Flutter SDK from $SDK_URL\"\n"+
+				"  if wget -q --timeout=300 \"$SDK_URL\" -O flutter.tar.xz 2>/dev/null; then\n"+
+				"    tar -xf flutter.tar.xz -C /opt\n"+
+				"    mv /opt/flutter \"$FLUTTER_DIR\"\n"+
+				"    rm flutter.tar.xz\n"+
+				"    echo \"  ✓ Flutter %s installed\"\n"+
+				"  else\n"+
+				"    echo \"  ⚠ Failed to download Flutter %s — falling back to system Flutter\"\n"+
+				"  fi\n"+
+				"fi\n"+
+				"if [ -x \"$FLUTTER_DIR/bin/flutter\" ]; then\n"+
+				"  export PATH=\"$FLUTTER_DIR/bin:$PATH\"\n"+
+				"fi\n",
+			version, version, version, version))
 	}
 	sb.WriteString("flutter --version | head -n 1\n\n")
 
@@ -187,7 +220,9 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 		} else {
 			buildCmd = fmt.Sprintf("flutter build apk --%s", mode)
 		}
-		
+
+		buildCmd += versionBuildFlags(config.VersionName, config.VersionCode)
+
 		if projectConfig != nil && projectConfig.AndroidBuildArgs != "" {
 			buildCmd += " " + projectConfig.AndroidBuildArgs
 		}

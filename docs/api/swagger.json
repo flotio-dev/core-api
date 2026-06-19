@@ -99,7 +99,7 @@
                 }
             }
         },
-        "/auth/me": {
+        "/auth/@me": {
             "get": {
                 "security": [
                     {

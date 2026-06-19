@@ -254,7 +254,19 @@ Fichiers générés :
 - `debug` : Build avec symboles de debug
 - `profile` : Build pour profiling de performance
 
-## Canaux Flutter
+## Canaux et versions Flutter
+
+Le builder supporte le pinning de version via le champ `flutter_version` dans la configuration
+du projet. Si une version spécifique est configurée (ex: `3.19.0`), le script de build
+télécharge le SDK correspondant directement depuis l'archive officielle de Google
+(`storage.googleapis.com`). Le canal (`${FLUTTER_CHANNEL}`, défaut: `stable`) est utilisé
+pour construire l'URL de téléchargement.
+
+Si le téléchargement échoue, le build retombe sur le Flutter système présent dans l'image Docker.
+
+Si aucune `flutter_version` n'est configurée, le Flutter de l'image Docker est utilisé tel quel.
+
+### Canaux disponibles
 
 - `stable` : Version stable (défaut)
 - `beta` : Version beta

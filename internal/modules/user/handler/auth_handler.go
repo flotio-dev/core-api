@@ -217,7 +217,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		401	{object}	map[string]string
 //	@Failure		404	{object}	map[string]string
 //	@Security		BearerAuth
-//	@Router			/auth/me [get]
+//	@Router			/auth/@me [get]
 func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authServices.GetUserIDFromContext(r.Context())
 	if !ok {
@@ -255,7 +255,7 @@ func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string
 //	@Security		BearerAuth
-//	@Router			/auth/me [put]
+//	@Router			/auth/@me [put]
 func MePutHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authServices.GetUserIDFromContext(r.Context())
 	if !ok {

@@ -863,7 +863,7 @@ paths:
       summary: Logout
       tags:
       - auth
-  /auth/me:
+  /auth/@me:
     get:
       description: Return information about the authenticated user
       produces:

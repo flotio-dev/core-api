@@ -118,6 +118,8 @@ type Build struct {
 	ContainerID    string  `json:"container_id"` // Kubernetes container ID
 	Duration       int64   `json:"duration"`     // build duration in seconds
 	APKURL         string  `json:"apk_url"`      // S3 key for the build artifact (e.g., "builds/123/app-release.apk")
+	VersionName    string  `json:"version_name"` // Flutter --build-name baked into the artifact (empty = use pubspec)
+	VersionCode    int64   `json:"version_code"` // Flutter --build-number baked into the artifact (0 = use pubspec)
 	Logs           []Log   `gorm:"foreignKey:BuildID" json:"logs"`
 }
 
@@ -144,6 +146,20 @@ type Release struct {
 	RolloutFraction float64 `json:"rollout_fraction"` // 0..1 for staged rollout (1 = full)
 	Status          string  `json:"status"`           // pending, uploading, in_progress, published, halted, failed
 	ReleaseNotes    string  `json:"release_notes"`
+}
+
+// ReleaseAudit records who published what, when and with what result. It never
+// stores secrets (no credentials, keystore or tokens).
+type ReleaseAudit struct {
+	gorm.Model
+	UserID      uint   `json:"user_id"`
+	ProjectID   uint   `json:"project_id"`
+	ReleaseID   uint   `json:"release_id"`
+	PackageName string `json:"package_name"`
+	VersionCode int64  `json:"version_code"`
+	Track       string `json:"track"`
+	Action      string `json:"action"` // triggered, published, in_progress, draft, failed
+	Detail      string `json:"detail"` // human-readable, secret-free
 }
 
 // Env model - supports both environment variables and files, owned by User

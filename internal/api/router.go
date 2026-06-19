@@ -16,6 +16,7 @@ import (
 	githubRepo "github.com/flotio-dev/core-api/internal/modules/github/repository"
 	githubService "github.com/flotio-dev/core-api/internal/modules/github/service"
 	projectHandler "github.com/flotio-dev/core-api/internal/modules/project/handler"
+	releaseHandler "github.com/flotio-dev/core-api/internal/modules/release/handler"
 	userHandler "github.com/flotio-dev/core-api/internal/modules/user/handler"
 	userRepo "github.com/flotio-dev/core-api/internal/modules/user/repository"
 	userService "github.com/flotio-dev/core-api/internal/modules/user/service"
@@ -115,6 +116,14 @@ func Router() http.Handler {
 	protected.HandleFunc("/project/{id:[0-9]+}/cache", buildCtrl.CachePurgeHandler).Methods("DELETE")
 	protected.HandleFunc("/project/{id:[0-9]+}/cache/metrics", buildCtrl.CacheMetricsHandler).Methods("GET")
 	protected.HandleFunc("/project/{id:[0-9]+}/cache/entries", buildCtrl.CacheEntriesHandler).Methods("GET")
+
+	// Release routes (Release Module - Google Play publishing)
+	releaseCtrl := releaseHandler.NewReleaseController(uService)
+	protected.HandleFunc("/project/{id:[0-9]+}/build/{buildId:[0-9]+}/publish", releaseCtrl.PublishHandler).Methods("POST")
+	protected.HandleFunc("/project/{id:[0-9]+}/release/{releaseId:[0-9]+}", releaseCtrl.ReleaseGetHandler).Methods("GET")
+	protected.HandleFunc("/project/{id:[0-9]+}/releases", releaseCtrl.ReleasesListHandler).Methods("GET")
+	protected.HandleFunc("/project/{id:[0-9]+}/google-play/access", releaseCtrl.AccessCheckHandler).Methods("GET")
+	protected.HandleFunc("/project/{id:[0-9]+}/audit", releaseCtrl.AuditListHandler).Methods("GET")
 
 	// Github routes (Github Module)
 	// Inject dependencies into Github Controller
