@@ -164,26 +164,17 @@ jobs:
 
   # ── 3. Update GitOps repo ──────────────────────────────────────────────────
   update-gitops:
-    name: Update GitOps
     needs: build
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
-      - name: Generate token from GitHub App
-        id: app-token
-        uses: tibdex/github-app-token@v1
-        with:
-          app_id: ${{ secrets.GH_APP_ID }}
-          private_key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-
       - name: Checkout GitOps repo
         uses: actions/checkout@v4
         with:
           repository: flotio-dev/k8s_config
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.K8S_CONFIG_REPO_TOKEN }}
+          fetch-depth: 0
 
       - name: Update deployment
         run: |
@@ -197,9 +188,12 @@ jobs:
 
       - name: Commit & push
         run: |
-          cd manifest
           git config user.email "actions@github.com"
           git config user.name "ArgoCD Sync Bot"
-          git add .
+          git add manifest
+          if git diff --cached --quiet; then
+            echo "No GitOps changes to commit."
+            exit 0
+          fi
           git commit -m "Deploy version ${{ needs.build.outputs.version }}"
-          git push https://x-access-token:${{ steps.app-token.outputs.token }}@github.com/flotio-dev/k8s_config.git HEAD:main
+          git push origin HEAD:main
