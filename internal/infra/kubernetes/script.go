@@ -135,22 +135,65 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 	sb.WriteString("  echo \"- No environment files found\"\n")
 	sb.WriteString("fi\n\n")
 
-	// Phase 7: Keystore Setup
+	// Phase 7: Keystore Setup (always create key.properties for Gradle compat)
 	if config.Platform == "android" {
 		sb.WriteString("log_step \"Setting up Android Keystore\"\n")
+		// Always create key.properties so Gradle files that reference it compile.
+		// Even an empty file makes keystorePropertiesFile.exists() return false cleanly.
+		sb.WriteString("KEY_PROPS=\"$(pwd)/android/key.properties\"\n")
+		sb.WriteString("mkdir -p \"$(dirname \"$KEY_PROPS\")\"\n")
 		sb.WriteString("if [ -f \"$KEYSTORE_PATH\" ]; then\n")
-		sb.WriteString("  KEY_PROPERTIES_PATH=\"$(pwd)/android/key.properties\"\n")
-		sb.WriteString("  mkdir -p \"$(dirname \"$KEY_PROPERTIES_PATH\")\"\n")
-		sb.WriteString("  cat > \"$KEY_PROPERTIES_PATH\" << EOF\n")
+		sb.WriteString("  echo \"  • Keystore provided, configuring signing...\"\n")
+		sb.WriteString("  cat > \"$KEY_PROPS\" << 'KEOF'\n")
 		sb.WriteString("storePassword=${KEYSTORE_PASSWORD:-android}\n")
 		sb.WriteString("keyPassword=${KEY_PASSWORD:-android}\n")
 		sb.WriteString("keyAlias=${KEY_ALIAS:-key}\n")
 		sb.WriteString("storeFile=$KEYSTORE_PATH\n")
-		sb.WriteString("EOF\n")
+		sb.WriteString("KEOF\n")
 		sb.WriteString("  echo \"  ✓ Keystore configured\"\n")
 		sb.WriteString("else\n")
 		sb.WriteString("  echo \"  • No keystore provided\"\n")
+		sb.WriteString("  if [ ! -f \"$KEY_PROPS\" ]; then\n")
+		sb.WriteString("    touch \"$KEY_PROPS\"\n")
+		sb.WriteString("    echo \"  ✓ Created empty key.properties (no signing)\"\n")
+		sb.WriteString("  fi\n")
 		sb.WriteString("fi\n\n")
+
+		// Patch build.gradle / build.gradle.kts if they reference keystorePropertiesFile
+		// without defining it (common in hand-edited projects).
+		sb.WriteString("# Auto-patch Gradle files that use keystorePropertiesFile without defining it\n")
+		sb.WriteString("for gradle in android/app/build.gradle android/app/build.gradle.kts; do\n")
+		sb.WriteString("  [ ! -f \"$gradle\" ] && continue\n")
+		sb.WriteString("  if grep -q 'keystorePropertiesFile' \"$gradle\" && ! grep -q 'def keystorePropertiesFile\\|val keystorePropertiesFile' \"$gradle\"; then\n")
+		sb.WriteString("    echo \"  ⚠ keystorePropertiesFile referenced but not defined in $gradle — injecting definition\"\n")
+		sb.WriteString("    TMPFILE=$(mktemp)\n")
+		sb.WriteString("    if [[ \"$gradle\" == *.kts ]]; then\n")
+		// Kotlin DSL block
+		sb.WriteString("      cat > \"$TMPFILE\" << 'KTSBLOCK'\n")
+		sb.WriteString("import java.io.FileInputStream\n")
+		sb.WriteString("import java.util.Properties\n")
+		sb.WriteString("\n")
+		sb.WriteString("val keystoreProperties = Properties()\n")
+		sb.WriteString("val keystorePropertiesFile = rootProject.file(\"key.properties\")\n")
+		sb.WriteString("if (keystorePropertiesFile.exists()) {\n")
+		sb.WriteString("    keystoreProperties.load(FileInputStream(keystorePropertiesFile))\n")
+		sb.WriteString("}\n")
+		sb.WriteString("KTSBLOCK\n")
+		sb.WriteString("    else\n")
+		// Groovy DSL block
+		sb.WriteString("      cat > \"$TMPFILE\" << 'GRVBLOCK'\n")
+		sb.WriteString("def keystorePropertiesFile = rootProject.file(\"key.properties\")\n")
+		sb.WriteString("def keystoreProperties = new Properties()\n")
+		sb.WriteString("if (keystorePropertiesFile.exists()) {\n")
+		sb.WriteString("    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))\n")
+		sb.WriteString("}\n")
+		sb.WriteString("GRVBLOCK\n")
+		sb.WriteString("    fi\n")
+		sb.WriteString("    cat \"$gradle\" >> \"$TMPFILE\"\n")
+		sb.WriteString("    mv \"$TMPFILE\" \"$gradle\"\n")
+		sb.WriteString("    echo \"  ✓ Patched $gradle\"\n")
+		sb.WriteString("  fi\n")
+		sb.WriteString("done\n\n")
 	}
 
 	// Phase 8: Dependencies
