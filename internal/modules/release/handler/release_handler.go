@@ -15,6 +15,7 @@ import (
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
 	googleplay "github.com/flotio-dev/core-api/internal/infra/googleplay"
 	s3Engine "github.com/flotio-dev/core-api/internal/infra/s3"
+	apimodels "github.com/flotio-dev/core-api/internal/models"
 	models "github.com/flotio-dev/core-api/internal/modules/release/model"
 	userServices "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
@@ -50,15 +51,19 @@ func NewReleaseController(userService *userServices.UserService) *ReleaseControl
 //	@Tags			releases
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int						true	"Project ID"
-//	@Param			buildId	path	int						true	"Build ID"
-//	@Param			body	body	models.PublishRequest	false	"Publication overrides"
+//	@Param			id		path	int						true	"Project ID"	Format(int64)
+//	@Param			buildId	path	int						true	"Build ID"	Format(int64)
+//	@Param			publish	body	models.PublishRequest	false	"Publication overrides"
 //	@Success		202	{object}	models.ReleaseResponse
-//	@Failure		400	{object}	map[string]string
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
-//	@Router			/project/{id}/build/{buildId}/publish [post]
+//	@Failure		400	{object}	apimodels.APIErrorResponse
+//	@Failure		401	{object}	apimodels.APIErrorResponse
+//	@Failure		403	{object}	apimodels.APIErrorResponse
+//	@Failure		404	{object}	apimodels.APIErrorResponse
+//	@Failure		500	{object}	apimodels.APIErrorResponse
+//	@Failure		502	{object}	apimodels.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				PublishHandler
+//	@Router			/project/{id}/build/{buildId}/publish [post]
 func (c *ReleaseController) PublishHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.userService.GetUserFromContext(r.Context())
 	if err != nil || userInfo == nil {
@@ -239,13 +244,16 @@ func mapPublishStatus(playStatus string) string {
 //	@Description	Get a release and its current status
 //	@Tags			releases
 //	@Produce		json
-//	@Param			id			path	int	true	"Project ID"
-//	@Param			releaseId	path	int	true	"Release ID"
+//	@Param			id			path	int	true	"Project ID"	Format(int64)
+//	@Param			releaseId	path	int	true	"Release ID"	Format(int64)
 //	@Success		200	{object}	models.ReleaseResponse
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
-//	@Router			/project/{id}/release/{releaseId} [get]
+//	@Failure		400	{object}	apimodels.APIErrorResponse
+//	@Failure		401	{object}	apimodels.APIErrorResponse
+//	@Failure		404	{object}	apimodels.APIErrorResponse
+//	@Failure		500	{object}	apimodels.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				ReleaseGetHandler
+//	@Router			/project/{id}/release/{releaseId} [get]
 func (c *ReleaseController) ReleaseGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.userService.GetUserFromContext(r.Context())
 	if err != nil || userInfo == nil {
@@ -280,11 +288,15 @@ func (c *ReleaseController) ReleaseGetHandler(w http.ResponseWriter, r *http.Req
 //	@Description	List all releases for a project
 //	@Tags			releases
 //	@Produce		json
-//	@Param			id	path	int	true	"Project ID"
+//	@Param			id	path	int	true	"Project ID"	Format(int64)
 //	@Success		200	{object}	models.ReleasesResponse
-//	@Failure		401	{object}	map[string]string
-//	@Router			/project/{id}/releases [get]
+//	@Failure		400	{object}	apimodels.APIErrorResponse
+//	@Failure		401	{object}	apimodels.APIErrorResponse
+//	@Failure		404	{object}	apimodels.APIErrorResponse
+//	@Failure		500	{object}	apimodels.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				ReleasesListHandler
+//	@Router			/project/{id}/releases [get]
 func (c *ReleaseController) ReleasesListHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.userService.GetUserFromContext(r.Context())
 	if err != nil || userInfo == nil {
@@ -330,11 +342,15 @@ func (c *ReleaseController) findOwnedRelease(releaseID, projectID, userID uint) 
 //	@Description	Verifies that the project's service account can publish the configured app
 //	@Tags			releases
 //	@Produce		json
-//	@Param			id	path	int	true	"Project ID"
+//	@Param			id	path	int	true	"Project ID"	Format(int64)
 //	@Success		200	{object}	models.AccessCheckResponse
-//	@Failure		401	{object}	map[string]string
-//	@Router			/project/{id}/google-play/access [get]
+//	@Failure		400	{object}	apimodels.APIErrorResponse
+//	@Failure		401	{object}	apimodels.APIErrorResponse
+//	@Failure		404	{object}	apimodels.APIErrorResponse
+//	@Failure		500	{object}	apimodels.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				AccessCheckHandler
+//	@Router			/project/{id}/google-play/access [get]
 func (c *ReleaseController) AccessCheckHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.userService.GetUserFromContext(r.Context())
 	if err != nil || userInfo == nil {
@@ -468,11 +484,15 @@ func convertDBReleases(releases []dbEngine.Release) []models.ReleaseDTO {
 //	@Description	List the Google Play publication audit log for a project
 //	@Tags			releases
 //	@Produce		json
-//	@Param			id	path	int	true	"Project ID"
+//	@Param			id	path	int	true	"Project ID"	Format(int64)
 //	@Success		200	{object}	models.AuditListResponse
-//	@Failure		401	{object}	map[string]string
-//	@Router			/project/{id}/audit [get]
+//	@Failure		400	{object}	apimodels.APIErrorResponse
+//	@Failure		401	{object}	apimodels.APIErrorResponse
+//	@Failure		404	{object}	apimodels.APIErrorResponse
+//	@Failure		500	{object}	apimodels.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				AuditListHandler
+//	@Router			/project/{id}/audit [get]
 func (c *ReleaseController) AuditListHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.userService.GetUserFromContext(r.Context())
 	if err != nil || userInfo == nil {
@@ -525,3 +545,6 @@ func convertDBAudits(entries []dbEngine.ReleaseAudit) []models.AuditDTO {
 	}
 	return out
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = apimodels.APIErrorResponse{}

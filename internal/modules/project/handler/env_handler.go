@@ -9,6 +9,7 @@ import (
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
+	models "github.com/flotio-dev/core-api/internal/models"
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
@@ -30,15 +31,16 @@ func NewEnvController(userService *services.UserService) *EnvController {
 //	@Accept			json
 //	@Produce		json
 //	@Param			project_id	query	int	false	"Filter by Project ID"
-//	@Success		200			{object}	map[string]interface{}
-//	@Failure		401			{object}	map[string]string
-//	@Failure		500			{object}	map[string]string
-//	@Router			/env [get]
+//	@Success		200			{object}	EnvListResponse
+//	@Failure		401			{object}	models.APIErrorResponse
+//	@Failure		500			{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				EnvGetHandler
+//	@Router			/env [get]
 func (c *EnvController) EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -52,11 +54,29 @@ func (c *EnvController) EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 
 	var envs []dbEngine.Env
 	if err := query.Find(&envs).Error; err != nil {
-		http.Error(w, "Failed to fetch envs", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch envs", http.StatusInternalServerError)
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"envs": envs})
+	helpers.WriteJSON(w, EnvListResponse{Envs: convertDBEnvs(envs)})
+}
+
+// EnvsGetHandler godoc
+//
+//	@Summary		Get environment assets
+//	@Description	Alias of GET /env: get all environment assets/files for the authenticated user, optionally filtered by project_id
+//	@Tags			environment
+//	@Accept			json
+//	@Produce		json
+//	@Param			project_id	query	int	false	"Filter by Project ID"
+//	@Success		200			{object}	EnvListResponse
+//	@Failure		401			{object}	models.APIErrorResponse
+//	@Failure		500			{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				EnvsGetHandler
+//	@Router			/envs [get]
+func (c *EnvController) EnvsGetHandler(w http.ResponseWriter, r *http.Request) {
+	c.EnvGetHandler(w, r)
 }
 
 // EnvPostHandler godoc
@@ -66,31 +86,25 @@ func (c *EnvController) EnvGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Tags			environment
 //	@Accept			json
 //	@Produce		json
-//	@Param			env	body	dbEngine.Env	true	"Environment asset data"
-//	@Success		201	{object}	map[string]interface{}
-//	@Failure		401	{object}	map[string]string
-//	@Failure		400	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
-//	@Router			/env [post]
+//	@Param			env	body	EnvCreateRequest	true	"Environment asset data"
+//	@Success		201	{object}	EnvResponse
+//	@Failure		400	{object}	models.APIErrorResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				EnvPostHandler
+//	@Router			/env [post]
 func (c *EnvController) EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	var req struct {
-		ProjectID *uint  `json:"project_id,omitempty"`
-		Key       string `json:"key"`
-		Value     string `json:"value"`
-		Type      string `json:"type"` // "env" or "file"
-		Path      string `json:"path"`
-		IsBase64  bool   `json:"is_base64"`
-	}
+	var req EnvCreateRequest
 	if err := helpers.ReadJSON(r, &req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
@@ -99,10 +113,10 @@ func (c *EnvController) EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 		var project dbEngine.Project
 		if err := dbEngine.DB.Where("id = ? AND user_id = ?", *req.ProjectID, userInfo.ID).First(&project).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
-				http.Error(w, "Project not found", http.StatusNotFound)
+				helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 				return
 			}
-			http.Error(w, "Failed to fetch project", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -118,11 +132,11 @@ func (c *EnvController) EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := dbEngine.DB.Create(&env).Error; err != nil {
-		http.Error(w, "Failed to create env", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to create env", http.StatusInternalServerError)
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"env": env})
+	helpers.WriteJSON(w, EnvResponse{Env: convertDBEnv(env)})
 }
 
 // EnvGetByIdHandler godoc
@@ -132,39 +146,40 @@ func (c *EnvController) EnvPostHandler(w http.ResponseWriter, r *http.Request) {
 //	@Tags			environment
 //	@Accept			json
 //	@Produce		json
-//	@Param			envId	path	int	true	"Environment asset ID"
-//	@Success		200		{object}	map[string]interface{}
-//	@Failure		401		{object}	map[string]string
-//	@Failure		400		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
-//	@Router			/env/{envId} [get]
+//	@Param			envId	path	int	true	"Environment asset ID"	Format(int64)
+//	@Success		200		{object}	EnvResponse
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				EnvGetByIdHandler
+//	@Router			/env/{envId} [get]
 func (c *EnvController) EnvGetByIdHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	envID, err := strconv.Atoi(vars["envId"])
 	if err != nil {
-		http.Error(w, "Invalid env ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid env ID", http.StatusBadRequest)
 		return
 	}
 
 	var env dbEngine.Env
 	if err := dbEngine.DB.Where("id = ? AND user_id = ?", envID, userInfo.ID).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			http.Error(w, "Env not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "Env not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "Failed to fetch env", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch env", http.StatusInternalServerError)
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"env": env})
+	helpers.WriteJSON(w, EnvResponse{Env: convertDBEnv(env)})
 }
 
 // EnvPutByIdHandler godoc
@@ -174,49 +189,43 @@ func (c *EnvController) EnvGetByIdHandler(w http.ResponseWriter, r *http.Request
 //	@Tags			environment
 //	@Accept			json
 //	@Produce		json
-//	@Param			envId	path	int				true	"Environment asset ID"
-//	@Param			env		body	dbEngine.Env	true	"Updated environment asset data"
-//	@Success		200		{object}	map[string]interface{}
-//	@Failure		401		{object}	map[string]string
-//	@Failure		400		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
-//	@Router			/env/{envId} [put]
+//	@Param			envId	path	int				true	"Environment asset ID"	Format(int64)
+//	@Param			env		body	EnvUpdateRequest	true	"Updated environment asset data"
+//	@Success		200		{object}	EnvResponse
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				EnvPutByIdHandler
+//	@Router			/env/{envId} [put]
 func (c *EnvController) EnvPutByIdHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	envID, err := strconv.Atoi(vars["envId"])
 	if err != nil {
-		http.Error(w, "Invalid env ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid env ID", http.StatusBadRequest)
 		return
 	}
 
-	var req struct {
-		ProjectID *uint  `json:"project_id,omitempty"`
-		Key       string `json:"key"`
-		Value     string `json:"value"`
-		Type      string `json:"type"` // "env" or "file"
-		Path      string `json:"path"`
-		IsBase64  bool   `json:"is_base64"`
-	}
+	var req EnvUpdateRequest
 	if err := helpers.ReadJSON(r, &req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
 	var env dbEngine.Env
 	if err := dbEngine.DB.Where("id = ? AND user_id = ?", envID, userInfo.ID).First(&env).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			http.Error(w, "Env not found", http.StatusNotFound)
+			helpers.WriteErrorJSON(w, "Env not found", http.StatusNotFound)
 			return
 		}
-		http.Error(w, "Failed to fetch env", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to fetch env", http.StatusInternalServerError)
 		return
 	}
 
@@ -225,10 +234,10 @@ func (c *EnvController) EnvPutByIdHandler(w http.ResponseWriter, r *http.Request
 		var project dbEngine.Project
 		if err := dbEngine.DB.Where("id = ? AND user_id = ?", *req.ProjectID, userInfo.ID).First(&project).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
-				http.Error(w, "Project not found", http.StatusNotFound)
+				helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
 				return
 			}
-			http.Error(w, "Failed to fetch project", http.StatusInternalServerError)
+			helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
 			return
 		}
 	}
@@ -241,11 +250,11 @@ func (c *EnvController) EnvPutByIdHandler(w http.ResponseWriter, r *http.Request
 	env.IsBase64 = req.IsBase64
 
 	if err := dbEngine.DB.Save(&env).Error; err != nil {
-		http.Error(w, "Failed to update env", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to update env", http.StatusInternalServerError)
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"env": env})
+	helpers.WriteJSON(w, EnvResponse{Env: convertDBEnv(env)})
 }
 
 // EnvDeleteByIdHandler godoc
@@ -255,32 +264,35 @@ func (c *EnvController) EnvPutByIdHandler(w http.ResponseWriter, r *http.Request
 //	@Tags			environment
 //	@Accept			json
 //	@Produce		json
-//	@Param			envId	path	int	true	"Environment asset ID"
-//	@Success		200		{object}	map[string]interface{}
-//	@Failure		401		{object}	map[string]string
-//	@Failure		400		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
-//	@Router			/env/{envId} [delete]
+//	@Param			envId	path	int	true	"Environment asset ID"	Format(int64)
+//	@Success		200	{object}	DeleteResponse
+//	@Failure		400	{object}	models.APIErrorResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				EnvDeleteByIdHandler
+//	@Router			/env/{envId} [delete]
 func (c *EnvController) EnvDeleteByIdHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		helpers.WriteErrorJSON(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	vars := mux.Vars(r)
 	envID, err := strconv.Atoi(vars["envId"])
 	if err != nil {
-		http.Error(w, "Invalid env ID", http.StatusBadRequest)
+		helpers.WriteErrorJSON(w, "Invalid env ID", http.StatusBadRequest)
 		return
 	}
 
 	if err := dbEngine.DB.Where("id = ? AND user_id = ?", envID, userInfo.ID).Delete(&dbEngine.Env{}).Error; err != nil {
-		http.Error(w, "Failed to delete env", http.StatusInternalServerError)
+		helpers.WriteErrorJSON(w, "Failed to delete env", http.StatusInternalServerError)
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]string{"status": "deleted"})
+	helpers.WriteJSON(w, DeleteResponse{Status: "deleted"})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

@@ -15,16 +15,6 @@ import (
 )
 
 // CreateConfigMapForEnvFiles creates a ConfigMap containing environment files for a build
-// @Summary		Create ConfigMap for environment files
-// @Description	Creates a Kubernetes ConfigMap containing environment files for a build
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID		path		int		true	"Build ID"
-// @Param		projectID	path		int		true	"Project ID"
-// @Success		200	{string}	string	"ConfigMap name"
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/configmap [post]
 func CreateConfigMapForEnvFiles(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
 	// Check if database is initialized
 	if dbEngine.DB == nil {
@@ -124,16 +114,6 @@ func CreateConfigMapForRunScript(clientset *kubernetes.Clientset, buildID uint, 
 }
 
 // CreateSecretForKeystore creates a Secret containing the keystore and credentials
-// @Summary		Create Secret for keystore
-// @Description	Creates a Kubernetes Secret containing the Android keystore and credentials for signing
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID		path		int		true	"Build ID"
-// @Param		projectID	path		int		true	"Project ID"
-// @Success		200	{string}	string	"Secret name"
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/secret [post]
 func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
 	// Check if database is initialized
 	if dbEngine.DB == nil {
@@ -209,15 +189,6 @@ func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, proj
 }
 
 // DeleteBuildResources deletes all Kubernetes resources associated with a build
-// @Summary		Delete build resources
-// @Description	Deletes all Kubernetes resources (Pod, ConfigMap, Secret) associated with a build
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID	path		int	true	"Build ID"
-// @Success		200
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/build/{buildID}/resources [delete]
 func DeleteBuildResources(clientset *kubernetes.Clientset, buildID uint, namespace string) error {
 	ctx := context.TODO()
 	deletePolicy := metav1.DeletePropagationForeground

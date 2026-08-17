@@ -52,10 +52,7 @@ func Router() http.Handler {
 	r.HandleFunc("/auth/logout", userHandler.LogoutHandler).Methods("POST")
 
 	// Health check
-	r.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(200)
-		w.Write([]byte("ok"))
-	}).Methods("GET")
+	r.HandleFunc("/healthz", HealthzHandler).Methods("GET")
 
 	// Protected routes
 	protected := r.PathPrefix("/").Subrouter()
@@ -73,7 +70,7 @@ func Router() http.Handler {
 	EnvCtrl := projectHandler.NewEnvController(uService)
 	protected.HandleFunc("/env", EnvCtrl.EnvGetHandler).Methods("GET")
 	protected.HandleFunc("/env", EnvCtrl.EnvPostHandler).Methods("POST")
-	protected.HandleFunc("/envs", EnvCtrl.EnvGetHandler).Methods("GET")
+	protected.HandleFunc("/envs", EnvCtrl.EnvsGetHandler).Methods("GET")
 	protected.HandleFunc("/env/{envId:[0-9]+}", EnvCtrl.EnvGetByIdHandler).Methods("GET")
 	protected.HandleFunc("/env/{envId:[0-9]+}", EnvCtrl.EnvPutByIdHandler).Methods("PUT")
 	protected.HandleFunc("/env/{envId:[0-9]+}", EnvCtrl.EnvDeleteByIdHandler).Methods("DELETE")
@@ -94,7 +91,7 @@ func Router() http.Handler {
 	keystoreCtrl := projectHandler.NewKeystoreController(uService)
 	protected.HandleFunc("/keystore", keystoreCtrl.KeystoreGetHandler).Methods("GET")
 	protected.HandleFunc("/keystore", keystoreCtrl.KeystorePostHandler).Methods("POST")
-	protected.HandleFunc("/keystores", keystoreCtrl.KeystoreGetHandler).Methods("GET")
+	protected.HandleFunc("/keystores", keystoreCtrl.KeystoresGetHandler).Methods("GET")
 	protected.HandleFunc("/keystore/{keystoreId:[0-9]+}", keystoreCtrl.KeystoreDeleteHandler).Methods("DELETE")
 
 	// Google Play Credentials routes (User Module - Assets)

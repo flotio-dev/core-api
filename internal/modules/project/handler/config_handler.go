@@ -11,6 +11,7 @@ import (
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
+	models "github.com/flotio-dev/core-api/internal/models"
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
@@ -35,13 +36,14 @@ type ProjectConfigResponse struct {
 //	@Tags			config
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path	int	true	"Project ID"
+//	@Param			id	path	int	true	"Project ID"	Format(int64)
 //	@Success		200	{object}	ProjectConfigResponse
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
-//	@Router			/project/{id}/config [get]
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				ConfigGetHandler
+//	@Router			/project/{id}/config [get]
 func (c *ConfigController) ConfigGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -79,14 +81,16 @@ func (c *ConfigController) ConfigGetHandler(w http.ResponseWriter, r *http.Reque
 //	@Tags			config
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int						true	"Project ID"
+//	@Param			id		path	int						true	"Project ID"	Format(int64)
 //	@Param			config	body	dbEngine.ProjectConfig	true	"Configuration data"
 //	@Success		200		{object}	ProjectConfigResponse
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
-//	@Router			/project/{id}/config [post]
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				ConfigPostHandler
+//	@Router			/project/{id}/config [post]
 func (c *ConfigController) ConfigPostHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -234,13 +238,14 @@ func (c *ConfigController) ConfigPostHandler(w http.ResponseWriter, r *http.Requ
 //	@Tags			config
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path	int	true	"Project ID"
-//	@Success		200	{object}	map[string]string
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
-//	@Router			/project/{id}/config [delete]
+//	@Param			id	path	int	true	"Project ID"	Format(int64)
+//	@Success		200	{object}	DeleteResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				ConfigDeleteHandler
+//	@Router			/project/{id}/config [delete]
 func (c *ConfigController) ConfigDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -263,5 +268,8 @@ func (c *ConfigController) ConfigDeleteHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]string{"status": "deleted"})
+	helpers.WriteJSON(w, DeleteResponse{Status: "deleted"})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

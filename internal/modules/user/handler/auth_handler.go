@@ -10,6 +10,7 @@ import (
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
+	models "github.com/flotio-dev/core-api/internal/models"
 
 	authModel "github.com/flotio-dev/core-api/internal/modules/user/model"
 	authServices "github.com/flotio-dev/core-api/internal/modules/user/service"
@@ -24,8 +25,9 @@ import (
 //	@Produce		json
 //	@Param			register	body		authModel.RegisterRequest	true	"Register payload"
 //	@Success		200			{object}	authModel.AuthResponse
-//	@Failure		400			{object}	map[string]string
-//	@Failure		500			{object}	map[string]string
+//	@Failure		400			{object}	models.APIErrorResponse
+//	@Failure		500			{object}	models.APIErrorResponse
+//	@ID				RegisterHandler
 //	@Router			/auth/register [post]
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.RegisterRequest
@@ -69,8 +71,9 @@ func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 //	@Produce		json
 //	@Param			login	body		authModel.LoginRequest	true	"Login payload"
 //	@Success		200		{object}	authModel.AuthResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@ID				LoginHandler
 //	@Router			/auth/login [post]
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.LoginRequest
@@ -115,7 +118,9 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 //	@Produce		json
 //	@Param			refresh	body		authModel.RefreshTokenRequest	true	"Refresh token payload"
 //	@Success		200		{object}	authModel.AuthResponse
-//	@Failure		401		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@ID				RefreshTokenHandler
 //	@Router			/auth/refresh [post]
 func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 	cookie, err := r.Cookie("refresh_token")
@@ -170,7 +175,8 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 //	@Produce		json
 //	@Param			logout	body		authModel.RefreshTokenRequest	true	"Refresh token payload"
 //	@Success		200		{object}	authModel.StatusResponse
-//	@Failure		400		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@ID				LogoutHandler
 //	@Router			/auth/logout [post]
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	var body authModel.RefreshTokenRequest
@@ -213,10 +219,11 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 //	@Description	Return information about the authenticated user
 //	@Tags			auth
 //	@Produce		json
-//	@Success		200	{object}	map[string]interface{}
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
+//	@Success		200	{object}	authModel.UserResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				MeGetHandler
 //	@Router			/auth/@me [get]
 func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authServices.GetUserIDFromContext(r.Context())
@@ -231,11 +238,11 @@ func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := map[string]interface{}{
-		"id":       user.ID,
-		"email":    user.Email,
-		"username": user.Username,
-		"created":  user.CreatedAt,
+	response := authModel.UserResponse{
+		ID:       user.ID,
+		Email:    user.Email,
+		Username: user.Username,
+		Created:  user.CreatedAt,
 	}
 
 	helpers.WriteJSON(w, response)
@@ -250,11 +257,12 @@ func MeGetHandler(w http.ResponseWriter, r *http.Request) {
 //	@Produce		json
 //	@Param			user	body		authModel.UpdateUserRequest	true	"User update payload"
 //	@Success		200		{object}	authModel.StatusResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				MePutHandler
 //	@Router			/auth/@me [put]
 func MePutHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := authServices.GetUserIDFromContext(r.Context())
@@ -289,3 +297,6 @@ func MePutHandler(w http.ResponseWriter, r *http.Request) {
 
 	helpers.WriteJSON(w, authModel.StatusResponse{Status: "updated"})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

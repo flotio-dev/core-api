@@ -61,15 +61,6 @@ func GetPodName(buildID uint) string {
 }
 
 // CreateBuildPod creates a Kubernetes pod to build a Flutter application
-// @Summary		Create a build pod
-// @Description	Creates a Kubernetes pod to build a Flutter application with AWS S3 for artifact storage
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		config	body		BuildConfig	true	"Build configuration"
-// @Success		200
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod [post]
 func CreateBuildPod(config BuildConfig) error {
 	kubeConfig, err := getKubernetesConfig()
 	if err != nil {
@@ -450,15 +441,6 @@ func buildEnvironmentVariables(config BuildConfig) []v1.EnvVar {
 }
 
 // GetPodLogs retrieves logs from a build pod
-// @Summary		Get pod logs
-// @Description	Retrieves logs from a specific build pod
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID	path		int	true	"Build ID"
-// @Success		200	{array}	string
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod/{buildID}/logs [get]
 func GetPodLogs(buildID uint) ([]string, error) {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -496,15 +478,6 @@ func GetPodLogs(buildID uint) ([]string, error) {
 }
 
 // StreamPodLogs streams logs from a build pod in real-time
-// @Summary		Stream pod logs
-// @Description	Streams logs from a specific build pod via channel
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID	path		int	true	"Build ID"
-// @Success		200
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod/{buildID}/logs/stream [get]
 func StreamPodLogs(buildID uint, logChan chan<- string) error {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -544,15 +517,6 @@ func StreamPodLogs(buildID uint, logChan chan<- string) error {
 }
 
 // GetPodStatus returns the current status of a build pod
-// @Summary		Get pod status
-// @Description	Returns the current status of a specific build pod
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID	path		int	true	"Build ID"
-// @Success		200	{string}	string
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod/{buildID}/status [get]
 func GetPodStatus(buildID uint) (string, error) {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -576,15 +540,6 @@ func GetPodStatus(buildID uint) (string, error) {
 }
 
 // DeleteBuildPod deletes a build pod from Kubernetes
-// @Summary		Delete a build pod
-// @Description	Deletes a specific build pod from the Kubernetes cluster
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID	path		int	true	"Build ID"
-// @Success		200
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod/{buildID} [delete]
 func DeleteBuildPod(buildID uint) error {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -633,15 +588,6 @@ func ScheduleBuildPodCleanup(buildID uint) {
 
 // StartPodLogListener starts listening to pod logs and saves them to the database
 // This function should be called in a goroutine after creating a build pod
-// @Summary		Start pod log listener
-// @Description	Starts listening to pod logs and saves them to the database
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID	path		int	true	"Build ID"
-// @Success		200
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod/{buildID}/listen [post]
 func StartPodLogListener(buildID uint) {
 	config, err := getKubernetesConfig()
 	if err != nil {
@@ -762,16 +708,6 @@ func updateBuildStatusFromPod(clientset *kubernetes.Clientset, namespace, podNam
 }
 
 // GetArtifactURL returns the S3 URL for a build artifact
-// @Summary		Get artifact URL
-// @Description	Returns the AWS S3 URL for a specific build artifact
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID		path		int		true	"Build ID"
-// @Param		artifactName	path		string	true	"Artifact name (e.g., app-release.apk)"
-// @Success		200	{string}	string
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod/{buildID}/artifact/{artifactName} [get]
 func GetArtifactURL(buildID uint, artifactName string) string {
 	bucket := getAWSS3Bucket()
 	prefix := getAWSS3Prefix()
@@ -787,15 +723,6 @@ func GetArtifactURL(buildID uint, artifactName string) string {
 }
 
 // GetBuildArtifacts returns information about the artifacts produced by a build
-// @Summary		Get build artifacts
-// @Description	Returns URLs to the artifacts stored in AWS S3 for a specific build
-// @Tags			kubernetes
-// @Accept		json
-// @Produce		json
-// @Param		buildID	path		int	true	"Build ID"
-// @Success		200	{object}	map[string]string
-// @Failure		500	{object}	map[string]string
-// @Router		/internal/kubernetes/pod/{buildID}/artifacts [get]
 func GetBuildArtifacts(buildID uint) (map[string]string, error) {
 	bucket := getAWSS3Bucket()
 	prefix := getAWSS3Prefix()

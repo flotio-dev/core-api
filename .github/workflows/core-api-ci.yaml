@@ -17,6 +17,8 @@ on:
       - "build/flutter-build.Dockerfile"
       - "build/build-image.sh"
       - "tests/postman/**"
+      - "docs/**"
+      - "Makefile"
 
   pull_request:
     branches: ["main", "dev"]
@@ -29,6 +31,8 @@ on:
       - "go.sum"
       - "openapi.yaml"
       - "tests/postman/**"
+      - "docs/**"
+      - "Makefile"
 
   workflow_dispatch:
 
@@ -197,3 +201,42 @@ jobs:
           fi
           git commit -m "Deploy version ${{ needs.build.outputs.version }}"
           git push origin HEAD:main
+
+  # ── 4. Swagger spec drift check (D3 / AC-19 / AC-20) ─────────────────────
+  # Regenerates docs/api with the pinned swag CLI (v1.16.6) and fails the
+  # pipeline on any diff. NOTE: swag v1.16.6's version.go const still reports
+  # "v1.16.4" (upstream quirk); the pinned install and generation behavior are
+  # v1.16.6.
+  swagger-check:
+    name: Swagger Spec Drift Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache-dependency-path: go.sum
+
+      - name: Install pinned swag CLI (v1.16.6, patched for '@' in router paths)
+        run: make swagger-install
+
+      - name: Verify pinned swag module resolves to v1.16.6 (AC-19)
+        run: go list -m github.com/swaggo/swag | grep -F "v1.16.6"
+
+      - name: Regenerate spec
+        run: make swagger
+
+      - name: Fail on spec drift
+        run: |
+          if ! git diff --exit-code -- docs/api; then
+            echo "::error::docs/api is out of date — run 'make swagger' and commit docs/api/"
+            exit 1
+          fi
+
+      - name: Run swagger contract tests
+        run: go test ./internal/api/ -run TestSwagger

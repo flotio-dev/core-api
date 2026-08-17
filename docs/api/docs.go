@@ -9,107 +9,18 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "contact": {
+            "name": "Flotio Team",
+            "email": "support@flotio.dev"
+        },
+        "license": {
+            "name": "Proprietary"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/auth/login": {
-            "post": {
-                "description": "Authenticate a user and return access \u0026 refresh tokens",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Login",
-                "parameters": [
-                    {
-                        "description": "Login payload",
-                        "name": "login",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.LoginRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.AuthResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/logout": {
-            "post": {
-                "description": "Revoke a refresh token and logout the user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Logout",
-                "parameters": [
-                    {
-                        "description": "Refresh token payload",
-                        "name": "logout",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.RefreshTokenRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.StatusResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
         "/auth/@me": {
             "get": {
                 "security": [
@@ -125,30 +36,24 @@ const docTemplate = `{
                     "auth"
                 ],
                 "summary": "Get current user",
+                "operationId": "MeGetHandler",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.UserResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -170,6 +75,7 @@ const docTemplate = `{
                     "auth"
                 ],
                 "summary": "Update current user",
+                "operationId": "MePutHandler",
                 "parameters": [
                     {
                         "description": "User update payload",
@@ -191,37 +97,113 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/login": {
+            "post": {
+                "description": "Authenticate a user and return access \u0026 refresh tokens",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login",
+                "operationId": "LoginHandler",
+                "parameters": [
+                    {
+                        "description": "Login payload",
+                        "name": "login",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "description": "Revoke a refresh token and logout the user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout",
+                "operationId": "LogoutHandler",
+                "parameters": [
+                    {
+                        "description": "Refresh token payload",
+                        "name": "logout",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.RefreshTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.StatusResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -240,6 +222,7 @@ const docTemplate = `{
                     "auth"
                 ],
                 "summary": "Refresh access token",
+                "operationId": "RefreshTokenHandler",
                 "parameters": [
                     {
                         "description": "Refresh token payload",
@@ -258,13 +241,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_user_model.AuthResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -283,6 +269,7 @@ const docTemplate = `{
                     "auth"
                 ],
                 "summary": "Register a new user",
+                "operationId": "RegisterHandler",
                 "parameters": [
                     {
                         "description": "Register payload",
@@ -304,19 +291,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -340,6 +321,7 @@ const docTemplate = `{
                     "environment"
                 ],
                 "summary": "Get environment assets",
+                "operationId": "EnvGetHandler",
                 "parameters": [
                     {
                         "type": "integer",
@@ -352,26 +334,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.EnvListResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -393,6 +368,7 @@ const docTemplate = `{
                     "environment"
                 ],
                 "summary": "Create environment asset",
+                "operationId": "EnvPostHandler",
                 "parameters": [
                     {
                         "description": "Environment asset data",
@@ -400,7 +376,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env"
+                            "$ref": "#/definitions/internal_modules_project_handler.EnvCreateRequest"
                         }
                     }
                 ],
@@ -408,44 +384,31 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.EnvResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -469,9 +432,11 @@ const docTemplate = `{
                     "environment"
                 ],
                 "summary": "Get environment asset by ID",
+                "operationId": "EnvGetByIdHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Environment asset ID",
                         "name": "envId",
                         "in": "path",
@@ -482,44 +447,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.EnvResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -541,9 +493,11 @@ const docTemplate = `{
                     "environment"
                 ],
                 "summary": "Update environment asset",
+                "operationId": "EnvPutByIdHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Environment asset ID",
                         "name": "envId",
                         "in": "path",
@@ -555,7 +509,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Env"
+                            "$ref": "#/definitions/internal_modules_project_handler.EnvUpdateRequest"
                         }
                     }
                 ],
@@ -563,44 +517,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.EnvResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -622,9 +563,11 @@ const docTemplate = `{
                     "environment"
                 ],
                 "summary": "Delete environment asset",
+                "operationId": "EnvDeleteByIdHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Environment asset ID",
                         "name": "envId",
                         "in": "path",
@@ -635,44 +578,74 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.DeleteResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/envs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Alias of GET /env: get all environment assets/files for the authenticated user, optionally filtered by project_id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "environment"
+                ],
+                "summary": "Get environment assets",
+                "operationId": "EnvsGetHandler",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filter by Project ID",
+                        "name": "project_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_project_handler.EnvListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -680,6 +653,11 @@ const docTemplate = `{
         },
         "/flutter/versions": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a list of available Flutter versions from the official releases",
                 "consumes": [
                     "application/json"
@@ -691,11 +669,18 @@ const docTemplate = `{
                     "flutter"
                 ],
                 "summary": "Get available Flutter versions",
+                "operationId": "VersionsGetHandler",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/internal_modules_project_handler.FlutterVersionsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -716,26 +701,42 @@ const docTemplate = `{
                     "github"
                 ],
                 "summary": "Déconnecte l'utilisateur courant de GitHub",
+                "operationId": "HandleDisconnectGithub",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_DeleteResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -756,6 +757,7 @@ const docTemplate = `{
                     "github"
                 ],
                 "summary": "Vérifie l'existence d'une installation GitHub par installation_id",
+                "operationId": "HandleGetGithubInstallation",
                 "parameters": [
                     {
                         "type": "integer",
@@ -769,19 +771,31 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_GithubInstallationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -802,17 +816,42 @@ const docTemplate = `{
                     "github"
                 ],
                 "summary": "Vérifie si l'utilisateur a une installation GitHub",
+                "operationId": "HandleGithubCheckInstallation",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_GithubInstallationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -836,6 +875,7 @@ const docTemplate = `{
                     "github"
                 ],
                 "summary": "Enregistre ou met à jour une installation GitHub pour l'utilisateur authentifié",
+                "operationId": "HandleGithubPostInstallation",
                 "parameters": [
                     {
                         "description": "Installation payload",
@@ -851,69 +891,37 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_PostInstallationResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/github/pubspec-path": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Parcourt le repo pour renvoyer le path du pubspec.yaml (utilisé pour déterminer build folder)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "github"
-                ],
-                "summary": "Trouve le chemin de pubspec.yaml dans un repo",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Owner du repo",
-                        "name": "owner",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Nom du repo",
-                        "name": "repo",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "405": {
+                        "description": "Method Not Allowed",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -934,6 +942,7 @@ const docTemplate = `{
                     "github"
                 ],
                 "summary": "Récupère l'arborescence d'un repo GitHub",
+                "operationId": "HandleGithubRepoTree",
                 "parameters": [
                     {
                         "type": "string",
@@ -954,13 +963,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_GithubTreeResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -981,17 +1002,36 @@ const docTemplate = `{
                     "github"
                 ],
                 "summary": "Get GitHub Repositories",
+                "operationId": "HandleGithubGetRepositories",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepositoriesResponse"
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_GithubRepositoriesResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_models.APIErrorResponse"
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -1015,30 +1055,24 @@ const docTemplate = `{
                     "google-play-credentials"
                 ],
                 "summary": "Get user Google Play credentials",
+                "operationId": "GooglePlayCredentialsGetHandler",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.GooglePlayCredentialsListResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -1060,6 +1094,7 @@ const docTemplate = `{
                     "google-play-credentials"
                 ],
                 "summary": "Create Google Play credentials",
+                "operationId": "GooglePlayCredentialsPostHandler",
                 "parameters": [
                     {
                         "description": "Google Play credentials data",
@@ -1067,7 +1102,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.GooglePlayCredentials"
+                            "$ref": "#/definitions/internal_modules_project_handler.GooglePlayCredentialsCreateRequest"
                         }
                     }
                 ],
@@ -1075,26 +1110,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.GooglePlayCredentialsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -1118,9 +1152,11 @@ const docTemplate = `{
                     "google-play-credentials"
                 ],
                 "summary": "Delete Google Play credentials",
+                "operationId": "GooglePlayCredentialsDeleteHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Credentials ID",
                         "name": "credentialsId",
                         "in": "path",
@@ -1131,502 +1167,52 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/internal_modules_project_handler.DeleteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/internal/kubernetes/build/{buildID}/resources": {
-            "delete": {
-                "description": "Deletes all Kubernetes resources (Pod, ConfigMap, Secret) associated with a build",
-                "consumes": [
-                    "application/json"
-                ],
+        "/healthz": {
+            "get": {
+                "description": "Liveness probe — returns \"ok\" with HTTP 200 when the API process is up",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "kubernetes"
+                    "health"
                 ],
-                "summary": "Delete build resources",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
+                "summary": "Health check",
+                "operationId": "HealthzHandler",
                 "responses": {
                     "200": {
-                        "description": "OK"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/configmap": {
-            "post": {
-                "description": "Creates a Kubernetes ConfigMap containing environment files for a build",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Create ConfigMap for environment files",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Project ID",
-                        "name": "projectID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "ConfigMap name",
+                        "description": "ok",
                         "schema": {
                             "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod": {
-            "post": {
-                "description": "Creates a Kubernetes pod to build a Flutter application with AWS S3 for artifact storage",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Create a build pod",
-                "parameters": [
-                    {
-                        "description": "Build configuration",
-                        "name": "config",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/internal_infra_kubernetes.BuildConfig"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod/{buildID}": {
-            "delete": {
-                "description": "Deletes a specific build pod from the Kubernetes cluster",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Delete a build pod",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod/{buildID}/artifact/{artifactName}": {
-            "get": {
-                "description": "Returns the AWS S3 URL for a specific build artifact",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Get artifact URL",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Artifact name (e.g., app-release.apk)",
-                        "name": "artifactName",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod/{buildID}/artifacts": {
-            "get": {
-                "description": "Returns URLs to the artifacts stored in AWS S3 for a specific build",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Get build artifacts",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod/{buildID}/listen": {
-            "post": {
-                "description": "Starts listening to pod logs and saves them to the database",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Start pod log listener",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod/{buildID}/logs": {
-            "get": {
-                "description": "Retrieves logs from a specific build pod",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Get pod logs",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod/{buildID}/logs/stream": {
-            "get": {
-                "description": "Streams logs from a specific build pod via channel",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Stream pod logs",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/pod/{buildID}/status": {
-            "get": {
-                "description": "Returns the current status of a specific build pod",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Get pod status",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "/internal/kubernetes/secret": {
-            "post": {
-                "description": "Creates a Kubernetes Secret containing the Android keystore and credentials for signing",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "kubernetes"
-                ],
-                "summary": "Create Secret for keystore",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Build ID",
-                        "name": "buildID",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Project ID",
-                        "name": "projectID",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Secret name",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
                         }
                     }
                 }
@@ -1650,30 +1236,24 @@ const docTemplate = `{
                     "keystore"
                 ],
                 "summary": "Get user keystores",
+                "operationId": "KeystoreGetHandler",
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.KeystoreListResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -1695,6 +1275,7 @@ const docTemplate = `{
                     "keystore"
                 ],
                 "summary": "Create user keystore",
+                "operationId": "KeystorePostHandler",
                 "parameters": [
                     {
                         "description": "Keystore data",
@@ -1702,7 +1283,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Keystore"
+                            "$ref": "#/definitions/internal_modules_project_handler.KeystoreCreateRequest"
                         }
                     }
                 ],
@@ -1710,26 +1291,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/internal_modules_project_handler.KeystoreResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -1753,9 +1333,11 @@ const docTemplate = `{
                     "keystore"
                 ],
                 "summary": "Delete user keystore",
+                "operationId": "KeystoreDeleteHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Keystore ID",
                         "name": "keystoreId",
                         "in": "path",
@@ -1766,37 +1348,72 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/internal_modules_project_handler.DeleteResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/keystores": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Alias of GET /keystore: get all keystores owned by the authenticated user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "keystore"
+                ],
+                "summary": "Get user keystores",
+                "operationId": "KeystoresGetHandler",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/internal_modules_project_handler.KeystoreListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -1804,6 +1421,11 @@ const docTemplate = `{
         },
         "/project": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all projects for the authenticated user",
                 "consumes": [
                     "application/json"
@@ -1815,6 +1437,7 @@ const docTemplate = `{
                     "projects"
                 ],
                 "summary": "Get projects",
+                "operationId": "ProjectsGetHandler",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1825,33 +1448,29 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Create a new project for the authenticated user",
                 "consumes": [
                     "application/json"
@@ -1863,6 +1482,7 @@ const docTemplate = `{
                     "projects"
                 ],
                 "summary": "Create a project",
+                "operationId": "ProjectCreateHandler",
                 "parameters": [
                     {
                         "description": "Project data",
@@ -1884,37 +1504,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -1922,6 +1530,11 @@ const docTemplate = `{
         },
         "/project/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a specific project by ID for the authenticated user",
                 "consumes": [
                     "application/json"
@@ -1933,9 +1546,11 @@ const docTemplate = `{
                     "projects"
                 ],
                 "summary": "Get a project",
+                "operationId": "ProjectGetHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -1952,42 +1567,35 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Update a specific project by ID for the authenticated user",
                 "consumes": [
                     "application/json"
@@ -1999,9 +1607,11 @@ const docTemplate = `{
                     "projects"
                 ],
                 "summary": "Update a project",
+                "operationId": "ProjectPutHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2027,42 +1637,35 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Delete a specific project by ID for the authenticated user",
                 "consumes": [
                     "application/json"
@@ -2074,9 +1677,11 @@ const docTemplate = `{
                     "projects"
                 ],
                 "summary": "Delete a project",
+                "operationId": "ProjectDeleteHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2093,28 +1698,79 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/project/{id}/audit": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List the Google Play publication audit log for a project",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "releases"
+                ],
+                "summary": "List publication audit entries",
+                "operationId": "AuditListHandler",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.AuditListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2122,6 +1778,11 @@ const docTemplate = `{
         },
         "/project/{id}/build": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Start a build for a specific project",
                 "consumes": [
                     "application/json"
@@ -2133,9 +1794,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Build a project",
+                "operationId": "ProjectBuildHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2161,37 +1824,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2199,6 +1850,11 @@ const docTemplate = `{
         },
         "/project/{id}/build/{buildId}": {
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Delete a specific build for a project, including its S3 artifacts and Kubernetes pod",
                 "consumes": [
                     "application/json"
@@ -2210,9 +1866,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Delete a build",
+                "operationId": "BuildDeleteHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2220,6 +1878,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Build ID",
                         "name": "buildId",
                         "in": "path",
@@ -2236,37 +1895,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2274,6 +1921,11 @@ const docTemplate = `{
         },
         "/project/{id}/build/{buildId}/cancel": {
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Cancel a specific build for a project",
                 "consumes": [
                     "application/json"
@@ -2285,9 +1937,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Cancel a build",
+                "operationId": "BuildCancelHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2295,6 +1949,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Build ID",
                         "name": "buildId",
                         "in": "path",
@@ -2311,37 +1966,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2349,6 +1992,11 @@ const docTemplate = `{
         },
         "/project/{id}/build/{buildId}/download": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get a presigned URL to download the artifact for a specific build",
                 "consumes": [
                     "application/json"
@@ -2360,9 +2008,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Download build artifact",
+                "operationId": "BuildDownloadHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2370,6 +2020,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Build ID",
                         "name": "buildId",
                         "in": "path",
@@ -2383,22 +2034,28 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_modules_build_handler.BuildDownloadResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2406,6 +2063,11 @@ const docTemplate = `{
         },
         "/project/{id}/build/{buildId}/logs": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get logs for a specific build",
                 "consumes": [
                     "application/json"
@@ -2417,9 +2079,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Get build logs",
+                "operationId": "BuildLogsHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2427,6 +2091,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Build ID",
                         "name": "buildId",
                         "in": "path",
@@ -2443,37 +2108,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2481,6 +2134,11 @@ const docTemplate = `{
         },
         "/project/{id}/build/{buildId}/logs/sync": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Fetch new logs for a specific build using HTTP long polling (10s timeout)",
                 "consumes": [
                     "application/json"
@@ -2492,9 +2150,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Get build logs via HTTP polling",
+                "operationId": "BuildLogsSyncHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2502,6 +2162,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Build ID",
                         "name": "buildId",
                         "in": "path",
@@ -2531,28 +2192,116 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/project/{id}/build/{buildId}/publish": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Publishes a successful build's AAB to a Google Play track. Runs asynchronously; poll the release for status.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "releases"
+                ],
+                "summary": "Publish a build to Google Play",
+                "operationId": "PublishHandler",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Build ID",
+                        "name": "buildId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Publication overrides",
+                        "name": "publish",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.PublishRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.ReleaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "502": {
+                        "description": "Bad Gateway",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2560,6 +2309,11 @@ const docTemplate = `{
         },
         "/project/{id}/builds": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get all builds for a specific project",
                 "consumes": [
                     "application/json"
@@ -2571,9 +2325,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "List builds",
+                "operationId": "BuildsListHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2590,28 +2346,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2619,6 +2366,11 @@ const docTemplate = `{
         },
         "/project/{id}/cache": {
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Purge cache objects for a project, optionally filtered by branch",
                 "consumes": [
                     "application/json"
@@ -2630,9 +2382,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Purge build cache",
+                "operationId": "CachePurgeHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2661,37 +2415,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2699,6 +2441,11 @@ const docTemplate = `{
         },
         "/project/{id}/cache/entries": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "List cache fingerprints for a project branch",
                 "consumes": [
                     "application/json"
@@ -2710,9 +2457,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Cache entries",
+                "operationId": "CacheEntriesHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2736,37 +2485,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2774,6 +2511,11 @@ const docTemplate = `{
         },
         "/project/{id}/cache/metrics": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "Get cache metrics for a project, optionally filtered by branch",
                 "consumes": [
                     "application/json"
@@ -2785,9 +2527,11 @@ const docTemplate = `{
                     "builds"
                 ],
                 "summary": "Cache metrics",
+                "operationId": "CacheMetricsHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2816,37 +2560,25 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2870,9 +2602,11 @@ const docTemplate = `{
                     "config"
                 ],
                 "summary": "Get project configuration",
+                "operationId": "ConfigGetHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2889,28 +2623,19 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -2932,9 +2657,11 @@ const docTemplate = `{
                     "config"
                 ],
                 "summary": "Update project configuration",
+                "operationId": "ConfigPostHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -2957,31 +2684,28 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_modules_project_handler.ProjectConfigResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -3003,9 +2727,11 @@ const docTemplate = `{
                     "config"
                 ],
                 "summary": "Delete project configuration",
+                "operationId": "ConfigDeleteHandler",
                 "parameters": [
                     {
                         "type": "integer",
+                        "format": "int64",
                         "description": "Project ID",
                         "name": "id",
                         "in": "path",
@@ -3016,37 +2742,213 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/internal_modules_project_handler.DeleteResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/project/{id}/google-play/access": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Verifies that the project's service account can publish the configured app",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "releases"
+                ],
+                "summary": "Check Google Play access",
+                "operationId": "AccessCheckHandler",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.AccessCheckResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/project/{id}/release/{releaseId}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a release and its current status",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "releases"
+                ],
+                "summary": "Get a release",
+                "operationId": "ReleaseGetHandler",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Release ID",
+                        "name": "releaseId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.ReleaseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/project/{id}/releases": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List all releases for a project",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "releases"
+                ],
+                "summary": "List project releases",
+                "operationId": "ReleasesListHandler",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "format": "int64",
+                        "description": "Project ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.ReleasesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/APIErrorResponse"
                         }
                     }
                 }
@@ -3054,332 +2956,33 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_flotio-dev_core-api_internal_common_database.Build": {
+        "APIErrorResponse": {
             "type": "object",
             "properties": {
-                "apk_url": {
-                    "description": "S3 key for the build artifact (e.g., \"builds/123/app-release.apk\")",
-                    "type": "string"
-                },
-                "build_mode": {
-                    "type": "string"
-                },
-                "build_target": {
-                    "type": "string"
-                },
-                "container_id": {
-                    "description": "Kubernetes container ID",
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "duration": {
-                    "description": "build duration in seconds",
+                "code": {
                     "type": "integer"
                 },
-                "flutter_channel": {
+                "details": {},
+                "message": {
                     "type": "string"
-                },
-                "git_branch": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "logs": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Log"
-                    }
-                },
-                "platform": {
-                    "type": "string"
-                },
-                "project": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
-                },
-                "project_id": {
-                    "type": "integer"
                 },
                 "status": {
-                    "description": "waiting, pending, running, success, failed, cancelled",
-                    "type": "string"
-                },
-                "updatedAt": {
                     "type": "string"
                 }
             }
         },
-        "github_com_flotio-dev_core-api_internal_common_database.Env": {
+        "APIResponse": {
             "type": "object",
             "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "id": {
+                "code": {
                     "type": "integer"
                 },
-                "is_base64": {
-                    "description": "True if Value is base64 encoded (for binary files)",
-                    "type": "boolean"
-                },
-                "key": {
-                    "description": "Variable name or file identifier",
+                "details": {},
+                "message": {
                     "type": "string"
                 },
-                "path": {
-                    "description": "Target path for files (e.g., \"android/app/google-services.json\")",
+                "status": {
                     "type": "string"
-                },
-                "project": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
-                },
-                "project_id": {
-                    "description": "Nullable: can be associated to a project",
-                    "type": "integer"
-                },
-                "type": {
-                    "description": "\"env\" for environment variable, \"file\" for file",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
-                },
-                "user_id": {
-                    "type": "integer"
-                },
-                "value": {
-                    "description": "Variable value or file content (base64 for binary)",
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_flotio-dev_core-api_internal_common_database.EnvVariable": {
-            "type": "object",
-            "properties": {
-                "key": {
-                    "type": "string"
-                },
-                "value": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_flotio-dev_core-api_internal_common_database.GithubInstallation": {
-            "type": "object",
-            "properties": {
-                "account_login": {
-                    "type": "string"
-                },
-                "account_type": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "github_installation_id": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "organization": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Organization"
-                },
-                "organization_id": {
-                    "type": "integer"
-                },
-                "target_id": {
-                    "type": "integer"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_flotio-dev_core-api_internal_common_database.GooglePlayCredentials": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "credentials": {
-                    "description": "Base64 encoded JSON",
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "description": "Friendly name",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_flotio-dev_core-api_internal_common_database.Keystore": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "key_alias": {
-                    "type": "string"
-                },
-                "key_password": {
-                    "description": "Encrypted",
-                    "type": "string"
-                },
-                "keystore_file": {
-                    "description": "Base64 encoded keystore file",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Friendly name",
-                    "type": "string"
-                },
-                "store_password": {
-                    "description": "Encrypted",
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_flotio-dev_core-api_internal_common_database.Log": {
-            "type": "object",
-            "properties": {
-                "build": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build"
-                },
-                "build_id": {
-                    "type": "integer"
-                },
-                "content": {
-                    "type": "string"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "line_number": {
-                    "type": "integer"
-                },
-                "timestamp": {
-                    "description": "Unix timestamp",
-                    "type": "integer"
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_flotio-dev_core-api_internal_common_database.Organization": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "githubInstallation": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.GithubInstallation"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_flotio-dev_core-api_internal_common_database.Project": {
-            "type": "object",
-            "properties": {
-                "builds": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Build"
-                    }
-                },
-                "config": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
-                },
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.User"
-                },
-                "user_id": {
-                    "type": "integer"
                 }
             }
         },
@@ -3428,7 +3031,6 @@ const docTemplate = `{
                     }
                 },
                 "enable_android_code_signing": {
-                    "description": "Distribution",
                     "type": "boolean"
                 },
                 "enable_email_notifications": {
@@ -3446,12 +3048,6 @@ const docTemplate = `{
                 },
                 "enable_google_play_publishing": {
                     "type": "boolean"
-                },
-                "env_variables": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.EnvVariable"
-                    }
                 },
                 "flutter_analyze_args": {
                     "type": "string"
@@ -3497,6 +3093,10 @@ const docTemplate = `{
                 "keystore_id": {
                     "description": "Linked User-level Assets",
                     "type": "integer"
+                },
+                "package_name": {
+                    "description": "Distribution",
+                    "type": "string"
                 },
                 "platforms": {
                     "type": "array",
@@ -3575,38 +3175,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flotio-dev_core-api_internal_common_database.User": {
-            "type": "object",
-            "properties": {
-                "createdAt": {
-                    "type": "string"
-                },
-                "deletedAt": {
-                    "$ref": "#/definitions/gorm.DeletedAt"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "githubInstallation": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.GithubInstallation"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "projects": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
-                    }
-                },
-                "updatedAt": {
-                    "type": "string"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_flotio-dev_core-api_internal_common_database.WatchedBranchPattern": {
             "type": "object",
             "properties": {
@@ -3635,11 +3203,82 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_flotio-dev_core-api_internal_models.APIErrorResponse": {
+        "github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_DeleteResponse": {
             "type": "object",
             "properties": {
                 "code": {
                     "type": "integer"
+                },
+                "details": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.DeleteResponse"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_GithubInstallationResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "details": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_GithubRepositoriesResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "details": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepositoriesResponse"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_GithubTreeResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "details": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_models.APIResponse-github_com_flotio-dev_core-api_internal_modules_github_model_PostInstallationResponse": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "details": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_github_model.PostInstallationResponse"
                 },
                 "message": {
                     "type": "string"
@@ -3846,6 +3485,15 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_flotio-dev_core-api_internal_modules_github_model.DeleteResponse": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "example": "deleted"
+                }
+            }
+        },
         "github_com_flotio-dev_core-api_internal_modules_github_model.GithubInstallationResponse": {
             "type": "object",
             "properties": {
@@ -3971,6 +3619,143 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_flotio-dev_core-api_internal_modules_release_model.AccessCheckResponse": {
+            "type": "object",
+            "properties": {
+                "accessible": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_release_model.AuditDTO": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "package_name": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "integer"
+                },
+                "release_id": {
+                    "type": "integer"
+                },
+                "track": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "version_code": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_release_model.AuditListResponse": {
+            "type": "object",
+            "properties": {
+                "audit": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.AuditDTO"
+                    }
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_release_model.PublishRequest": {
+            "type": "object",
+            "properties": {
+                "draft": {
+                    "type": "boolean"
+                },
+                "release_notes": {
+                    "type": "string"
+                },
+                "release_notes_lang": {
+                    "type": "string"
+                },
+                "rollout_fraction": {
+                    "type": "number"
+                },
+                "track": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_release_model.ReleaseDTO": {
+            "type": "object",
+            "properties": {
+                "build_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "project_id": {
+                    "type": "integer"
+                },
+                "release_notes": {
+                    "type": "string"
+                },
+                "rollout_fraction": {
+                    "type": "number"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "track": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "version_code": {
+                    "type": "integer"
+                },
+                "version_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_release_model.ReleaseResponse": {
+            "type": "object",
+            "properties": {
+                "release": {
+                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.ReleaseDTO"
+                }
+            }
+        },
+        "github_com_flotio-dev_core-api_internal_modules_release_model.ReleasesResponse": {
+            "type": "object",
+            "properties": {
+                "releases": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_modules_release_model.ReleaseDTO"
+                    }
+                }
+            }
+        },
         "github_com_flotio-dev_core-api_internal_modules_user_model.AuthResponse": {
             "type": "object",
             "properties": {
@@ -4043,6 +3828,26 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_flotio-dev_core-api_internal_modules_user_model.UserResponse": {
+            "type": "object",
+            "properties": {
+                "created": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string",
+                    "example": "user@example.com"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "username": {
+                    "type": "string",
+                    "example": "johndoe"
+                }
+            }
+        },
         "gorm.DeletedAt": {
             "type": "object",
             "properties": {
@@ -4052,56 +3857,6 @@ const docTemplate = `{
                 "valid": {
                     "description": "Valid is true if Time is not NULL",
                     "type": "boolean"
-                }
-            }
-        },
-        "internal_infra_kubernetes.BuildConfig": {
-            "type": "object",
-            "properties": {
-                "buildID": {
-                    "type": "integer"
-                },
-                "buildMode": {
-                    "description": "release, debug, profile",
-                    "type": "string"
-                },
-                "buildTarget": {
-                    "description": "apk, aab, ios, web",
-                    "type": "string"
-                },
-                "cacheEnabled": {
-                    "type": "boolean"
-                },
-                "cacheNamespace": {
-                    "type": "string"
-                },
-                "cacheTTLHours": {
-                    "type": "integer"
-                },
-                "cacheUploadOnSuccess": {
-                    "type": "boolean"
-                },
-                "flutterChannel": {
-                    "description": "stable, beta, dev",
-                    "type": "string"
-                },
-                "gitBranch": {
-                    "type": "string"
-                },
-                "gitToken": {
-                    "type": "string"
-                },
-                "gitUsername": {
-                    "type": "string"
-                },
-                "platform": {
-                    "type": "string"
-                },
-                "project": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.Project"
-                },
-                "projectConfig": {
-                    "$ref": "#/definitions/github_com_flotio-dev_core-api_internal_common_database.ProjectConfig"
                 }
             }
         },
@@ -4154,6 +3909,129 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_modules_project_handler.EnvCreateRequest": {
+            "type": "object",
+            "properties": {
+                "is_base64": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "key": {
+                    "type": "string",
+                    "example": "API_KEY"
+                },
+                "path": {
+                    "type": "string",
+                    "example": "android/app/google-services.json"
+                },
+                "project_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "type": {
+                    "description": "\"env\" or \"file\"",
+                    "type": "string",
+                    "example": "env"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "super-secret"
+                }
+            }
+        },
+        "internal_modules_project_handler.EnvDTO": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "is_base64": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "key": {
+                    "type": "string",
+                    "example": "API_KEY"
+                },
+                "path": {
+                    "type": "string",
+                    "example": "android/app/google-services.json"
+                },
+                "project_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "type": {
+                    "description": "\"env\" or \"file\"",
+                    "type": "string",
+                    "example": "env"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "value": {
+                    "type": "string",
+                    "example": "super-secret"
+                }
+            }
+        },
+        "internal_modules_project_handler.EnvListResponse": {
+            "type": "object",
+            "properties": {
+                "envs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_project_handler.EnvDTO"
+                    }
+                }
+            }
+        },
+        "internal_modules_project_handler.EnvResponse": {
+            "type": "object",
+            "properties": {
+                "env": {
+                    "$ref": "#/definitions/internal_modules_project_handler.EnvDTO"
+                }
+            }
+        },
+        "internal_modules_project_handler.EnvUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "is_base64": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "key": {
+                    "type": "string",
+                    "example": "API_KEY"
+                },
+                "path": {
+                    "type": "string",
+                    "example": "android/app/google-services.json"
+                },
+                "project_id": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "type": {
+                    "description": "\"env\" or \"file\"",
+                    "type": "string",
+                    "example": "env"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "super-secret"
+                }
+            }
+        },
         "internal_modules_project_handler.FlutterVersion": {
             "type": "object",
             "properties": {
@@ -4173,6 +4051,132 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/internal_modules_project_handler.FlutterVersion"
                     }
+                }
+            }
+        },
+        "internal_modules_project_handler.GooglePlayCredentialsCreateRequest": {
+            "type": "object",
+            "properties": {
+                "credentials": {
+                    "type": "string",
+                    "example": "base64-encoded service account JSON"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Service Account"
+                }
+            }
+        },
+        "internal_modules_project_handler.GooglePlayCredentialsDTO": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My Service Account"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_modules_project_handler.GooglePlayCredentialsListResponse": {
+            "type": "object",
+            "properties": {
+                "google_play_credentials": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_project_handler.GooglePlayCredentialsDTO"
+                    }
+                }
+            }
+        },
+        "internal_modules_project_handler.GooglePlayCredentialsResponse": {
+            "type": "object",
+            "properties": {
+                "google_play_credentials": {
+                    "$ref": "#/definitions/internal_modules_project_handler.GooglePlayCredentialsDTO"
+                }
+            }
+        },
+        "internal_modules_project_handler.KeystoreCreateRequest": {
+            "type": "object",
+            "properties": {
+                "key_alias": {
+                    "type": "string",
+                    "example": "my-alias"
+                },
+                "key_password": {
+                    "type": "string",
+                    "example": "key-secret"
+                },
+                "keystore_file": {
+                    "type": "string",
+                    "example": "base64-encoded .jks content"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My App Keystore"
+                },
+                "store_password": {
+                    "type": "string",
+                    "example": "store-secret"
+                }
+            }
+        },
+        "internal_modules_project_handler.KeystoreDTO": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "key_alias": {
+                    "type": "string",
+                    "example": "my-alias"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "My App Keystore"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer",
+                    "example": 1
+                }
+            }
+        },
+        "internal_modules_project_handler.KeystoreListResponse": {
+            "type": "object",
+            "properties": {
+                "keystores": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_modules_project_handler.KeystoreDTO"
+                    }
+                }
+            }
+        },
+        "internal_modules_project_handler.KeystoreResponse": {
+            "type": "object",
+            "properties": {
+                "keystore": {
+                    "$ref": "#/definitions/internal_modules_project_handler.KeystoreDTO"
                 }
             }
         },
@@ -4263,12 +4267,12 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0.0",
 	Host:             "",
 	BasePath:         "",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Flotio Core API",
+	Description:      "Flotio Core API — authentication, environment/keystore/Google Play credentials assets, projects, build pipeline, releases and GitHub integration for the Flotio mobile CI platform.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

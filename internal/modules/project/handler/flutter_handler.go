@@ -6,6 +6,7 @@ import (
 	"time"
 
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
+	models "github.com/flotio-dev/core-api/internal/models"
 )
 
 type FlutterController struct{}
@@ -34,6 +35,9 @@ var lastFetch time.Time
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	FlutterVersionsResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				VersionsGetHandler
 //	@Router			/flutter/versions [get]
 func (c *FlutterController) VersionsGetHandler(w http.ResponseWriter, r *http.Request) {
 	if time.Since(lastFetch) < 1*time.Hour && versionsCache != nil {
@@ -85,3 +89,6 @@ func (c *FlutterController) VersionsGetHandler(w http.ResponseWriter, r *http.Re
 
 	helpers.WriteJSON(w, FlutterVersionsResponse{Versions: versions})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

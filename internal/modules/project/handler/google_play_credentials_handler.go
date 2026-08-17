@@ -11,6 +11,7 @@ import (
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
 	googleplay "github.com/flotio-dev/core-api/internal/infra/googleplay"
+	models "github.com/flotio-dev/core-api/internal/models"
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
@@ -31,11 +32,12 @@ func NewGooglePlayCredentialsController(userService *services.UserService) *Goog
 //	@Tags			google-play-credentials
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	map[string]interface{}
-//	@Failure		401	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
-//	@Router			/google-play-credentials [get]
+//	@Success		200	{object}	GooglePlayCredentialsListResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				GooglePlayCredentialsGetHandler
+//	@Router			/google-play-credentials [get]
 func (c *GooglePlayCredentialsController) GooglePlayCredentialsGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -49,7 +51,7 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsGetHandler(w http
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"google_play_credentials": credentials})
+	helpers.WriteJSON(w, GooglePlayCredentialsListResponse{GooglePlayCredentials: convertDBGooglePlayCredentialsList(credentials)})
 }
 
 // GooglePlayCredentialsPostHandler godoc
@@ -59,12 +61,14 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsGetHandler(w http
 //	@Tags			google-play-credentials
 //	@Accept			json
 //	@Produce		json
-//	@Param			credentials	body	dbEngine.GooglePlayCredentials	true	"Google Play credentials data"
-//	@Success		201			{object}	map[string]interface{}
-//	@Failure		401			{object}	map[string]string
-//	@Failure		500			{object}	map[string]string
-//	@Router			/google-play-credentials [post]
+//	@Param			credentials	body	GooglePlayCredentialsCreateRequest	true	"Google Play credentials data"
+//	@Success		201			{object}	GooglePlayCredentialsResponse
+//	@Failure		400			{object}	models.APIErrorResponse
+//	@Failure		401			{object}	models.APIErrorResponse
+//	@Failure		500			{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				GooglePlayCredentialsPostHandler
+//	@Router			/google-play-credentials [post]
 func (c *GooglePlayCredentialsController) GooglePlayCredentialsPostHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -72,10 +76,7 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsPostHandler(w htt
 		return
 	}
 
-	var req struct {
-		Name        string `json:"name"`
-		Credentials string `json:"credentials"` // Base64 encoded JSON service account key
-	}
+	var req GooglePlayCredentialsCreateRequest
 	if err := helpers.ReadJSON(r, &req); err != nil {
 		helpers.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -105,7 +106,7 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsPostHandler(w htt
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"google_play_credentials": cred})
+	helpers.WriteJSON(w, GooglePlayCredentialsResponse{GooglePlayCredentials: convertDBGooglePlayCredentials(cred)})
 }
 
 // GooglePlayCredentialsDeleteHandler godoc
@@ -115,13 +116,15 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsPostHandler(w htt
 //	@Tags			google-play-credentials
 //	@Accept			json
 //	@Produce		json
-//	@Param			credentialsId	path	int	true	"Credentials ID"
-//	@Success		200				{object}	map[string]string
-//	@Failure		401				{object}	map[string]string
-//	@Failure		404				{object}	map[string]string
-//	@Failure		500				{object}	map[string]string
-//	@Router			/google-play-credentials/{credentialsId} [delete]
+//	@Param			credentialsId	path	int	true	"Credentials ID"	Format(int64)
+//	@Success		200				{object}	DeleteResponse
+//	@Failure		400				{object}	models.APIErrorResponse
+//	@Failure		401				{object}	models.APIErrorResponse
+//	@Failure		404				{object}	models.APIErrorResponse
+//	@Failure		500				{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				GooglePlayCredentialsDeleteHandler
+//	@Router			/google-play-credentials/{credentialsId} [delete]
 func (c *GooglePlayCredentialsController) GooglePlayCredentialsDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -151,5 +154,8 @@ func (c *GooglePlayCredentialsController) GooglePlayCredentialsDeleteHandler(w h
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]string{"status": "deleted"})
+	helpers.WriteJSON(w, DeleteResponse{Status: "deleted"})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

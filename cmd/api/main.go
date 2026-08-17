@@ -14,12 +14,27 @@ import (
 	db "github.com/flotio-dev/core-api/internal/common/database"
 )
 
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Type "Bearer {token}"
+// APIVersion is the semantic version of the Flotio Core API. It MUST stay in
+// sync with the swag @version annotation above (contract M3/M4).
+const APIVersion = "1.0.0"
+
+// Flotio Core API
+//
+//	@title			Flotio Core API
+//	@version		1.0.0
+//	@description	Flotio Core API — authentication, environment/keystore/Google Play credentials assets, projects, build pipeline, releases and GitHub integration for the Flotio mobile CI platform.
+//	@contact.name	Flotio Team
+//	@contact.email	support@flotio.dev
+//	@license.name	Proprietary
+//
+//	@securityDefinitions.apikey	BearerAuth
+//	@in							header
+//	@name						Authorization
+//	@description				Type "Bearer {token}"
 func main() {
 	godotenv.Load()
+
+	log.Printf("Flotio Core API version %s", APIVersion)
 
 	// Fail closed: refuse to start without a valid secrets encryption key.
 	if err := crypto.Init(); err != nil {
