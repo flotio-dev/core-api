@@ -27,6 +27,27 @@ type ResponseOptions struct {
 	Message  string
 }
 
+// statusTypeForHTTP maps an HTTP status code to the StatusType vocabulary used
+// in the API envelopes (contract §4.3).
+func statusTypeForHTTP(httpCode int) StatusType {
+	switch httpCode {
+	case http.StatusUnauthorized:
+		return StatusUnauthorized
+	case http.StatusNotFound:
+		return StatusNotFound
+	case http.StatusBadGateway:
+		return StatusBadGateway
+	case http.StatusInternalServerError:
+		return StatusInternalError
+	case http.StatusMethodNotAllowed:
+		return StatusMethodNotAllowed
+	case http.StatusBadRequest:
+		return StatusBadRequest
+	default:
+		return StatusInvalidArgs
+	}
+}
+
 func RespondWithSuccess[T any](w http.ResponseWriter, data *T, opts *ResponseOptions) {
 	httpCode := http.StatusOK
 	status := StatusOK
@@ -70,20 +91,7 @@ func RespondWithError(w http.ResponseWriter, opts *ResponseOptions) {
 		if opts.Status != "" {
 			status = opts.Status
 		} else {
-			switch httpCode {
-			case http.StatusUnauthorized:
-				status = StatusUnauthorized
-			case http.StatusNotFound:
-				status = StatusNotFound
-			case http.StatusBadGateway:
-				status = StatusBadGateway
-			case http.StatusInternalServerError:
-				status = StatusInternalError
-			case http.StatusMethodNotAllowed:
-				status = StatusMethodNotAllowed
-			default:
-				status = StatusInvalidArgs
-			}
+			status = statusTypeForHTTP(httpCode)
 		}
 		if opts.Message != "" {
 			message = opts.Message

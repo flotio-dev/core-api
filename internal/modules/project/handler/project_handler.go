@@ -10,6 +10,7 @@ import (
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
+	models "github.com/flotio-dev/core-api/internal/models"
 	userServices "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
@@ -150,9 +151,11 @@ func convertDBBuilds(builds []dbEngine.Build) []Build {
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	ProjectsResponse
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				ProjectsGetHandler
 //	@Router			/project [get]
 func (c *ProjectController) ProjectsGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
@@ -183,10 +186,12 @@ func (c *ProjectController) ProjectsGetHandler(w http.ResponseWriter, r *http.Re
 //	@Produce		json
 //	@Param			project	body		ProjectCreateRequest	true	"Project data"
 //	@Success		200		{object}	ProjectResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				ProjectCreateHandler
 //	@Router			/project [post]
 func (c *ProjectController) ProjectCreateHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
@@ -239,12 +244,14 @@ func (c *ProjectController) ProjectCreateHandler(w http.ResponseWriter, r *http.
 //	@Tags			projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path		int					true	"Project ID"
+//	@Param			id	path		int					true	"Project ID"	Format(int64)
 //	@Success		200	{object}	ProjectResponse
-//	@Failure		400	{object}	map[string]string
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
+//	@Failure		400	{object}	models.APIErrorResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				ProjectGetHandler
 //	@Router			/project/{id} [get]
 func (c *ProjectController) ProjectGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
@@ -283,13 +290,15 @@ func (c *ProjectController) ProjectGetHandler(w http.ResponseWriter, r *http.Req
 //	@Tags			projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int						true	"Project ID"
+//	@Param			id		path	int						true	"Project ID"	Format(int64)
 //	@Param			project	body	ProjectUpdateRequest	true	"Project data"
 //	@Success		200		{object}	ProjectResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				ProjectPutHandler
 //	@Router			/project/{id} [put]
 func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
@@ -425,11 +434,13 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 //	@Tags			projects
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path	int					true	"Project ID"
+//	@Param			id	path	int					true	"Project ID"	Format(int64)
 //	@Success		200	{object}	DeleteResponse
-//	@Failure		400	{object}	map[string]string
-//	@Failure		401	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
+//	@Failure		400	{object}	models.APIErrorResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				ProjectDeleteHandler
 //	@Router			/project/{id} [delete]
 func (c *ProjectController) ProjectDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
@@ -455,3 +466,6 @@ func (c *ProjectController) ProjectDeleteHandler(w http.ResponseWriter, r *http.
 
 	helpers.WriteJSON(w, DeleteResponse{Status: "deleted"})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

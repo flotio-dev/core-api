@@ -16,6 +16,7 @@ import (
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
 	kubernetesEngine "github.com/flotio-dev/core-api/internal/infra/kubernetes"
 	s3Engine "github.com/flotio-dev/core-api/internal/infra/s3"
+	models "github.com/flotio-dev/core-api/internal/models"
 	buildModels "github.com/flotio-dev/core-api/internal/modules/build/model"
 	githubServices "github.com/flotio-dev/core-api/internal/modules/github/service"
 	userServices "github.com/flotio-dev/core-api/internal/modules/user/service"
@@ -355,13 +356,15 @@ func (c *BuildController) processWaitingBuildQueue() {
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int					true	"Project ID"
-//	@Param			buildId	path	int					true	"Build ID"
+//	@Param			id		path	int					true	"Project ID"	Format(int64)
+//	@Param			buildId	path	int					true	"Build ID"	Format(int64)
 //	@Success		200		{object}	buildModels.BuildResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				BuildCancelHandler
 //	@Router			/project/{id}/build/{buildId}/cancel [put]
 func (bc *BuildController) BuildCancelHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -419,13 +422,15 @@ func (bc *BuildController) BuildCancelHandler(w http.ResponseWriter, r *http.Req
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int					true	"Project ID"
-//	@Param			buildId	path	int					true	"Build ID"
+//	@Param			id		path	int					true	"Project ID"	Format(int64)
+//	@Param			buildId	path	int					true	"Build ID"	Format(int64)
 //	@Success		200		{object}	buildModels.DeleteResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				BuildDeleteHandler
 //	@Router			/project/{id}/build/{buildId} [delete]
 func (bc *BuildController) BuildDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -498,11 +503,13 @@ func (bc *BuildController) BuildDeleteHandler(w http.ResponseWriter, r *http.Req
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path	int					true	"Project ID"
+//	@Param			id	path	int					true	"Project ID"	Format(int64)
 //	@Success		200	{object}	buildModels.BuildsResponse
-//	@Failure		400	{object}	map[string]string
-//	@Failure		401	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
+//	@Failure		400	{object}	models.APIErrorResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				BuildsListHandler
 //	@Router			/project/{id}/builds [get]
 func (bc *BuildController) BuildsListHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -601,13 +608,15 @@ func (bc *BuildController) BuildsListHandler(w http.ResponseWriter, r *http.Requ
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int					true	"Project ID"
-//	@Param			buildId	path	int					true	"Build ID"
+//	@Param			id		path	int					true	"Project ID"	Format(int64)
+//	@Param			buildId	path	int					true	"Build ID"	Format(int64)
 //	@Success		200		{object}	buildModels.LogsResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				BuildLogsHandler
 //	@Router			/project/{id}/build/{buildId}/logs [get]
 func (bc *BuildController) BuildLogsHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -681,14 +690,17 @@ type BuildLogsSyncResponse struct {
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id			path	int		true	"Project ID"
-//	@Param			buildId		path	int		true	"Build ID"
+//	@Param			id			path	int		true	"Project ID"	Format(int64)
+//	@Param			buildId		path	int		true	"Build ID"	Format(int64)
 //	@Param			connectionId	query	string	true	"Connection ID (generated by client)"
 //	@Param			lastLine	query	int		false	"Last line number received"
 //	@Success		200	{object}	BuildLogsSyncResponse
-//	@Failure		400	{object}	map[string]string
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
+//	@Failure		400	{object}	models.APIErrorResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				BuildLogsSyncHandler
 //	@Router			/project/{id}/build/{buildId}/logs/sync [get]
 func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -914,14 +926,16 @@ func (bc *BuildController) ensureProjectOwnership(userID uint, projectID uint) e
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int		true	"Project ID"
+//	@Param			id		path	int		true	"Project ID"	Format(int64)
 //	@Param			branch	query	string	false	"Branch name"
 //	@Param			fingerprint	query	string	false	"Cache fingerprint"
 //	@Success		200		{object}	buildModels.CachePurgeResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				CachePurgeHandler
 //	@Router			/project/{id}/cache [delete]
 func (bc *BuildController) CachePurgeHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -973,14 +987,16 @@ func (bc *BuildController) CachePurgeHandler(w http.ResponseWriter, r *http.Requ
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int		true	"Project ID"
+//	@Param			id		path	int		true	"Project ID"	Format(int64)
 //	@Param			branch	query	string	false	"Branch name"
 //	@Param			fingerprint	query	string	false	"Cache fingerprint"
 //	@Success		200		{object}	buildModels.CacheMetricsResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				CacheMetricsHandler
 //	@Router			/project/{id}/cache/metrics [get]
 func (bc *BuildController) CacheMetricsHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -1041,13 +1057,15 @@ func (bc *BuildController) CacheMetricsHandler(w http.ResponseWriter, r *http.Re
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int		true	"Project ID"
+//	@Param			id		path	int		true	"Project ID"	Format(int64)
 //	@Param			branch	query	string	true	"Branch name"
 //	@Success		200		{object}	buildModels.CacheEntriesResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				CacheEntriesHandler
 //	@Router			/project/{id}/cache/entries [get]
 func (bc *BuildController) CacheEntriesHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -1111,11 +1129,15 @@ func (bc *BuildController) CacheEntriesHandler(w http.ResponseWriter, r *http.Re
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int	true	"Project ID"
-//	@Param			buildId	path	int	true	"Build ID"
+//	@Param			id		path	int	true	"Project ID"	Format(int64)
+//	@Param			buildId	path	int	true	"Build ID"	Format(int64)
 //	@Success		200	{object}	BuildDownloadResponse
-//	@Failure		401	{object}	map[string]string
-//	@Failure		404	{object}	map[string]string
+//	@Failure		400	{object}	models.APIErrorResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		404	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				BuildDownloadHandler
 //	@Router			/project/{id}/build/{buildId}/download [get]
 func (bc *BuildController) BuildDownloadHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := bc.userService.GetUserFromContext(r.Context())
@@ -1174,13 +1196,15 @@ func (bc *BuildController) BuildDownloadHandler(w http.ResponseWriter, r *http.R
 //	@Tags			builds
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	int				true	"Project ID"
+//	@Param			id		path	int				true	"Project ID"	Format(int64)
 //	@Param			build	body	buildModels.BuildRequest	true	"Build data"
 //	@Success		200		{object}	buildModels.BuildResponse
-//	@Failure		400		{object}	map[string]string
-//	@Failure		401		{object}	map[string]string
-//	@Failure		404		{object}	map[string]string
-//	@Failure		500		{object}	map[string]string
+//	@Failure		400		{object}	models.APIErrorResponse
+//	@Failure		401		{object}	models.APIErrorResponse
+//	@Failure		404		{object}	models.APIErrorResponse
+//	@Failure		500		{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				ProjectBuildHandler
 //	@Router			/project/{id}/build [post]
 func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.userService.GetUserFromContext(r.Context())
@@ -1246,3 +1270,6 @@ func (c *BuildController) ProjectBuildHandler(w http.ResponseWriter, r *http.Req
 
 	helpers.WriteJSON(w, buildModels.BuildResponse{Build: convertDBBuild(build)})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

@@ -36,8 +36,14 @@ func NewGithubController(service *services.GithubService, userService *userServi
 // @Accept       json
 // @Produce      json
 // @Param        payload body githubModels.PostInstallationRequest true "Installation payload"
-// @Success      200  {object} githubModels.PostInstallationResponse
+// @Success      200  {object} models.APIResponseDoc
+// @Success      200  {object} models.APIResponse[githubModels.PostInstallationResponse]
 // @Failure      400  {object} models.APIErrorResponse
+// @Failure      401  {object} models.APIErrorResponse
+// @Failure      404  {object} models.APIErrorResponse
+// @Failure      405  {object} models.APIErrorResponse
+// @Failure      500  {object} models.APIErrorResponse
+// @ID           HandleGithubPostInstallation
 // @Router       /github/post-installation [post]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r *http.Request) {
@@ -51,8 +57,9 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 
 	if r.Method != http.MethodPost {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusMethodNotAllowed,
-			Message: "Method not allowed",
+			HTTPCode: http.StatusMethodNotAllowed,
+			Status:   helpers.StatusMethodNotAllowed,
+			Message:  "Method not allowed",
 		})
 		return
 	}
@@ -120,8 +127,12 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 // @Description  Liste les repos accessibles pour l'installation GitHub de l'utilisateur
 // @Tags         github
 // @Produce      json
-// @Success      200  {object} githubModels.GithubRepositoriesResponse
+// @Success      200  {object} models.APIResponse[githubModels.GithubRepositoriesResponse]
 // @Failure      400  {object} models.APIErrorResponse
+// @Failure      401  {object} models.APIErrorResponse
+// @Failure      404  {object} models.APIErrorResponse
+// @Failure      502  {object} models.APIErrorResponse
+// @ID           HandleGithubGetRepositories
 // @Router       /github/repos [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r *http.Request) {
@@ -174,8 +185,11 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 // @Produce      json
 // @Param owner query string true "Owner du repo"
 // @Param repo query string true "Nom du repo"
-// @Success      200  {object} githubModels.GithubTreeResponse
+// @Success      200  {object} models.APIResponse[githubModels.GithubTreeResponse]
 // @Failure      400  {object} models.APIErrorResponse
+// @Failure      401  {object} models.APIErrorResponse
+// @Failure      404  {object} models.APIErrorResponse
+// @ID           HandleGithubRepoTree
 // @Router       /github/repo [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.Request) {
@@ -238,8 +252,13 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 // @Description  Retourne l'installation GitHub liée à l'utilisateur authentifié
 // @Tags         github
 // @Produce      json
-// @Success      200  {object} githubModels.GithubInstallationResponse
+// @Success      200  {object} models.APIResponse[githubModels.GithubInstallationResponse]
 // @Failure      400  {object} models.APIErrorResponse "Bad request"
+// @Failure      401  {object} models.APIErrorResponse
+// @Failure      404  {object} models.APIErrorResponse
+// @Failure      500  {object} models.APIErrorResponse
+// @Failure      502  {object} models.APIErrorResponse
+// @ID           HandleGithubCheckInstallation
 // @Router       /github/installations [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, r *http.Request) {
@@ -299,9 +318,12 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 // @Tags         github
 // @Produce      json
 // @Param        installation_id query int true "Installation ID"
-// @Success      200  {object} githubModels.GithubInstallationResponse
+// @Success      200  {object} models.APIResponse[githubModels.GithubInstallationResponse]
 // @Failure      400  {object} models.APIErrorResponse
+// @Failure      401  {object} models.APIErrorResponse
 // @Failure      404  {object} models.APIErrorResponse
+// @Failure      502  {object} models.APIErrorResponse
+// @ID           HandleGetGithubInstallation
 // @Router       /github/installation [get]
 // @Security     BearerAuth
 func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r *http.Request) {
@@ -371,9 +393,13 @@ func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r 
 // @Description  Supprime l'enregistrement `GithubInstallation` de l'utilisateur courant et tente de supprimer l'installation via l'API GitHub
 // @Tags         github
 // @Produce      json
-// @Success      200  {object} map[string]string
+// @Success      200  {object} models.APIResponse[githubModels.DeleteResponse]
 // @Failure      400  {object} models.APIErrorResponse
+// @Failure      401  {object} models.APIErrorResponse
 // @Failure      404  {object} models.APIErrorResponse
+// @Failure      500  {object} models.APIErrorResponse
+// @Failure      502  {object} models.APIErrorResponse
+// @ID           HandleDisconnectGithub
 // @Router       /github/disconnect [delete]
 // @Security     BearerAuth
 func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http.Request) {
@@ -411,63 +437,7 @@ func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http
 		return
 	}
 
-	type deletedResp struct {
-		Status string `json:"status"`
-	}
-	resp := &deletedResp{Status: "deleted"}
-	helpers.RespondWithSuccess(w, resp, nil)
-}
-
-// GetBuildPath godoc
-// @Summary      Trouve le chemin de pubspec.yaml dans un repo
-// @Description  Parcourt le repo pour renvoyer le path du pubspec.yaml (utilisé pour déterminer build folder)
-// @Tags         github
-// @Produce      json
-// @Param        owner query string true "Owner du repo"
-// @Param        repo  query string true "Nom du repo"
-// @Success      200 {object} map[string]string
-// @Failure      400 {object} models.APIErrorResponse
-// @Failure      404 {object} models.APIErrorResponse
-// @Router       /github/pubspec-path [get]
-// @Security     BearerAuth
-func (c *GithubController) HandleGetBuildPath(w http.ResponseWriter, r *http.Request) {
-	user, err := c.UserService.GetUserFromContext(r.Context())
-	if err != nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status: helpers.StatusUnauthorized,
-		})
-		return
-	}
-
-	owner := r.URL.Query().Get("owner")
-	repo := r.URL.Query().Get("repo")
-	if owner == "" || repo == "" {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusInvalidArgs,
-			Message: "owner and repo are required",
-		})
-		return
-	}
-
-	inst, err := c.Service.GetInstallationByUser(user.ID)
-	if err != nil || inst == nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusNotFound,
-			Message: "Installation GitHub introuvable",
-		})
-		return
-	}
-
-	path, err := c.Service.FindBuildPath(r.Context(), inst.InstallationID, owner, repo)
-	if err != nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusNotFound,
-			Message: fmt.Sprintf("pubspec not found: %v", err),
-		})
-		return
-	}
-
-	helpers.RespondWithSuccess(w, &githubModels.BuildPathResponse{Path: path}, nil)
+	helpers.RespondWithSuccess(w, &githubModels.DeleteResponse{Status: "deleted"}, nil)
 }
 
 var _ = models.APIErrorResponse{}

@@ -10,6 +10,7 @@ import (
 	"github.com/flotio-dev/core-api/internal/common/crypto"
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
+	models "github.com/flotio-dev/core-api/internal/models"
 	services "github.com/flotio-dev/core-api/internal/modules/user/service"
 )
 
@@ -30,11 +31,12 @@ func NewKeystoreController(userService *services.UserService) *KeystoreControlle
 //	@Tags			keystore
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	map[string]interface{}
-//	@Failure		401	{object}	map[string]string
-//	@Failure		500	{object}	map[string]string
-//	@Router			/keystore [get]
+//	@Success		200	{object}	KeystoreListResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				KeystoreGetHandler
+//	@Router			/keystore [get]
 func (c *KeystoreController) KeystoreGetHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -48,7 +50,24 @@ func (c *KeystoreController) KeystoreGetHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"keystores": keystores})
+	helpers.WriteJSON(w, KeystoreListResponse{Keystores: convertDBKeystores(keystores)})
+}
+
+// KeystoresGetHandler godoc
+//
+//	@Summary		Get user keystores
+//	@Description	Alias of GET /keystore: get all keystores owned by the authenticated user
+//	@Tags			keystore
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	KeystoreListResponse
+//	@Failure		401	{object}	models.APIErrorResponse
+//	@Failure		500	{object}	models.APIErrorResponse
+//	@Security		BearerAuth
+//	@ID				KeystoresGetHandler
+//	@Router			/keystores [get]
+func (c *KeystoreController) KeystoresGetHandler(w http.ResponseWriter, r *http.Request) {
+	c.KeystoreGetHandler(w, r)
 }
 
 // KeystorePostHandler godoc
@@ -58,12 +77,14 @@ func (c *KeystoreController) KeystoreGetHandler(w http.ResponseWriter, r *http.R
 //	@Tags			keystore
 //	@Accept			json
 //	@Produce		json
-//	@Param			keystore	body	dbEngine.Keystore	true	"Keystore data"
-//	@Success		201			{object}	map[string]interface{}
-//	@Failure		401			{object}	map[string]string
-//	@Failure		500			{object}	map[string]string
-//	@Router			/keystore [post]
+//	@Param			keystore	body	KeystoreCreateRequest	true	"Keystore data"
+//	@Success		201			{object}	KeystoreResponse
+//	@Failure		400			{object}	models.APIErrorResponse
+//	@Failure		401			{object}	models.APIErrorResponse
+//	@Failure		500			{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				KeystorePostHandler
+//	@Router			/keystore [post]
 func (c *KeystoreController) KeystorePostHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -71,13 +92,7 @@ func (c *KeystoreController) KeystorePostHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var req struct {
-		Name          string `json:"name"`
-		KeystoreFile  string `json:"keystore_file"`
-		StorePassword string `json:"store_password"`
-		KeyAlias      string `json:"key_alias"`
-		KeyPassword   string `json:"key_password"`
-	}
+	var req KeystoreCreateRequest
 	if err := helpers.ReadJSON(r, &req); err != nil {
 		helpers.WriteErrorJSON(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -114,7 +129,7 @@ func (c *KeystoreController) KeystorePostHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]interface{}{"keystore": keystore})
+	helpers.WriteJSON(w, KeystoreResponse{Keystore: convertDBKeystore(keystore)})
 }
 
 // KeystoreDeleteHandler godoc
@@ -124,13 +139,15 @@ func (c *KeystoreController) KeystorePostHandler(w http.ResponseWriter, r *http.
 //	@Tags			keystore
 //	@Accept			json
 //	@Produce		json
-//	@Param			keystoreId	path	int	true	"Keystore ID"
-//	@Success		200			{object}	map[string]string
-//	@Failure		401			{object}	map[string]string
-//	@Failure		404			{object}	map[string]string
-//	@Failure		500			{object}	map[string]string
-//	@Router			/keystore/{keystoreId} [delete]
+//	@Param			keystoreId	path	int	true	"Keystore ID"	Format(int64)
+//	@Success		200			{object}	DeleteResponse
+//	@Failure		400			{object}	models.APIErrorResponse
+//	@Failure		401			{object}	models.APIErrorResponse
+//	@Failure		404			{object}	models.APIErrorResponse
+//	@Failure		500			{object}	models.APIErrorResponse
 //	@Security		BearerAuth
+//	@ID				KeystoreDeleteHandler
+//	@Router			/keystore/{keystoreId} [delete]
 func (c *KeystoreController) KeystoreDeleteHandler(w http.ResponseWriter, r *http.Request) {
 	userInfo, err := c.UserService.GetUserFromContext(r.Context())
 	if err != nil {
@@ -160,5 +177,8 @@ func (c *KeystoreController) KeystoreDeleteHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	helpers.WriteJSON(w, map[string]string{"status": "deleted"})
+	helpers.WriteJSON(w, DeleteResponse{Status: "deleted"})
 }
+
+// Keep the swag annotation import alive (used only in @Failure comments).
+var _ = models.APIErrorResponse{}

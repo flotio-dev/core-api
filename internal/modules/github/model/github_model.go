@@ -58,3 +58,8 @@ type PostInstallationResponse struct {
 type BuildPathResponse struct {
 	Path string `json:"path"`
 }
+
+// DeleteResponse is the payload of DELETE /github/disconnect (contract §5.3).
+type DeleteResponse struct {
+	Status string `json:"status" example:"deleted"`
+}
