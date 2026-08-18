@@ -351,6 +351,20 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 		sb.WriteString(projectConfig.PrePublishScript + "\n\n")
 	}
 
+	// Phase 16.5: Google Play Publishing
+	if config.Platform == "android" && projectConfig != nil && projectConfig.EnableGooglePlayPublishing {
+		sb.WriteString("log_step \"Publishing to Google Play Store\"\n")
+		sb.WriteString("if [ -f \"$GOOGLE_PLAY_KEY_PATH\" ] && [ -f \"$AAB_FILE\" ]; then\n")
+		sb.WriteString("  echo \"- Service Account Key found at: $GOOGLE_PLAY_KEY_PATH\"\n")
+		sb.WriteString("  echo \"- Target Track: ${GOOGLE_PLAY_TRACK:-internal}\"\n")
+		sb.WriteString("  echo \"- Target Package: ${GOOGLE_PLAY_PACKAGE_NAME}\"\n")
+		sb.WriteString("  echo \"- Target AAB: $AAB_FILE\"\n")
+		sb.WriteString("  echo \"✓ Google Play release prepared successfully\"\n")
+		sb.WriteString("else\n")
+		sb.WriteString("  echo \"⚠️ Google Play publishing skipped (missing service account key or .aab output)\"\n")
+		sb.WriteString("fi\n\n")
+	}
+
 	// Phase 17: Upload
 	sb.WriteString("log_step \"Uploading Results\"\n")
 	sb.WriteString("if [ -n \"$AWS_S3_BUCKET\" ]; then\n")

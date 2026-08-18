@@ -108,6 +108,15 @@ func CreateBuildPod(config BuildConfig) error {
 		}
 	}
 
+	// Create Secret for Google Play (Android only)
+	var googlePlaySecretName string
+	if config.Platform == "android" {
+		googlePlaySecretName, err = CreateSecretForGooglePlay(clientset, config.BuildID, config.Project.ID, namespace)
+		if err != nil {
+			return fmt.Errorf("failed to create Google Play Secret: %v", err)
+		}
+	}
+
 	// Build environment variables
 	envVars := buildEnvironmentVariables(config)
 
@@ -183,6 +192,27 @@ func CreateBuildPod(config BuildConfig) error {
 		)
 	}
 
+	// Add Secret volume mount for Google Play if exists
+	if googlePlaySecretName != "" {
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      "google-play",
+			MountPath: "/google-play",
+			ReadOnly:  true,
+		})
+
+		envVars = append(envVars,
+			v1.EnvVar{Name: "GOOGLE_PLAY_KEY_PATH", Value: "/google-play/service-account.json"},
+		)
+		if projectConfig != nil {
+			if projectConfig.PackageName != "" {
+				envVars = append(envVars, v1.EnvVar{Name: "GOOGLE_PLAY_PACKAGE_NAME", Value: projectConfig.PackageName})
+			}
+			if projectConfig.GooglePlayTrack != "" {
+				envVars = append(envVars, v1.EnvVar{Name: "GOOGLE_PLAY_TRACK", Value: projectConfig.GooglePlayTrack})
+			}
+		}
+	}
+
 	// Build volumes
 	volumes := []v1.Volume{
 		{
@@ -212,13 +242,25 @@ func CreateBuildPod(config BuildConfig) error {
 		})
 	}
 
-	// Add Secret volume if exists
+	// Add Keystore Secret volume if exists
 	if secretName != "" {
 		volumes = append(volumes, v1.Volume{
 			Name: "keystore",
 			VolumeSource: v1.VolumeSource{
 				Secret: &v1.SecretVolumeSource{
 					SecretName: secretName,
+				},
+			},
+		})
+	}
+
+	// Add Google Play Secret volume if exists
+	if googlePlaySecretName != "" {
+		volumes = append(volumes, v1.Volume{
+			Name: "google-play",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: googlePlaySecretName,
 				},
 			},
 		})

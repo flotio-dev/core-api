@@ -188,6 +188,56 @@ func CreateSecretForKeystore(clientset *kubernetes.Clientset, buildID uint, proj
 	return secretName, nil
 }
 
+// CreateSecretForGooglePlay creates a Secret containing the Google Play service account JSON
+func CreateSecretForGooglePlay(clientset *kubernetes.Clientset, buildID uint, projectID uint, namespace string) (string, error) {
+	if dbEngine.DB == nil {
+		return "", nil
+	}
+
+	var config dbEngine.ProjectConfig
+	if err := dbEngine.DB.Where("project_id = ?", projectID).First(&config).Error; err != nil {
+		return "", nil
+	}
+
+	if config.GooglePlayCredentialsID == nil {
+		return "", nil
+	}
+
+	var cred dbEngine.GooglePlayCredentials
+	if err := dbEngine.DB.First(&cred, *config.GooglePlayCredentialsID).Error; err != nil {
+		return "", nil
+	}
+
+	secretName := fmt.Sprintf("build-%d-google-play", buildID)
+
+	serviceAccountJSON, err := crypto.Decrypt(cred.Credentials)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt google play credentials: %v", err)
+	}
+
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app":      "flotio-build",
+				"build-id": fmt.Sprintf("%d", buildID),
+			},
+		},
+		Type: v1.SecretTypeOpaque,
+		StringData: map[string]string{
+			"service-account.json": serviceAccountJSON,
+		},
+	}
+
+	_, err = clientset.CoreV1().Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to create Google Play Secret: %v", err)
+	}
+
+	return secretName, nil
+}
+
 // DeleteBuildResources deletes all Kubernetes resources associated with a build
 func DeleteBuildResources(clientset *kubernetes.Clientset, buildID uint, namespace string) error {
 	ctx := context.TODO()
@@ -210,11 +260,18 @@ func DeleteBuildResources(clientset *kubernetes.Clientset, buildID uint, namespa
 		fmt.Printf("Warning: failed to delete ConfigMap %s: %v\n", configMapName, err)
 	}
 
-	// Delete Secret
+	// Delete Keystore Secret
 	secretName := fmt.Sprintf("build-%d-keystore", buildID)
 	err = clientset.CoreV1().Secrets(namespace).Delete(ctx, secretName, metav1.DeleteOptions{})
 	if err != nil {
 		fmt.Printf("Warning: failed to delete Secret %s: %v\n", secretName, err)
+	}
+
+	// Delete Google Play Secret
+	gpSecretName := fmt.Sprintf("build-%d-google-play", buildID)
+	err = clientset.CoreV1().Secrets(namespace).Delete(ctx, gpSecretName, metav1.DeleteOptions{})
+	if err != nil {
+		fmt.Printf("Warning: failed to delete Secret %s: %v\n", gpSecretName, err)
 	}
 
 	return nil
