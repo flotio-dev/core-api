@@ -212,9 +212,9 @@ type Organization struct {
 type GithubInstallation struct {
 	gorm.Model
 
-	InstallationID int64  `json:"github_installation_id" gorm:"not null;uniqueIndex"`
-	UserID         *uint  `json:"user_id,omitempty" gorm:"unique"`
-	OrganizationID *uint  `json:"organization_id,omitempty" gorm:"unique"`
+	InstallationID int64  `json:"github_installation_id" gorm:"not null;index"`
+	UserID         *uint  `json:"user_id,omitempty" gorm:"uniqueIndex"`
+	OrganizationID *uint  `json:"organization_id,omitempty" gorm:"uniqueIndex"`
 	AccountLogin   string `json:"account_login" gorm:"not null"`
 	AccountType    string `json:"account_type" gorm:"not null"`
 	TargetID       int64  `json:"target_id" gorm:"not null"`

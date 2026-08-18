@@ -5,7 +5,6 @@ import (
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type GithubRepository struct {
@@ -19,18 +18,25 @@ func NewGithubRepository(db *gorm.DB) *GithubRepository {
 }
 
 func (r *GithubRepository) SaveInstallation(userID uint, installationID int64, accountLogin, accountType string, targetID int64) error {
-	inst := dbEngine.GithubInstallation{
-		InstallationID: installationID,
-		UserID:         &userID,
-		AccountLogin:   accountLogin,
-		AccountType:    accountType,
-		TargetID:       targetID,
-	}
+	return r.DB.Transaction(func(tx *gorm.DB) error {
+		// Supprimer toute installation existante pour cet utilisateur
+		// (y compris soft-deleted pour éviter les violations de contrainte UNIQUE sur user_id)
+		if err := tx.Unscoped().
+			Where("user_id = ?", userID).
+			Delete(&dbEngine.GithubInstallation{}).Error; err != nil {
+			return err
+		}
 
-	return r.DB.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "installation_id"}},
-		UpdateAll: true,
-	}).Create(&inst).Error
+		inst := dbEngine.GithubInstallation{
+			InstallationID: installationID,
+			UserID:         &userID,
+			AccountLogin:   accountLogin,
+			AccountType:    accountType,
+			TargetID:       targetID,
+		}
+
+		return tx.Create(&inst).Error
+	})
 }
 
 func (r *GithubRepository) GetInstallationByUser(userID uint) (*dbEngine.GithubInstallation, error) {
@@ -47,12 +53,28 @@ func (r *GithubRepository) GetInstallationByUser(userID uint) (*dbEngine.GithubI
 
 func (r *GithubRepository) GetGithubInstallationByInstallationID(installationID int64) (*dbEngine.GithubInstallation, error) {
 	var inst dbEngine.GithubInstallation
-	if err := r.DB.Where("installation_id = ?", installationID).First(&inst).Error; err != nil {
+	err := r.DB.Where("installation_id = ?", installationID).First(&inst).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 	return &inst, nil
 }
 
 func (r *GithubRepository) DeleteInstallationByInstallationID(installationID int64) error {
-	return r.DB.Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error
+	return r.DB.Unscoped().Where("installation_id = ?", installationID).Delete(&dbEngine.GithubInstallation{}).Error
+}
+
+func (r *GithubRepository) DeleteInstallationByUser(userID uint) error {
+	return r.DB.Unscoped().Where("user_id = ?", userID).Delete(&dbEngine.GithubInstallation{}).Error
+}
+
+func (r *GithubRepository) CountOtherInstallations(installationID int64, excludeUserID uint) (int64, error) {
+	var count int64
+	err := r.DB.Model(&dbEngine.GithubInstallation{}).
+		Where("installation_id = ? AND user_id != ?", installationID, excludeUserID).
+		Count(&count).Error
+	return count, err
 }
