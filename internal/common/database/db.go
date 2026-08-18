@@ -36,6 +36,11 @@ func InitDB() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
+	// Ensure installation_id is non-unique to allow multiple users to link the same org installation
+	_ = DB.Exec("ALTER TABLE github_installations DROP CONSTRAINT IF EXISTS uni_github_installations_installation_id").Error
+	_ = DB.Exec("DROP INDEX IF EXISTS idx_github_installations_installation_id").Error
+	_ = DB.Exec("DROP INDEX IF EXISTS uni_github_installations_installation_id").Error
+
 	// Encrypt any secret still stored as plaintext (one-off, idempotent).
 	if err := encryptLegacySecrets(); err != nil {
 		log.Fatalf("Failed to encrypt legacy secrets: %v", err)

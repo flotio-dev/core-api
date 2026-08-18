@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,8 +12,6 @@ import (
 	userServices "github.com/flotio-dev/core-api/internal/modules/user/service"
 
 	helpers "github.com/flotio-dev/core-api/internal/common/server"
-
-	"gorm.io/gorm"
 )
 
 type GithubController struct {
@@ -73,42 +70,17 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
-	existingInst, gerr := c.Service.GetGithubInstallationByUserID(user.ID)
-
-	if gerr != nil && !errors.Is(gerr, gorm.ErrRecordNotFound) {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusInternalError,
-			Message: fmt.Sprintf("DB error: %v", gerr),
-		})
-		return
-	}
-
-	if errors.Is(gerr, gorm.ErrRecordNotFound) {
-		if err := c.Service.SaveInstallation(user.ID, payload.InstallationID, "", "", 0); err != nil {
-			helpers.RespondWithError(w, &helpers.ResponseOptions{
-				Status:  helpers.StatusInternalError,
-				Message: fmt.Sprintf("DB error: %v", err),
-			})
-			return
+	var accountLogin, accountType string
+	var targetID int64
+	if ghInst, gerr := c.Service.GetGithubInstallation(r.Context(), payload.InstallationID); gerr == nil && ghInst != nil {
+		if ghInst.Account != nil {
+			accountLogin = ghInst.Account.GetLogin()
+			accountType = ghInst.Account.GetType()
+			targetID = ghInst.Account.GetID()
 		}
-
-		helpers.RespondWithSuccess(w, &githubModels.PostInstallationResponse{
-			InstallationID: payload.InstallationID,
-		}, &helpers.ResponseOptions{
-			Message: "Installation GitHub liée avec succès",
-		})
-		return
 	}
 
-	if existingInst.InstallationID != payload.InstallationID {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusInvalidArgs,
-			Message: "Un utilisateur ne peut lier qu'une seule installation GitHub",
-		})
-		return
-	}
-
-	if err := c.Service.UpdateInstallation(user.ID, payload.InstallationID); err != nil {
+	if err := c.Service.SaveInstallation(user.ID, payload.InstallationID, accountLogin, accountType, targetID); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
 			Message: fmt.Sprintf("DB error: %v", err),
@@ -119,7 +91,7 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 	helpers.RespondWithSuccess(w, &githubModels.PostInstallationResponse{
 		InstallationID: payload.InstallationID,
 	}, &helpers.ResponseOptions{
-		Message: "Installation GitHub mise à jour",
+		Message: "Installation GitHub liée avec succès",
 	})
 }
 
@@ -428,8 +400,8 @@ func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Tenter la suppression (GitHub + DB)
-	if err := c.Service.DeleteInstallationByInstallationID(inst.InstallationID); err != nil {
+	// Tenter la suppression (DB + GitHub si plus aucun utilisateur lié)
+	if err := c.Service.DeleteUserInstallation(r.Context(), user.ID, inst.InstallationID); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusBadGateway,
 			Message: fmt.Sprintf("Erreur lors de la suppression de l'installation: %v", err),
