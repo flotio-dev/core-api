@@ -1,0 +1,5 @@
+# No active exceptions. Future entries require the exact finding ID, an owner,
+# a concrete justification and a finite expired_at date.
+vulnerabilities: []
+misconfigurations: []
+secrets: []
