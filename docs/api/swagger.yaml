@@ -437,8 +437,20 @@ definitions:
     type: object
   github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse:
     properties:
+      detected_flutter_version:
+        example: 3.24.5
+        type: string
+      detection_source:
+        example: fvm
+        type: string
+      has_google_services:
+        example: false
+        type: boolean
       owner:
         example: flotio-dev
+        type: string
+      project_path:
+        example: .
         type: string
       repo:
         example: api

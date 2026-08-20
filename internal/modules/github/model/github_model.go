@@ -43,9 +43,13 @@ type GithubRepoTreeItem struct {
 }
 
 type GithubTreeResponse struct {
-	Owner string               `json:"owner" example:"flotio-dev"`
-	Repo  string               `json:"repo" example:"api"`
-	Tree  []GithubRepoTreeItem `json:"tree"`
+	Owner                  string               `json:"owner" example:"flotio-dev"`
+	Repo                   string               `json:"repo" example:"api"`
+	Tree                   []GithubRepoTreeItem `json:"tree"`
+	ProjectPath            string               `json:"project_path,omitempty" example:"."`
+	DetectedFlutterVersion string               `json:"detected_flutter_version,omitempty" example:"3.24.5"`
+	DetectionSource        string               `json:"detection_source,omitempty" example:"fvm"`
+	HasGoogleServices      bool                 `json:"has_google_services,omitempty" example:"false"`
 }
 
 type GithubInstallationResponse struct {
@@ -67,6 +71,13 @@ type PostInstallationResponse struct {
 
 type BuildPathResponse struct {
 	Path string `json:"path"`
+}
+
+type FlutterProjectDetection struct {
+	ProjectPath            string `json:"project_path" example:"."`
+	DetectedFlutterVersion string `json:"detected_flutter_version,omitempty" example:"3.24.5"`
+	DetectionSource        string `json:"detection_source,omitempty" example:"fvm"`
+	HasGoogleServices      bool   `json:"has_google_services" example:"false"`
 }
 
 // DeleteResponse is the payload of DELETE /github/disconnect (contract §5.3).

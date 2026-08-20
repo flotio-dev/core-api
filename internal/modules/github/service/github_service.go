@@ -2,11 +2,15 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path"
+	"regexp"
+	"strings"
 
 	dbEngine "github.com/flotio-dev/core-api/internal/common/database"
 	githubEngine "github.com/flotio-dev/core-api/internal/infra/github"
+	githubModels "github.com/flotio-dev/core-api/internal/modules/github/model"
 	repositories "github.com/flotio-dev/core-api/internal/modules/github/repository"
 	"github.com/google/go-github/v79/github"
 )
@@ -278,6 +282,129 @@ func (s *GithubService) FindBuildPath(ctx context.Context, installationID int64,
 		return "", fmt.Errorf("pubspec.yaml not found in %s/%s", owner, repo)
 	}
 	return dir, nil
+}
+
+func (s *GithubService) DetectFlutterProject(ctx context.Context, installationID int64, owner, repo string) (*githubModels.FlutterProjectDetection, error) {
+	client, err := s.ClientManager.ClientForInstallation(installationID)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create github client: %w", err)
+	}
+
+	result := &githubModels.FlutterProjectDetection{
+		ProjectPath: ".",
+	}
+
+	// Helper to fetch file content
+	getFile := func(filePath string) (string, error) {
+		fileContent, _, resp, err := client.Repositories.GetContents(ctx, owner, repo, filePath, nil)
+		if err != nil {
+			return "", err
+		}
+		if resp != nil && resp.StatusCode == 404 {
+			return "", fmt.Errorf("not found")
+		}
+		if fileContent == nil {
+			return "", fmt.Errorf("not a file")
+		}
+		content, err := fileContent.GetContent()
+		if err != nil {
+			return "", err
+		}
+		return content, nil
+	}
+
+	// 1. Check FVM config at root (.fvm/fvm_config.json)
+	if fvmContent, err := getFile(".fvm/fvm_config.json"); err == nil {
+		var fvm struct {
+			Flutter           string `json:"flutter"`
+			FlutterSdkVersion string `json:"flutterSdkVersion"`
+		}
+		if json.Unmarshal([]byte(fvmContent), &fvm) == nil {
+			v := fvm.Flutter
+			if v == "" {
+				v = fvm.FlutterSdkVersion
+			}
+			if v != "" {
+				result.DetectedFlutterVersion = v
+				result.DetectionSource = "fvm"
+			}
+		}
+	}
+
+	// 2. Check .flutter-version at root
+	if result.DetectedFlutterVersion == "" {
+		if verContent, err := getFile(".flutter-version"); err == nil {
+			v := strings.TrimSpace(verContent)
+			if v != "" {
+				result.DetectedFlutterVersion = v
+				result.DetectionSource = "flutter-version"
+			}
+		}
+	}
+
+	// 3. Find project path (where pubspec.yaml is located)
+	buildPath, _ := s.FindBuildPath(ctx, installationID, owner, repo)
+	if buildPath != "" {
+		result.ProjectPath = buildPath
+	} else {
+		result.ProjectPath = "."
+	}
+
+	// 4. If version still not found and project_path != ., check FVM or .flutter-version in project path
+	if result.DetectedFlutterVersion == "" && result.ProjectPath != "." && result.ProjectPath != "" {
+		if fvmContent, err := getFile(path.Join(result.ProjectPath, ".fvm/fvm_config.json")); err == nil {
+			var fvm struct {
+				Flutter           string `json:"flutter"`
+				FlutterSdkVersion string `json:"flutterSdkVersion"`
+			}
+			if json.Unmarshal([]byte(fvmContent), &fvm) == nil {
+				v := fvm.Flutter
+				if v == "" {
+					v = fvm.FlutterSdkVersion
+				}
+				if v != "" {
+					result.DetectedFlutterVersion = v
+					result.DetectionSource = "fvm"
+				}
+			}
+		}
+
+		if result.DetectedFlutterVersion == "" {
+			if verContent, err := getFile(path.Join(result.ProjectPath, ".flutter-version")); err == nil {
+				v := strings.TrimSpace(verContent)
+				if v != "" {
+					result.DetectedFlutterVersion = v
+					result.DetectionSource = "flutter-version"
+				}
+			}
+		}
+	}
+
+	// 5. If version still not found, parse pubspec.yaml
+	if result.DetectedFlutterVersion == "" {
+		pubspecPath := "pubspec.yaml"
+		if result.ProjectPath != "." && result.ProjectPath != "" {
+			pubspecPath = path.Join(result.ProjectPath, "pubspec.yaml")
+		}
+		if pubspecContent, err := getFile(pubspecPath); err == nil {
+			reFlutter := regexp.MustCompile(`(?m)^\s*flutter:\s*["']?([><=^\s]*([0-9]+\.[0-9]+\.[0-9]+))["']?`)
+			if matches := reFlutter.FindStringSubmatch(pubspecContent); len(matches) >= 3 {
+				result.DetectedFlutterVersion = matches[2]
+				result.DetectionSource = "pubspec"
+			}
+		}
+	}
+
+	// 6. Check for google-services.json
+	gsPath := "android/app/google-services.json"
+	if result.ProjectPath != "." && result.ProjectPath != "" {
+		gsPath = path.Join(result.ProjectPath, gsPath)
+	}
+	if _, err := getFile(gsPath); err == nil {
+		result.HasGoogleServices = true
+	}
+
+	return result, nil
 }
 
 func (s *GithubService) GetGithubInstallationByUserID(userID uint) (*dbEngine.GithubInstallation, error) {
