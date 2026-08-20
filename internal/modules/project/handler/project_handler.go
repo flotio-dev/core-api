@@ -364,11 +364,17 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 		projectConfig.WatchedTagPatterns = c.WatchedTagPatterns
 		projectConfig.DependencyCaching = c.DependencyCaching
 		projectConfig.DependencyDirs = c.DependencyDirs
-		
-		if c.GitRepo != "" { projectConfig.GitRepo = c.GitRepo }
-		if c.GitUsername != "" { projectConfig.GitUsername = c.GitUsername }
-		if c.GitToken != "" { projectConfig.GitToken = c.GitToken }
-		
+
+		if c.GitRepo != "" {
+			projectConfig.GitRepo = c.GitRepo
+		}
+		if c.GitUsername != "" {
+			projectConfig.GitUsername = c.GitUsername
+		}
+		if c.GitToken != "" {
+			projectConfig.GitToken = c.GitToken
+		}
+
 		projectConfig.WebhookURLs = c.WebhookURLs
 		projectConfig.PostCloneScript = c.PostCloneScript
 		projectConfig.PreTestScript = c.PreTestScript
@@ -376,7 +382,7 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 		projectConfig.PreBuildScript = c.PreBuildScript
 		projectConfig.PostBuildScript = c.PostBuildScript
 		projectConfig.PrePublishScript = c.PrePublishScript
-		
+
 		projectConfig.Test = c.Test
 		projectConfig.EnableFlutterAnalyze = c.EnableFlutterAnalyze
 		projectConfig.FlutterAnalyzeArgs = c.FlutterAnalyzeArgs
@@ -385,17 +391,21 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 		projectConfig.EnableFlutterDriver = c.EnableFlutterDriver
 		projectConfig.FlutterDriverArgs = c.FlutterDriverArgs
 		projectConfig.FlutterDriverTargets = c.FlutterDriverTargets
-		
-		if c.FlutterVersion != "" { projectConfig.FlutterVersion = c.FlutterVersion }
+
+		if c.FlutterVersion != "" {
+			projectConfig.FlutterVersion = c.FlutterVersion
+		}
 		projectConfig.XcodeVersion = c.XcodeVersion
 		projectConfig.CocoaPodsVersion = c.CocoaPodsVersion
-		if c.ProjectPath != "" { projectConfig.ProjectPath = c.ProjectPath }
+		if c.ProjectPath != "" {
+			projectConfig.ProjectPath = c.ProjectPath
+		}
 		projectConfig.AndroidBuildFormat = c.AndroidBuildFormat
 		projectConfig.BuildMode = c.BuildMode
 		projectConfig.AndroidBuildArgs = c.AndroidBuildArgs
 		projectConfig.IosBuildArgs = c.IosBuildArgs
 		projectConfig.WebBuildArgs = c.WebBuildArgs
-		
+
 		projectConfig.PackageName = c.PackageName
 		projectConfig.EnableAndroidCodeSigning = c.EnableAndroidCodeSigning
 		projectConfig.EnableGooglePlayPublishing = c.EnableGooglePlayPublishing
@@ -405,7 +415,7 @@ func (c *ProjectController) ProjectPutHandler(w http.ResponseWriter, r *http.Req
 		projectConfig.DoNotSendForReview = c.DoNotSendForReview
 		projectConfig.SubmitAsDraft = c.SubmitAsDraft
 		projectConfig.PublishEvenIfTestsFail = c.PublishEvenIfTestsFail
-		
+
 		projectConfig.EnableEmailNotifications = c.EnableEmailNotifications
 		projectConfig.EmailRecipients = c.EmailRecipients
 	}

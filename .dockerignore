@@ -1,0 +1,11 @@
+.git
+.github
+bin
+coverage.out
+tests/postman/results
+*.log
+.env
+.env.*
+Dockerfile.dev
+docker-compose*.yml
+README.md

@@ -111,7 +111,7 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 	} else {
 		sb.WriteString(fmt.Sprintf("git clone --depth 1 --branch \"%s\" \"%s\" /workspace/repo\n", config.GitBranch, gitRepo))
 	}
-	
+
 	if buildFolder != "" {
 		sb.WriteString(fmt.Sprintf("cd \"/workspace/repo/%s\"\n", buildFolder))
 	} else {
@@ -301,7 +301,7 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 		} else if config.BuildTarget != "" {
 			target = config.BuildTarget
 		}
-		
+
 		if target == "aab" || target == "appbundle" {
 			buildCmd = fmt.Sprintf("flutter build appbundle --%s", mode)
 		} else {
