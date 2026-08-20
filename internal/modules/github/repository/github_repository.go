@@ -20,12 +20,26 @@ func NewGithubRepository(db *gorm.DB) *GithubRepository {
 func (r *GithubRepository) SaveInstallation(userID uint, installationID int64, accountLogin, accountType string, targetID int64, avatarURL string) error {
 	return r.DB.Transaction(func(tx *gorm.DB) error {
 		var existing dbEngine.GithubInstallation
-		err := tx.Unscoped().Where("user_id = ? AND installation_id = ?", userID, installationID).First(&existing).Error
+		var err error
+
+		if accountLogin != "" {
+			err = tx.Unscoped().Where("user_id = ? AND (installation_id = ? OR account_login = ?)", userID, installationID, accountLogin).First(&existing).Error
+		} else {
+			err = tx.Unscoped().Where("user_id = ? AND installation_id = ?", userID, installationID).First(&existing).Error
+		}
+
 		if err == nil {
 			// Update existing record
-			existing.AccountLogin = accountLogin
-			existing.AccountType = accountType
-			existing.TargetID = targetID
+			existing.InstallationID = installationID
+			if accountLogin != "" {
+				existing.AccountLogin = accountLogin
+			}
+			if accountType != "" {
+				existing.AccountType = accountType
+			}
+			if targetID != 0 {
+				existing.TargetID = targetID
+			}
 			if avatarURL != "" {
 				existing.AvatarURL = avatarURL
 			}
