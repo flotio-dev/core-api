@@ -364,6 +364,9 @@ definitions:
       account_type:
         example: User
         type: string
+      avatar_url:
+        example: https://avatars.githubusercontent.com/u/123
+        type: string
       id:
         example: 123456
         type: integer
@@ -402,12 +405,26 @@ definitions:
     type: object
   github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepository:
     properties:
+      default_branch:
+        example: main
+        type: string
+      description:
+        type: string
       full_name:
         example: flotio-dev/api
         type: string
       id:
         example: 123456
         type: integer
+      installation_id:
+        example: 12345678
+        type: integer
+      is_flutter:
+        example: true
+        type: boolean
+      language:
+        example: Dart
+        type: string
       name:
         example: api
         type: string
@@ -1320,6 +1337,11 @@ paths:
       description: Supprime l'enregistrement `GithubInstallation` de l'utilisateur
         courant et tente de supprimer l'installation via l'API GitHub
       operationId: HandleDisconnectGithub
+      parameters:
+      - description: Installation ID spécifique à déconnecter (facultatif)
+        in: query
+        name: installation_id
+        type: integer
       produces:
       - application/json
       responses:
@@ -1395,6 +1417,11 @@ paths:
     get:
       description: Retourne l'installation GitHub liée à l'utilisateur authentifié
       operationId: HandleGithubCheckInstallation
+      parameters:
+      - description: Retourner toutes les installations de l'utilisateur
+        in: query
+        name: all
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1515,8 +1542,22 @@ paths:
       - github
   /github/repos:
     get:
-      description: Liste les repos accessibles pour l'installation GitHub de l'utilisateur
+      description: Liste les repos accessibles pour toutes les installations GitHub
+        de l'utilisateur
       operationId: HandleGithubGetRepositories
+      parameters:
+      - description: Filtrer par installation ID
+        in: query
+        name: installation_id
+        type: integer
+      - description: Filtrer par organisation ou utilisateur
+        in: query
+        name: owner
+        type: string
+      - description: Filtrer uniquement les projets Flutter
+        in: query
+        name: flutter_only
+        type: boolean
       produces:
       - application/json
       responses:

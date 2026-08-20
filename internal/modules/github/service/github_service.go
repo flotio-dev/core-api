@@ -23,12 +23,16 @@ func NewGithubService(repository *repositories.GithubRepository, ClientManager *
 	}
 }
 
-func (s *GithubService) SaveInstallation(userID uint, installationID int64, accountLogin, accountType string, targetID int64) error {
-	return s.Repository.SaveInstallation(userID, installationID, accountLogin, accountType, targetID)
+func (s *GithubService) SaveInstallation(userID uint, installationID int64, accountLogin, accountType string, targetID int64, avatarURL string) error {
+	return s.Repository.SaveInstallation(userID, installationID, accountLogin, accountType, targetID, avatarURL)
 }
 
 func (s *GithubService) GetInstallationByUser(userID uint) (*dbEngine.GithubInstallation, error) {
 	return s.Repository.GetInstallationByUser(userID)
+}
+
+func (s *GithubService) ListInstallationsByUser(userID uint) ([]dbEngine.GithubInstallation, error) {
+	return s.Repository.ListInstallationsByUser(userID)
 }
 
 func (s *GithubService) ListRepositories(ctx context.Context, installationID int64) ([]*github.Repository, error) {
@@ -199,6 +203,33 @@ func (s *GithubService) DeleteUserInstallation(ctx context.Context, userID uint,
 	return nil
 }
 
+// DeleteUserInstallationByID supprime le lien de l'utilisateur avec une installation précise.
+// Si aucun autre utilisateur ne partage cette installation, elle est également supprimée sur GitHub.
+func (s *GithubService) DeleteUserInstallationByID(ctx context.Context, userID uint, installationID int64) error {
+	if err := s.Repository.DeleteUserInstallationByID(userID, installationID); err != nil {
+		return err
+	}
+
+	otherCount, err := s.Repository.CountOtherInstallations(installationID, userID)
+	if err != nil {
+		return nil
+	}
+
+	if otherCount > 0 {
+		return nil
+	}
+
+	client, err := s.ClientManager.ClientForApp()
+	if err == nil {
+		resp, derr := client.Apps.DeleteInstallation(ctx, installationID)
+		if derr != nil && (resp == nil || resp.StatusCode != 404) {
+			return derr
+		}
+	}
+
+	return nil
+}
+
 func (s *GithubService) FindBuildPath(ctx context.Context, installationID int64, owner, repo string) (string, error) {
 	client, err := s.ClientManager.ClientForInstallation(installationID)
 	if err != nil {
@@ -254,5 +285,5 @@ func (s *GithubService) GetGithubInstallationByUserID(userID uint) (*dbEngine.Gi
 }
 
 func (s *GithubService) UpdateInstallation(userID uint, installationID int64) error {
-	return s.Repository.SaveInstallation(userID, installationID, "", "", 0)
+	return s.Repository.SaveInstallation(userID, installationID, "", "", 0, "")
 }
