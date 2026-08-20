@@ -153,7 +153,8 @@ func GenerateBuildRunnerScript(config BuildConfig, projectConfig *dbEngine.Proje
 				"fi\n",
 			version, version, version, version))
 	}
-	sb.WriteString("flutter --version | head -n 1\n\n")
+	sb.WriteString("flutter config --no-analytics >/dev/null 2>&1 || true\n")
+	sb.WriteString("flutter --version\n\n")
 
 	// Phase 5: Cache Restore
 	sb.WriteString("log_step \"Restoring Cache\"\n")
