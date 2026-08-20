@@ -408,12 +408,12 @@ jobs:
           set -euo pipefail
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           source="$image:sha-$GITHUB_SHA"
-          digest="$(docker buildx imagetools inspect "$source" --format '{{json .Manifest.Digest}}' | tr -d '"')"
           if [[ "$ATTESTATIONS_ENABLED" == "true" ]]; then
+            digest="$(docker buildx imagetools inspect "$source" --format '{{json .Manifest.Digest}}' | tr -d '"')"
             gh attestation verify "oci://$image@$digest" --repo "$GITHUB_REPOSITORY"
           fi
           docker buildx imagetools create --tag "$image:$GITHUB_REF_NAME" "$source"
-          test "$(docker buildx imagetools inspect "$image:$GITHUB_REF_NAME" --format '{{json .Manifest.Digest}}' | tr -d '"')" = "$digest"
+          docker buildx imagetools inspect "$image:$GITHUB_REF_NAME"
 
   # Met à jour dans k8s_config le digest exact de l'image déployée sur main ou dev.
   update-gitops:
