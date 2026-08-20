@@ -230,11 +230,11 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	inst, err := c.Service.GetInstallationByUser(user.ID)
+	inst, err := c.Service.FindInstallationForRepo(r.Context(), user.ID, owner, repo)
 	if err != nil || inst == nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusNotFound,
-			Message: "Installation GitHub introuvable",
+			Message: "Installation GitHub introuvable pour ce dépôt",
 		})
 		return
 	}
