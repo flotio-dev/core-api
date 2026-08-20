@@ -453,7 +453,7 @@ jobs:
 
           image_ref="$IMAGE@$DIGEST"
           export IMAGE_REF="$image_ref"
-          yq_docker() { docker run --rm -e IMAGE_REF -v "$PWD:/workdir" -w /workdir "$YQ_IMAGE" "$@"; }
+          yq_docker() { docker run --rm --user "$(id -u):$(id -g)" -e IMAGE_REF -v "$PWD:/workdir" -w /workdir "$YQ_IMAGE" "$@"; }
           target_count="$(yq_docker 'select(.kind == "Deployment" and .metadata.name == "core-api") | [.spec.template.spec.containers[] | select(.name == "core-api")] | length' "$file")"
           test "$target_count" = "1"
           yq_docker -o=json '.' "$file" | jq -S '(.spec.template.spec.containers[] | select(.name == "core-api").image) = "__IMAGE__"' > "$RUNNER_TEMP/manifest-before.json"
