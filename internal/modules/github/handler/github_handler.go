@@ -258,11 +258,21 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 		})
 	}
 
-	helpers.RespondWithSuccess(w, &githubModels.GithubTreeResponse{
+	detection, _ := c.Service.DetectFlutterProject(r.Context(), inst.InstallationID, owner, repo)
+
+	resp := &githubModels.GithubTreeResponse{
 		Owner: owner,
 		Repo:  repo,
 		Tree:  out,
-	}, nil)
+	}
+	if detection != nil {
+		resp.ProjectPath = detection.ProjectPath
+		resp.DetectedFlutterVersion = detection.DetectedFlutterVersion
+		resp.DetectionSource = detection.DetectionSource
+		resp.HasGoogleServices = detection.HasGoogleServices
+	}
+
+	helpers.RespondWithSuccess(w, resp, nil)
 }
 
 // CheckInstallation godoc

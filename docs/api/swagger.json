@@ -3636,9 +3636,25 @@
         "github_com_flotio-dev_core-api_internal_modules_github_model.GithubTreeResponse": {
             "type": "object",
             "properties": {
+                "detected_flutter_version": {
+                    "type": "string",
+                    "example": "3.24.5"
+                },
+                "detection_source": {
+                    "type": "string",
+                    "example": "fvm"
+                },
+                "has_google_services": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "owner": {
                     "type": "string",
                     "example": "flotio-dev"
+                },
+                "project_path": {
+                    "type": "string",
+                    "example": "."
                 },
                 "repo": {
                     "type": "string",
