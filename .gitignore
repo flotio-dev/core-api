@@ -3,3 +3,4 @@
 *.pem
 tmp
 *.exe
+tests/postman/results/

@@ -5,7 +5,7 @@ name: flotio-ci
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:fe0737ba566a2c5b2a28f34433c0a423261900ec17b9bf7ad115e1aae7e57f1b
     container_name: flotio-ci-postgres
     environment:
       POSTGRES_DB: flotio
@@ -20,7 +20,7 @@ services:
       - flotio-ci-net
 
   redis:
-    image: redis:8.4-alpine
+    image: redis:8.4-alpine@sha256:bd4a0d37e7cd830117ffec9329052b4a1887afa060c265e1768f82b177ff6f43
     container_name: flotio-ci-redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -33,7 +33,7 @@ services:
   core-api:
     build:
       context: .
-      dockerfile: Dockerfile.ci
+      dockerfile: Dockerfile
     container_name: flotio-ci-core-api
     ports:
       - "8080:8080"

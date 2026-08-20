@@ -256,4 +256,3 @@ func (s *GithubService) GetGithubInstallationByUserID(userID uint) (*dbEngine.Gi
 func (s *GithubService) UpdateInstallation(userID uint, installationID int64) error {
 	return s.Repository.SaveInstallation(userID, installationID, "", "", 0)
 }
-

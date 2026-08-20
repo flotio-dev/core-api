@@ -1,0 +1,544 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev]
+    tags: ["v*.*.*"]
+  merge_group:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Vérifie le formatage Go, la cohérence des modules et les erreurs détectées par go vet.
+  quality:
+    name: Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+  # Exécute les tests unitaires Go avec le détecteur de data races.
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Run tests with race detector
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-api-coverage-${{ github.sha }}
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 7
+
+  # Démarre les dépendances de test et valide les routes API avec la collection Postman.
+  integration-tests:
+    name: API integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Start isolated CI stack
+        run: docker compose -f docker-compose.ci.yml up -d --build
+
+      - name: Wait for the API
+        run: timeout 90 bash -c 'until curl -fsS http://localhost:8080/healthz >/dev/null; do sleep 3; done'
+
+      - name: Run Postman collection
+        run: |
+          mkdir -p tests/postman/results
+          docker run --rm --network host \
+            -v "$PWD/tests/postman:/etc/newman:ro" \
+            -v "$PWD/tests/postman/results:/results" \
+            postman/newman:6-alpine@sha256:d9b5e780ead0026bbb37f3759cd7b10fc8a88cd4030c8266a7c5e343d75a5198 \
+            run /etc/newman/flotio-api.postman_collection.json \
+            --environment /etc/newman/flotio-ci.postman_environment.json \
+            --reporters cli,junit \
+            --reporter-junit-export /results/report.xml \
+            --timeout-request 10000 \
+            --bail
+
+      - name: Upload integration report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: postman-report-${{ github.sha }}
+          path: tests/postman/results/report.xml
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Stop CI stack
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v
+
+  # Régénère la documentation Swagger et échoue si les fichiers versionnés ne sont plus synchronisés.
+  swagger-check:
+    name: Swagger drift
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Regenerate and verify Swagger
+        run: make swagger-check
+
+      - name: Run Swagger contract tests
+        run: go test ./internal/api/ -run TestSwagger
+
+  # Contrôle les dépendances si disponible puis bloque les vulnérabilités, secrets et erreurs IaC avec Trivy.
+  security-source:
+    name: Source security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Review dependency changes
+        if: github.event_name == 'pull_request' && vars.DEPENDENCY_REVIEW_ENABLED == 'true'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+      - name: Scan dependencies, secrets, Dockerfiles and Compose
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+          trivyignores: .trivyignore.yaml
+          timeout: 15m
+          version: v0.74.0
+
+  # Analyse statiquement le code Go avec CodeQL lorsque GitHub Code Security est disponible.
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - name: Initialize CodeQL
+        if: github.event.repository.private == false || vars.CODEQL_ENABLED == 'true'
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          languages: go
+          build-mode: manual
+
+      - name: Build for CodeQL
+        if: github.event.repository.private == false || vars.CODEQL_ENABLED == 'true'
+        run: go build ./...
+
+      - name: Analyze
+        if: github.event.repository.private == false || vars.CODEQL_ENABLED == 'true'
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          category: /language:go
+
+      - name: Explain unavailable CodeQL
+        if: github.event.repository.private && vars.CODEQL_ENABLED != 'true'
+        run: echo "::notice::Enable GitHub Code Security, then set CODEQL_ENABLED=true to enforce CodeQL."
+
+  # Construit l'image une seule fois, la scanne, génère son SBOM puis la conserve comme artefact.
+  container-build-and-scan:
+    name: Container build and scan
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Prepare immutable image metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "image=ghcr.io/${GITHUB_REPOSITORY,,}"
+            echo "tag=sha-$GITHUB_SHA"
+            echo "created=$(git show -s --format=%cI "$GITHUB_SHA")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Build once and load locally
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          load: true
+          pull: true
+          platforms: linux/amd64
+          tags: local/core-api:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha,scope=core-api-container
+          cache-to: type=gha,mode=max,scope=core-api-container,ignore-error=true
+          provenance: false
+          sbom: false
+          build-args: |
+            OCI_SOURCE=${{ github.server_url }}/${{ github.repository }}
+            OCI_REVISION=${{ github.sha }}
+            OCI_VERSION=${{ steps.meta.outputs.tag }}
+            OCI_CREATED=${{ steps.meta.outputs.created }}
+
+      - name: Scan the built image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: local/core-api:${{ steps.meta.outputs.tag }}
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+          trivyignores: .trivyignore.yaml
+          timeout: 15m
+          version: v0.74.0
+
+      - name: Generate SPDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: local/core-api:${{ steps.meta.outputs.tag }}
+          format: spdx-json
+          output: sbom.spdx.json
+          timeout: 15m
+          version: v0.74.0
+
+      - name: Export the scanned image
+        if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev')
+        run: docker image save --output image.tar local/core-api:${{ steps.meta.outputs.tag }}
+
+      - name: Upload image and SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: container-${{ github.sha }}
+          path: |
+            sbom.spdx.json
+            image.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  # Publie dans GHCR l'image déjà scannée sous un tag immuable lié au commit.
+  publish:
+    name: Publish immutable image
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev')
+    needs: [quality, unit-tests, integration-tests, swagger-check, security-source, codeql, container-build-and-scan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      image: ${{ needs.container-build-and-scan.outputs.image }}
+    steps:
+      - name: Download the scanned image
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: container-${{ github.sha }}
+
+      - name: Load the scanned image
+        run: docker image load --input image.tar
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Push exact scanned image
+        id: push
+        env:
+          IMAGE: ${{ needs.container-build-and-scan.outputs.image }}
+          TAG: ${{ needs.container-build-and-scan.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker tag "local/core-api:$TAG" "$IMAGE:$TAG"
+          docker push "$IMAGE:$TAG"
+          digest="$(docker buildx imagetools inspect "$IMAGE:$TAG" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+  # Atteste la provenance et le SBOM de l'image publiée puis vérifie ces attestations.
+  attest:
+    name: Attest image and SBOM
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev')
+    needs: publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Download SBOM
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: container-${{ github.sha }}
+
+      - name: Log in to GHCR
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Attest provenance
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ needs.publish.outputs.image }}
+          subject-digest: ${{ needs.publish.outputs.digest }}
+          push-to-registry: true
+
+      - name: Attest SBOM
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-name: ${{ needs.publish.outputs.image }}
+          subject-digest: ${{ needs.publish.outputs.digest }}
+          sbom-path: sbom.spdx.json
+          push-to-registry: true
+
+      - name: Verify attestations
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ needs.publish.outputs.image }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: gh attestation verify "oci://$IMAGE@$DIGEST" --repo "$GITHUB_REPOSITORY"
+
+      - name: Explain unavailable attestations
+        if: github.event.repository.private && vars.ATTESTATIONS_ENABLED != 'true'
+        run: echo "::notice::Artifact attestations are disabled for private repositories. Set ATTESTATIONS_ENABLED=true when GitHub Enterprise Cloud is available."
+
+  # Associe un tag SemVer à l'image immuable lors de la création d'un tag Git.
+  release-alias:
+    name: Publish SemVer alias
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [quality, unit-tests, integration-tests, swagger-check, security-source, codeql]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      attestations: read
+    steps:
+      - name: Validate release tag
+        run: '[[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Alias existing SHA image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ATTESTATIONS_ENABLED: ${{ github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true' }}
+        run: |
+          set -euo pipefail
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          source="$image:sha-$GITHUB_SHA"
+          digest="$(docker buildx imagetools inspect "$source" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          if [[ "$ATTESTATIONS_ENABLED" == "true" ]]; then
+            gh attestation verify "oci://$image@$digest" --repo "$GITHUB_REPOSITORY"
+          fi
+          docker buildx imagetools create --tag "$image:$GITHUB_REF_NAME" "$source"
+          test "$(docker buildx imagetools inspect "$image:$GITHUB_REF_NAME" --format '{{json .Manifest.Digest}}' | tr -d '"')" = "$digest"
+
+  # Met à jour dans k8s_config le digest exact de l'image déployée sur main ou dev.
+  update-gitops:
+    name: Update GitOps
+    if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev')
+    needs: [publish, attest]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
+    concurrency:
+      group: gitops-core-api-${{ github.ref_name }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    steps:
+      - name: Create scoped GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: flotio-dev
+          repositories: k8s_config
+          permission-contents: write
+
+      - name: Checkout GitOps repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: flotio-dev/k8s_config
+          ref: main
+          token: ${{ steps.app-token.outputs.token }}
+          path: gitops
+
+      - name: Update exactly the core-api container
+        id: update
+        shell: bash
+        env:
+          IMAGE: ${{ needs.publish.outputs.image }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+          YQ_IMAGE: mikefarah/yq:4.53.3@sha256:11a1f0b604b13dbbdc662260d8db6f644b22d8553122a25c1b5b2e8713ca6977
+        run: |
+          set -euo pipefail
+          cd gitops
+          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            file="manifest/prod/core-api/deploy-core-api.yaml"
+          else
+            file="manifest/dev/core-api/deploy-core-api.yaml"
+          fi
+
+          image_ref="$IMAGE@$DIGEST"
+          export IMAGE_REF="$image_ref"
+          yq_docker() { docker run --rm --user "$(id -u):$(id -g)" -e IMAGE_REF -v "$PWD:/workdir" -w /workdir "$YQ_IMAGE" "$@"; }
+          target_count="$(yq_docker 'select(.kind == "Deployment" and .metadata.name == "core-api") | [.spec.template.spec.containers[] | select(.name == "core-api")] | length' "$file")"
+          test "$target_count" = "1"
+          yq_docker -o=json '.' "$file" | jq -S '(.spec.template.spec.containers[] | select(.name == "core-api").image) = "__IMAGE__"' > "$RUNNER_TEMP/manifest-before.json"
+          yq_docker -i '(select(.kind == "Deployment" and .metadata.name == "core-api").spec.template.spec.containers[] | select(.name == "core-api").image) = strenv(IMAGE_REF)' "$file"
+          yq_docker -o=json '.' "$file" | jq -S '(.spec.template.spec.containers[] | select(.name == "core-api").image) = "__IMAGE__"' > "$RUNNER_TEMP/manifest-after.json"
+          cmp "$RUNNER_TEMP/manifest-before.json" "$RUNNER_TEMP/manifest-after.json"
+          test "$(yq_docker -r 'select(.kind == "Deployment" and .metadata.name == "core-api").spec.template.spec.containers[] | select(.name == "core-api").image' "$file")" = "$image_ref"
+
+          mapfile -t changed_files < <(git diff --name-only)
+          if (( ${#changed_files[@]} == 0 )); then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test "${#changed_files[@]}" = "1"
+          test "${changed_files[0]}" = "$file"
+          {
+            echo "changed=true"
+            echo "file=$file"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push GitOps handoff
+        if: steps.update.outputs.changed == 'true'
+        working-directory: gitops
+        env:
+          FILE: ${{ steps.update.outputs.file }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+          source_short="${GITHUB_SHA:0:12}"
+          digest_short="${DIGEST#sha256:}"
+          digest_short="${digest_short:0:12}"
+          git config user.name "flotio-gitops[bot]"
+          git config user.email "flotio-gitops[bot]@users.noreply.github.com"
+          git add -- "$FILE"
+          git commit -m "core-api($GITHUB_REF_NAME): $source_short @ sha256:$digest_short" -m "Source: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push origin HEAD:main
+
+  # Agrège les résultats obligatoires en un check stable utilisable par la protection de branche.
+  ci-success:
+    name: ci-success
+    if: ${{ always() }}
+    needs: [quality, unit-tests, integration-tests, swagger-check, security-source, codeql, container-build-and-scan, publish, attest, release-alias, update-gitops]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check required jobs
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          UNIT_TESTS: ${{ needs.unit-tests.result }}
+          INTEGRATION_TESTS: ${{ needs.integration-tests.result }}
+          SWAGGER: ${{ needs.swagger-check.result }}
+          SECURITY_SOURCE: ${{ needs.security-source.result }}
+          CODEQL: ${{ needs.codeql.result }}
+          CONTAINER: ${{ needs.container-build-and-scan.result }}
+          PUBLISH: ${{ needs.publish.result }}
+          ATTEST: ${{ needs.attest.result }}
+          RELEASE_ALIAS: ${{ needs.release-alias.result }}
+          GITOPS: ${{ needs.update-gitops.result }}
+        run: |
+          set -euo pipefail
+          test "$QUALITY" = success
+          test "$UNIT_TESTS" = success
+          test "$INTEGRATION_TESTS" = success
+          test "$SWAGGER" = success
+          test "$SECURITY_SOURCE" = success
+          test "$CODEQL" = success
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            test "$RELEASE_ALIAS" = success
+          else
+            test "$CONTAINER" = success
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == push && ( "$GITHUB_REF_NAME" == main || "$GITHUB_REF_NAME" == dev ) ]]; then
+            test "$PUBLISH" = success
+            test "$ATTEST" = success
+            test "$GITOPS" = success
+          fi
