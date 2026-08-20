@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	models "github.com/flotio-dev/core-api/internal/models"
 	githubModels "github.com/flotio-dev/core-api/internal/modules/github/model"
@@ -70,17 +71,18 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 		return
 	}
 
-	var accountLogin, accountType string
+	var accountLogin, accountType, avatarURL string
 	var targetID int64
 	if ghInst, gerr := c.Service.GetGithubInstallation(r.Context(), payload.InstallationID); gerr == nil && ghInst != nil {
 		if ghInst.Account != nil {
 			accountLogin = ghInst.Account.GetLogin()
 			accountType = ghInst.Account.GetType()
 			targetID = ghInst.Account.GetID()
+			avatarURL = ghInst.Account.GetAvatarURL()
 		}
 	}
 
-	if err := c.Service.SaveInstallation(user.ID, payload.InstallationID, accountLogin, accountType, targetID); err != nil {
+	if err := c.Service.SaveInstallation(user.ID, payload.InstallationID, accountLogin, accountType, targetID, avatarURL); err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
 			Message: fmt.Sprintf("DB error: %v", err),
@@ -96,9 +98,12 @@ func (c *GithubController) HandleGithubPostInstallation(w http.ResponseWriter, r
 }
 
 // @Summary      Get GitHub Repositories
-// @Description  Liste les repos accessibles pour l'installation GitHub de l'utilisateur
+// @Description  Liste les repos accessibles pour toutes les installations GitHub de l'utilisateur
 // @Tags         github
 // @Produce      json
+// @Param        installation_id query int false "Filtrer par installation ID"
+// @Param        owner query string false "Filtrer par organisation ou utilisateur"
+// @Param        flutter_only query bool false "Filtrer uniquement les projets Flutter"
 // @Success      200  {object} models.APIResponse[githubModels.GithubRepositoriesResponse]
 // @Failure      400  {object} models.APIErrorResponse
 // @Failure      401  {object} models.APIErrorResponse
@@ -116,8 +121,8 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 		return
 	}
 
-	inst, err := c.Service.GetInstallationByUser(user.ID)
-	if err != nil || inst == nil {
+	insts, err := c.Service.ListInstallationsByUser(user.ID)
+	if err != nil || len(insts) == 0 {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			HTTPCode: http.StatusNotFound,
 			Message:  "Installation GitHub introuvable",
@@ -125,24 +130,65 @@ func (c *GithubController) HandleGithubGetRepositories(w http.ResponseWriter, r 
 		return
 	}
 
-	repos, err := c.Service.ListRepositories(r.Context(), inst.InstallationID)
-	if err != nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			HTTPCode: http.StatusBadGateway,
-			Message:  "Erreur GitHub API",
-		})
-		return
+	filterInstallationID := int64(0)
+	if qInst := r.URL.Query().Get("installation_id"); qInst != "" {
+		if id, perr := strconv.ParseInt(qInst, 10, 64); perr == nil {
+			filterInstallationID = id
+		}
 	}
+	filterOwner := r.URL.Query().Get("owner")
+	filterFlutter := r.URL.Query().Get("flutter_only") == "true"
 
-	out := make([]githubModels.GithubRepository, 0, len(repos))
-	for _, repo := range repos {
-		out = append(out, githubModels.GithubRepository{
-			ID:       repo.GetID(),
-			Owner:    repo.GetOwner().GetLogin(),
-			Name:     repo.GetName(),
-			FullName: repo.GetFullName(),
-			Private:  repo.GetPrivate(),
-		})
+	seenRepoIDs := make(map[int64]bool)
+	out := make([]githubModels.GithubRepository, 0)
+
+	for _, inst := range insts {
+		if filterInstallationID != 0 && inst.InstallationID != filterInstallationID {
+			continue
+		}
+		if filterOwner != "" && !strings.EqualFold(inst.AccountLogin, filterOwner) {
+			continue
+		}
+
+		repos, err := c.Service.ListRepositories(r.Context(), inst.InstallationID)
+		if err != nil {
+			continue
+		}
+
+		for _, repo := range repos {
+			if seenRepoIDs[repo.GetID()] {
+				continue
+			}
+			seenRepoIDs[repo.GetID()] = true
+
+			lang := repo.GetLanguage()
+			isFlutter := strings.EqualFold(lang, "Dart")
+			if !isFlutter {
+				for _, topic := range repo.Topics {
+					if strings.EqualFold(topic, "flutter") {
+						isFlutter = true
+						break
+					}
+				}
+			}
+
+			if filterFlutter && !isFlutter {
+				continue
+			}
+
+			out = append(out, githubModels.GithubRepository{
+				ID:             repo.GetID(),
+				Owner:          repo.GetOwner().GetLogin(),
+				Name:           repo.GetName(),
+				FullName:       repo.GetFullName(),
+				Private:        repo.GetPrivate(),
+				Language:       lang,
+				Description:    repo.GetDescription(),
+				DefaultBranch:  repo.GetDefaultBranch(),
+				IsFlutter:      isFlutter,
+				InstallationID: inst.InstallationID,
+			})
+		}
 	}
 
 	helpers.RespondWithSuccess(w, &githubModels.GithubRepositoriesResponse{
@@ -224,6 +270,7 @@ func (c *GithubController) HandleGithubRepoTree(w http.ResponseWriter, r *http.R
 // @Description  Retourne l'installation GitHub liée à l'utilisateur authentifié
 // @Tags         github
 // @Produce      json
+// @Param        all query bool false "Retourner toutes les installations de l'utilisateur"
 // @Success      200  {object} models.APIResponse[githubModels.GithubInstallationResponse]
 // @Failure      400  {object} models.APIErrorResponse "Bad request"
 // @Failure      401  {object} models.APIErrorResponse
@@ -242,7 +289,7 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 		return
 	}
 
-	inst, err := c.Service.GetInstallationByUser(user.ID)
+	insts, err := c.Service.ListInstallationsByUser(user.ID)
 	if err != nil {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusInternalError,
@@ -250,7 +297,7 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 		})
 		return
 	}
-	if inst == nil {
+	if len(insts) == 0 {
 		helpers.RespondWithError(w, &helpers.ResponseOptions{
 			Status:  helpers.StatusNotFound,
 			Message: "Installation GitHub introuvable",
@@ -258,6 +305,25 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 		return
 	}
 
+	if r.URL.Query().Get("all") == "true" {
+		list := make([]githubModels.GithubInstallationResponse, 0, len(insts))
+		for _, inst := range insts {
+			list = append(list, githubModels.GithubInstallationResponse{
+				ID:             inst.ID,
+				UserID:         *inst.UserID,
+				InstallationID: inst.InstallationID,
+				AccountLogin:   inst.AccountLogin,
+				AccountType:    inst.AccountType,
+				AvatarURL:      inst.AvatarURL,
+			})
+		}
+		helpers.RespondWithSuccess(w, &githubModels.GithubInstallationsListResponse{
+			Installations: list,
+		}, nil)
+		return
+	}
+
+	inst := insts[0]
 	// Vérifier l'existence côté GitHub via l'API
 	ghInst, err := c.Service.InstallationExists(r.Context(), inst.InstallationID)
 	if err != nil {
@@ -281,6 +347,7 @@ func (c *GithubController) HandleGithubCheckInstallation(w http.ResponseWriter, 
 		InstallationID: inst.InstallationID,
 		AccountLogin:   inst.AccountLogin,
 		AccountType:    inst.AccountType,
+		AvatarURL:      inst.AvatarURL,
 	}, nil)
 }
 
@@ -357,6 +424,7 @@ func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r 
 		InstallationID: inst.InstallationID,
 		AccountLogin:   inst.AccountLogin,
 		AccountType:    inst.AccountType,
+		AvatarURL:      inst.AvatarURL,
 	}, nil)
 }
 
@@ -365,6 +433,7 @@ func (c *GithubController) HandleGetGithubInstallation(w http.ResponseWriter, r 
 // @Description  Supprime l'enregistrement `GithubInstallation` de l'utilisateur courant et tente de supprimer l'installation via l'API GitHub
 // @Tags         github
 // @Produce      json
+// @Param        installation_id query int false "Installation ID spécifique à déconnecter (facultatif)"
 // @Success      200  {object} models.APIResponse[githubModels.DeleteResponse]
 // @Failure      400  {object} models.APIErrorResponse
 // @Failure      401  {object} models.APIErrorResponse
@@ -383,30 +452,35 @@ func (c *GithubController) HandleDisconnectGithub(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Récupérer l'installation liée à l'utilisateur
-	inst, err := c.Service.GetInstallationByUser(user.ID)
-	if err != nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusInternalError,
-			Message: fmt.Sprintf("DB error: %v", err),
-		})
-		return
-	}
-	if inst == nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusNotFound,
-			Message: "Installation GitHub introuvable",
-		})
-		return
-	}
-
-	// Tenter la suppression (DB + GitHub si plus aucun utilisateur lié)
-	if err := c.Service.DeleteUserInstallation(r.Context(), user.ID, inst.InstallationID); err != nil {
-		helpers.RespondWithError(w, &helpers.ResponseOptions{
-			Status:  helpers.StatusBadGateway,
-			Message: fmt.Sprintf("Erreur lors de la suppression de l'installation: %v", err),
-		})
-		return
+	qInst := r.URL.Query().Get("installation_id")
+	if qInst != "" {
+		instID, perr := strconv.ParseInt(qInst, 10, 64)
+		if perr != nil {
+			helpers.RespondWithError(w, &helpers.ResponseOptions{
+				Status:  helpers.StatusInvalidArgs,
+				Message: "installation_id must be a valid integer",
+			})
+			return
+		}
+		if err := c.Service.DeleteUserInstallationByID(r.Context(), user.ID, instID); err != nil {
+			helpers.RespondWithError(w, &helpers.ResponseOptions{
+				Status:  helpers.StatusBadGateway,
+				Message: fmt.Sprintf("Erreur lors de la suppression de l'installation: %v", err),
+			})
+			return
+		}
+	} else {
+		insts, err := c.Service.ListInstallationsByUser(user.ID)
+		if err != nil || len(insts) == 0 {
+			helpers.RespondWithError(w, &helpers.ResponseOptions{
+				Status:  helpers.StatusNotFound,
+				Message: "Installation GitHub introuvable",
+			})
+			return
+		}
+		for _, inst := range insts {
+			_ = c.Service.DeleteUserInstallationByID(r.Context(), user.ID, inst.InstallationID)
+		}
 	}
 
 	helpers.RespondWithSuccess(w, &githubModels.DeleteResponse{Status: "deleted"}, nil)

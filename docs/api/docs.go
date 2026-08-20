@@ -702,6 +702,14 @@ const docTemplate = `{
                 ],
                 "summary": "Déconnecte l'utilisateur courant de GitHub",
                 "operationId": "HandleDisconnectGithub",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Installation ID spécifique à déconnecter (facultatif)",
+                        "name": "installation_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -817,6 +825,14 @@ const docTemplate = `{
                 ],
                 "summary": "Vérifie si l'utilisateur a une installation GitHub",
                 "operationId": "HandleGithubCheckInstallation",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Retourner toutes les installations de l'utilisateur",
+                        "name": "all",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -994,7 +1010,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Liste les repos accessibles pour l'installation GitHub de l'utilisateur",
+                "description": "Liste les repos accessibles pour toutes les installations GitHub de l'utilisateur",
                 "produces": [
                     "application/json"
                 ],
@@ -1003,6 +1019,26 @@ const docTemplate = `{
                 ],
                 "summary": "Get GitHub Repositories",
                 "operationId": "HandleGithubGetRepositories",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Filtrer par installation ID",
+                        "name": "installation_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrer par organisation ou utilisateur",
+                        "name": "owner",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filtrer uniquement les projets Flutter",
+                        "name": "flutter_only",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3505,6 +3541,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "User"
                 },
+                "avatar_url": {
+                    "type": "string",
+                    "example": "https://avatars.githubusercontent.com/u/123"
+                },
                 "id": {
                     "type": "integer",
                     "example": 123456
@@ -3560,6 +3600,13 @@ const docTemplate = `{
         "github_com_flotio-dev_core-api_internal_modules_github_model.GithubRepository": {
             "type": "object",
             "properties": {
+                "default_branch": {
+                    "type": "string",
+                    "example": "main"
+                },
+                "description": {
+                    "type": "string"
+                },
                 "full_name": {
                     "type": "string",
                     "example": "flotio-dev/api"
@@ -3567,6 +3614,18 @@ const docTemplate = `{
                 "id": {
                     "type": "integer",
                     "example": 123456
+                },
+                "installation_id": {
+                    "type": "integer",
+                    "example": 12345678
+                },
+                "is_flutter": {
+                    "type": "boolean",
+                    "example": true
+                },
+                "language": {
+                    "type": "string",
+                    "example": "Dart"
                 },
                 "name": {
                     "type": "string",

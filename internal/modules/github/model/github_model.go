@@ -18,11 +18,16 @@ type PostInstallationRequest struct {
 // RESPONSE
 
 type GithubRepository struct {
-	ID       int64  `json:"id" example:"123456"`
-	Owner    string `json:"owner" example:"flotio-dev"`
-	Name     string `json:"name" example:"api"`
-	FullName string `json:"full_name" example:"flotio-dev/api"`
-	Private  bool   `json:"private" example:"false"`
+	ID             int64  `json:"id" example:"123456"`
+	Owner          string `json:"owner" example:"flotio-dev"`
+	Name           string `json:"name" example:"api"`
+	FullName       string `json:"full_name" example:"flotio-dev/api"`
+	Private        bool   `json:"private" example:"false"`
+	Language       string `json:"language,omitempty" example:"Dart"`
+	Description    string `json:"description,omitempty"`
+	DefaultBranch  string `json:"default_branch,omitempty" example:"main"`
+	IsFlutter      bool   `json:"is_flutter" example:"true"`
+	InstallationID int64  `json:"installation_id,omitempty" example:"12345678"`
 }
 
 type GithubRepositoriesResponse struct {
@@ -49,6 +54,11 @@ type GithubInstallationResponse struct {
 	InstallationID int64  `json:"installation_id" example:"987654"`
 	AccountLogin   string `json:"account_login" example:"flotio-dev"`
 	AccountType    string `json:"account_type" example:"User"`
+	AvatarURL      string `json:"avatar_url,omitempty" example:"https://avatars.githubusercontent.com/u/123"`
+}
+
+type GithubInstallationsListResponse struct {
+	Installations []GithubInstallationResponse `json:"installations"`
 }
 
 type PostInstallationResponse struct {
