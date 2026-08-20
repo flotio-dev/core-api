@@ -19,6 +19,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Vérifie le formatage Go, la cohérence des modules et les erreurs détectées par go vet.
   quality:
     name: Quality
     runs-on: ubuntu-24.04
@@ -41,6 +42,7 @@ jobs:
       - name: Build
         run: go build ./...
 
+  # Exécute les tests unitaires Go avec le détecteur de data races.
   unit-tests:
     name: Unit tests
     runs-on: ubuntu-24.04
@@ -65,6 +67,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  # Démarre les dépendances de test et valide les routes API avec la collection Postman.
   integration-tests:
     name: API integration tests
     runs-on: ubuntu-24.04
@@ -106,6 +109,7 @@ jobs:
         if: always()
         run: docker compose -f docker-compose.ci.yml down -v
 
+  # Régénère la documentation Swagger et échoue si les fichiers versionnés ne sont plus synchronisés.
   swagger-check:
     name: Swagger drift
     runs-on: ubuntu-24.04
@@ -125,6 +129,7 @@ jobs:
       - name: Run Swagger contract tests
         run: go test ./internal/api/ -run TestSwagger
 
+  # Contrôle les dépendances si disponible puis bloque les vulnérabilités, secrets et erreurs IaC avec Trivy.
   security-source:
     name: Source security
     runs-on: ubuntu-24.04
@@ -152,6 +157,7 @@ jobs:
           timeout: 15m
           version: v0.74.0
 
+  # Analyse statiquement le code Go avec CodeQL lorsque GitHub Code Security est disponible.
   codeql:
     name: CodeQL
     runs-on: ubuntu-24.04
@@ -189,6 +195,7 @@ jobs:
         if: github.event.repository.private && vars.CODEQL_ENABLED != 'true'
         run: echo "::notice::Enable GitHub Code Security, then set CODEQL_ENABLED=true to enforce CodeQL."
 
+  # Construit l'image une seule fois, la scanne, génère son SBOM puis la conserve comme artefact.
   container-build-and-scan:
     name: Container build and scan
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
@@ -269,6 +276,7 @@ jobs:
           retention-days: 1
           compression-level: 0
 
+  # Publie dans GHCR l'image déjà scannée sous un tag immuable lié au commit.
   publish:
     name: Publish immutable image
     if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev')
@@ -310,6 +318,7 @@ jobs:
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
 
+  # Atteste la provenance et le SBOM de l'image publiée puis vérifie ces attestations.
   attest:
     name: Attest image and SBOM
     if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev')
@@ -357,6 +366,7 @@ jobs:
           DIGEST: ${{ needs.publish.outputs.digest }}
         run: gh attestation verify "oci://$IMAGE@$DIGEST" --repo "$GITHUB_REPOSITORY"
 
+  # Associe un tag SemVer à l'image immuable lors de la création d'un tag Git.
   release-alias:
     name: Publish SemVer alias
     if: startsWith(github.ref, 'refs/tags/')
@@ -393,6 +403,7 @@ jobs:
           docker buildx imagetools create --tag "$image:$GITHUB_REF_NAME" "$source"
           test "$(docker buildx imagetools inspect "$image:$GITHUB_REF_NAME" --format '{{json .Manifest.Digest}}' | tr -d '"')" = "$digest"
 
+  # Met à jour dans k8s_config le digest exact de l'image déployée sur main ou dev.
   update-gitops:
     name: Update GitOps
     if: github.event_name == 'push' && (github.ref_name == 'main' || github.ref_name == 'dev')
@@ -480,6 +491,7 @@ jobs:
           git commit -m "core-api($GITHUB_REF_NAME): $source_short @ sha256:$digest_short" -m "Source: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           git push origin HEAD:main
 
+  # Agrège les résultats obligatoires en un check stable utilisable par la protection de branche.
   ci-success:
     name: ci-success
     if: ${{ always() }}
