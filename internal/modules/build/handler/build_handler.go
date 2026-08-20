@@ -70,6 +70,30 @@ func isGitHubHTTPSRepo(gitRepo string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(gitRepo)), "https://github.com")
 }
 
+func parseGitHubOwnerAndRepo(gitRepo string) (string, string) {
+	trimmed := strings.TrimSpace(gitRepo)
+	trimmed = strings.TrimSuffix(trimmed, ".git")
+
+	if strings.Contains(trimmed, "github.com/") {
+		parts := strings.Split(trimmed, "github.com/")
+		if len(parts) == 2 {
+			segments := strings.Split(parts[1], "/")
+			if len(segments) >= 2 {
+				return segments[0], segments[1]
+			}
+		}
+	} else if strings.Contains(trimmed, "github.com:") {
+		parts := strings.Split(trimmed, "github.com:")
+		if len(parts) == 2 {
+			segments := strings.Split(parts[1], "/")
+			if len(segments) >= 2 {
+				return segments[0], segments[1]
+			}
+		}
+	}
+	return "", ""
+}
+
 func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint, projectConfig dbEngine.ProjectConfig) (string, string) {
 	projectUsername, projectToken, projectHasCredentials := hasProjectGitCredentials(projectConfig)
 
@@ -80,9 +104,10 @@ func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint
 		return "", ""
 	}
 
-	githubInstallationDB, err := c.githubService.GetInstallationByUser(userID)
+	owner, repo := parseGitHubOwnerAndRepo(projectConfig.GitRepo)
+	githubInstallationDB, err := c.githubService.FindInstallationForRepo(ctx, userID, owner, repo)
 	if err != nil {
-		fmt.Printf("Build auth: failed to get GitHub installation for user %d: %v\n", userID, err)
+		fmt.Printf("Build auth: failed to get GitHub installation for user %d (repo %s/%s): %v\n", userID, owner, repo, err)
 		if projectHasCredentials {
 			return projectUsername, projectToken
 		}
@@ -92,18 +117,12 @@ func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint
 	if githubInstallationDB != nil {
 		installationToken, tokenErr := c.githubService.GetInstallationToken(githubInstallationDB.InstallationID)
 		if tokenErr == nil && strings.TrimSpace(installationToken) != "" {
-			username := "x-access-token"
-			githubInstallation, installationErr := c.githubService.GetGithubInstallation(ctx, githubInstallationDB.InstallationID)
-			if installationErr == nil && githubInstallation != nil && githubInstallation.Account != nil && strings.TrimSpace(githubInstallation.Account.GetLogin()) != "" {
-				username = githubInstallation.Account.GetLogin()
-			} else if installationErr != nil {
-				fmt.Printf("Build auth: failed to get GitHub installation details %d: %v\n", githubInstallationDB.InstallationID, installationErr)
-			}
-			return username, installationToken
+			// For git clone with GitHub installation token, username "x-access-token" is universal and works across all orgs and repos
+			return "x-access-token", strings.TrimSpace(installationToken)
 		}
 
 		if tokenErr != nil {
-			fmt.Printf("Build auth: failed to get GitHub installation token %d: %v\n", githubInstallationDB.InstallationID, tokenErr)
+			fmt.Printf("Build auth: failed to get GitHub installation token %d for repo %s/%s: %v\n", githubInstallationDB.InstallationID, owner, repo, tokenErr)
 		}
 	}
 

@@ -411,6 +411,84 @@ func (s *GithubService) GetGithubInstallationByUserID(userID uint) (*dbEngine.Gi
 	return s.Repository.GetInstallationByUser(userID)
 }
 
+func (s *GithubService) FindInstallationForOwner(ctx context.Context, userID uint, owner string) (*dbEngine.GithubInstallation, error) {
+	insts, err := s.Repository.ListInstallationsByUser(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(insts) == 0 {
+		return nil, nil
+	}
+
+	trimmedOwner := strings.TrimSpace(owner)
+	if trimmedOwner == "" {
+		return &insts[0], nil
+	}
+
+	// 1. Direct AccountLogin match (case-insensitive)
+	for i := range insts {
+		if strings.EqualFold(insts[i].AccountLogin, trimmedOwner) {
+			return &insts[i], nil
+		}
+	}
+
+	// 2. Query GitHub API for installations missing AccountLogin
+	for i := range insts {
+		ghInst, err := s.GetGithubInstallation(ctx, insts[i].InstallationID)
+		if err == nil && ghInst != nil && ghInst.Account != nil {
+			login := ghInst.Account.GetLogin()
+			if login != "" && insts[i].AccountLogin == "" {
+				_ = s.Repository.SaveInstallation(userID, insts[i].InstallationID, login, ghInst.Account.GetType(), ghInst.Account.GetID(), ghInst.Account.GetAvatarURL())
+				insts[i].AccountLogin = login
+			}
+			if strings.EqualFold(login, trimmedOwner) {
+				return &insts[i], nil
+			}
+		}
+	}
+
+	// 3. Fallback to first installation
+	return &insts[0], nil
+}
+
+func (s *GithubService) FindInstallationForRepo(ctx context.Context, userID uint, owner, repo string) (*dbEngine.GithubInstallation, error) {
+	insts, err := s.Repository.ListInstallationsByUser(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(insts) == 0 {
+		return nil, nil
+	}
+
+	trimmedOwner := strings.TrimSpace(owner)
+	trimmedRepo := strings.TrimSpace(repo)
+
+	// 1. Direct owner match
+	if trimmedOwner != "" {
+		for i := range insts {
+			if strings.EqualFold(insts[i].AccountLogin, trimmedOwner) {
+				return &insts[i], nil
+			}
+		}
+	}
+
+	// 2. Test access via GitHub client
+	if trimmedOwner != "" && trimmedRepo != "" {
+		for i := range insts {
+			client, err := s.ClientManager.ClientForInstallation(insts[i].InstallationID)
+			if err == nil {
+				_, resp, err := client.Repositories.Get(ctx, trimmedOwner, trimmedRepo)
+				if err == nil || (resp != nil && resp.StatusCode == 200) {
+					return &insts[i], nil
+				}
+			}
+		}
+	}
+
+	// 3. Fallback to owner match
+	return s.FindInstallationForOwner(ctx, userID, owner)
+}
+
 func (s *GithubService) UpdateInstallation(userID uint, installationID int64) error {
 	return s.Repository.SaveInstallation(userID, installationID, "", "", 0, "")
 }
