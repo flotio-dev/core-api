@@ -12,7 +12,7 @@ type User struct {
 	Projects     []Project `gorm:"foreignKey:UserID" json:"projects"`
 	PasswordHash string    `json:"-"`
 
-	GithubInstallation *GithubInstallation `gorm:"foreignKey:UserID"`
+	GithubInstallations []GithubInstallation `gorm:"foreignKey:UserID" json:"github_installations,omitempty"`
 }
 
 // Project model
@@ -206,7 +206,7 @@ type Organization struct {
 	Name        string `json:"name" gorm:"not null;uniqueIndex"`
 	Description string `json:"description,omitempty"`
 
-	GithubInstallation *GithubInstallation `gorm:"foreignKey:OrganizationID"`
+	GithubInstallations []GithubInstallation `gorm:"foreignKey:OrganizationID" json:"github_installations,omitempty"`
 }
 
 type GithubInstallation struct {
