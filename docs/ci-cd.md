@@ -16,7 +16,7 @@ does not rebuild it.
 
 Required configuration:
 
-- secrets `GH_APP_CLIENT_ID` and `GH_APP_PRIVATE_KEY`;
+- secrets `GH_APP_ID` and `GH_APP_PRIVATE_KEY`;
 - GitHub App access only to `flotio-dev/k8s_config`, Contents write, with a
   narrowly scoped ruleset bypass for its main branch;
 - protected `main`, `dev`, `v*` and `production`, requiring `ci-success`;
