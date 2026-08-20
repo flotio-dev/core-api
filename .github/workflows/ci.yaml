@@ -333,11 +333,13 @@ jobs:
       artifact-metadata: write
     steps:
       - name: Download SBOM
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: container-${{ github.sha }}
 
       - name: Log in to GHCR
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
@@ -345,6 +347,7 @@ jobs:
           password: ${{ github.token }}
 
       - name: Attest provenance
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ needs.publish.outputs.image }}
@@ -352,6 +355,7 @@ jobs:
           push-to-registry: true
 
       - name: Attest SBOM
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
         uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ${{ needs.publish.outputs.image }}
@@ -360,11 +364,16 @@ jobs:
           push-to-registry: true
 
       - name: Verify attestations
+        if: github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           IMAGE: ${{ needs.publish.outputs.image }}
           DIGEST: ${{ needs.publish.outputs.digest }}
         run: gh attestation verify "oci://$IMAGE@$DIGEST" --repo "$GITHUB_REPOSITORY"
+
+      - name: Explain unavailable attestations
+        if: github.event.repository.private && vars.ATTESTATIONS_ENABLED != 'true'
+        run: echo "::notice::Artifact attestations are disabled for private repositories. Set ATTESTATIONS_ENABLED=true when GitHub Enterprise Cloud is available."
 
   # Associe un tag SemVer à l'image immuable lors de la création d'un tag Git.
   release-alias:
@@ -391,15 +400,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Alias existing attested SHA image
+      - name: Alias existing SHA image
         env:
           GH_TOKEN: ${{ github.token }}
+          ATTESTATIONS_ENABLED: ${{ github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true' }}
         run: |
           set -euo pipefail
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           source="$image:sha-$GITHUB_SHA"
           digest="$(docker buildx imagetools inspect "$source" --format '{{json .Manifest.Digest}}' | tr -d '"')"
-          gh attestation verify "oci://$image@$digest" --repo "$GITHUB_REPOSITORY"
+          if [[ "$ATTESTATIONS_ENABLED" == "true" ]]; then
+            gh attestation verify "oci://$image@$digest" --repo "$GITHUB_REPOSITORY"
+          fi
           docker buildx imagetools create --tag "$image:$GITHUB_REF_NAME" "$source"
           test "$(docker buildx imagetools inspect "$image:$GITHUB_REF_NAME" --format '{{json .Manifest.Digest}}' | tr -d '"')" = "$digest"
 
