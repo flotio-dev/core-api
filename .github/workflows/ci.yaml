@@ -5,7 +5,6 @@ on:
     branches: [main, dev]
   push:
     branches: [main, dev]
-    tags: ["v*.*.*"]
   merge_group:
   workflow_dispatch:
   schedule:
@@ -198,7 +197,6 @@ jobs:
   # Construit l'image une seule fois, la scanne, génère son SBOM puis la conserve comme artefact.
   container-build-and-scan:
     name: Container build and scan
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     outputs:
@@ -374,46 +372,6 @@ jobs:
       - name: Explain unavailable attestations
         if: github.event.repository.private && vars.ATTESTATIONS_ENABLED != 'true'
         run: echo "::notice::Artifact attestations are disabled for private repositories. Set ATTESTATIONS_ENABLED=true when GitHub Enterprise Cloud is available."
-
-  # Associe un tag SemVer à l'image immuable lors de la création d'un tag Git.
-  release-alias:
-    name: Publish SemVer alias
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: [quality, unit-tests, integration-tests, swagger-check, security-source, codeql]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: write
-      attestations: read
-    steps:
-      - name: Validate release tag
-        run: '[[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]'
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Log in to GHCR
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
-      - name: Alias existing SHA image
-        env:
-          GH_TOKEN: ${{ github.token }}
-          ATTESTATIONS_ENABLED: ${{ github.event.repository.private == false || vars.ATTESTATIONS_ENABLED == 'true' }}
-        run: |
-          set -euo pipefail
-          image="ghcr.io/${GITHUB_REPOSITORY,,}"
-          source="$image:sha-$GITHUB_SHA"
-          if [[ "$ATTESTATIONS_ENABLED" == "true" ]]; then
-            digest="$(docker buildx imagetools inspect "$source" --format '{{json .Manifest.Digest}}' | tr -d '"')"
-            gh attestation verify "oci://$image@$digest" --repo "$GITHUB_REPOSITORY"
-          fi
-          docker buildx imagetools create --tag "$image:$GITHUB_REF_NAME" "$source"
-          docker buildx imagetools inspect "$image:$GITHUB_REF_NAME"
 
   # Crée automatiquement un tag SemVer, une release GitHub et publie l'alias d'image lors d'un push sur main.
   auto-release:
@@ -604,7 +562,7 @@ jobs:
   ci-success:
     name: ci-success
     if: ${{ always() }}
-    needs: [quality, unit-tests, integration-tests, swagger-check, security-source, codeql, container-build-and-scan, publish, attest, release-alias, auto-release, update-gitops]
+    needs: [quality, unit-tests, integration-tests, swagger-check, security-source, codeql, container-build-and-scan, publish, attest, auto-release, update-gitops]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -619,7 +577,6 @@ jobs:
           CONTAINER: ${{ needs.container-build-and-scan.result }}
           PUBLISH: ${{ needs.publish.result }}
           ATTEST: ${{ needs.attest.result }}
-          RELEASE_ALIAS: ${{ needs.release-alias.result }}
           AUTO_RELEASE: ${{ needs.auto-release.result }}
           GITOPS: ${{ needs.update-gitops.result }}
         run: |
@@ -630,11 +587,7 @@ jobs:
           test "$SWAGGER" = success
           test "$SECURITY_SOURCE" = success
           test "$CODEQL" = success
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            test "$RELEASE_ALIAS" = success
-          else
-            test "$CONTAINER" = success
-          fi
+          test "$CONTAINER" = success
           if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF_NAME" == main ]]; then
             test "$PUBLISH" = success
             test "$ATTEST" = success
