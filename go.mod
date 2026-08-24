@@ -15,9 +15,9 @@ require (
 	google.golang.org/api v0.293.0
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.2
-	k8s.io/api v0.36.3
-	k8s.io/apimachinery v0.36.3
-	k8s.io/client-go v0.36.3
+	k8s.io/api v0.36.4
+	k8s.io/apimachinery v0.36.4
+	k8s.io/client-go v0.36.4
 )
 
 require (
