@@ -35,10 +35,28 @@ const defaultTrack = "internal"
 // actionTriggered is the audit action recorded when a publication is requested.
 const actionTriggered = "triggered"
 
+type googlePlayPublisher interface {
+	CheckAccess(ctx context.Context, packageName string) error
+	Publish(ctx context.Context, input googleplay.PublishInput) (*googleplay.PublishResult, error)
+}
+
+var newGooglePlayClient = func(ctx context.Context, encryptedCredentials string) (googlePlayPublisher, error) {
+	return googleplay.NewClientFromCredentials(ctx, encryptedCredentials)
+}
+
+var getS3ReleaseArtifactReader = func(buildID uint) (io.ReadCloser, error) {
+	aabKey, err := s3Engine.FindReleaseArtifactKey(buildID)
+	if err != nil {
+		return nil, err
+	}
+	return s3Engine.GetObject(aabKey)
+}
+
 // ReleaseController handles Google Play publication operations.
 type ReleaseController struct {
 	userService *userServices.UserService
 }
+
 
 func NewReleaseController(userService *userServices.UserService) *ReleaseController {
 	return &ReleaseController{userService: userService}
@@ -168,12 +186,7 @@ func runPublish(userID, projectID, releaseID, buildID uint, encryptedCredentials
 
 	setReleaseStatus(releaseID, statusUploading, 0)
 
-	aabKey, err := s3Engine.FindReleaseArtifactKey(buildID)
-	if err != nil {
-		fail("resolve AAB", err)
-		return
-	}
-	reader, err := s3Engine.GetObject(aabKey)
+	reader, err := getS3ReleaseArtifactReader(buildID)
 	if err != nil {
 		fail("open AAB", err)
 		return
@@ -181,7 +194,7 @@ func runPublish(userID, projectID, releaseID, buildID uint, encryptedCredentials
 	defer reader.Close()
 	input.AAB = reader
 
-	client, err := googleplay.NewClientFromCredentials(ctx, encryptedCredentials)
+	client, err := newGooglePlayClient(ctx, encryptedCredentials)
 	if err != nil {
 		fail("build client", err)
 		return
@@ -192,6 +205,7 @@ func runPublish(userID, projectID, releaseID, buildID uint, encryptedCredentials
 		fail("publish", err)
 		return
 	}
+
 
 	status := mapPublishStatus(result.Status)
 	setReleaseStatus(releaseID, status, result.VersionCode)
@@ -371,7 +385,7 @@ func (c *ReleaseController) AccessCheckHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	client, err := googleplay.NewClientFromCredentials(r.Context(), credentials.Credentials)
+	client, err := newGooglePlayClient(r.Context(), credentials.Credentials)
 	if err != nil {
 		helpers.WriteJSON(w, models.AccessCheckResponse{Accessible: false, Reason: "client_error", Message: "Failed to build Google Play client"})
 		return
@@ -415,7 +429,7 @@ func loadGooglePlayContext(projectID, userID uint) (dbEngine.ProjectConfig, dbEn
 // accessError verifies SA access and returns (httpStatus, message). A status of
 // 0 means access is granted.
 func accessError(ctx context.Context, encryptedCredentials, packageName string) (int, string) {
-	client, err := googleplay.NewClientFromCredentials(ctx, encryptedCredentials)
+	client, err := newGooglePlayClient(ctx, encryptedCredentials)
 	if err != nil {
 		return http.StatusInternalServerError, "Failed to build Google Play client"
 	}
@@ -431,6 +445,7 @@ func accessError(ctx context.Context, encryptedCredentials, packageName string) 
 	}
 	return 0, ""
 }
+
 
 // parsePublishRequest decodes the optional request body, tolerating an empty body.
 func parsePublishRequest(r *http.Request) models.PublishRequest {

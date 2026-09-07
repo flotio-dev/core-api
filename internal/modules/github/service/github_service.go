@@ -20,6 +20,41 @@ type GithubService struct {
 	ClientManager *githubEngine.GitHubClientManager
 }
 
+var (
+	getInstallationClient = func(m *githubEngine.GitHubClientManager, id int64) (*github.Client, error) {
+		if m == nil {
+			return nil, fmt.Errorf("ClientManager not initialized")
+		}
+		return m.ClientForInstallation(id)
+	}
+	getAppClient = func(m *githubEngine.GitHubClientManager) (*github.Client, error) {
+		if m == nil {
+			return nil, fmt.Errorf("ClientManager not initialized")
+		}
+		return m.ClientForApp()
+	}
+)
+
+// SetClientGettersForTest allows overriding client factory hooks in tests.
+// It returns a restore cleanup function.
+func SetClientGettersForTest(
+	appFn func(m *githubEngine.GitHubClientManager) (*github.Client, error),
+	instFn func(m *githubEngine.GitHubClientManager, id int64) (*github.Client, error),
+) func() {
+	origApp := getAppClient
+	origInst := getInstallationClient
+	if appFn != nil {
+		getAppClient = appFn
+	}
+	if instFn != nil {
+		getInstallationClient = instFn
+	}
+	return func() {
+		getAppClient = origApp
+		getInstallationClient = origInst
+	}
+}
+
 func NewGithubService(repository *repositories.GithubRepository, ClientManager *githubEngine.GitHubClientManager) *GithubService {
 	return &GithubService{
 		Repository:    repository,
@@ -40,7 +75,7 @@ func (s *GithubService) ListInstallationsByUser(userID uint) ([]dbEngine.GithubI
 }
 
 func (s *GithubService) ListRepositories(ctx context.Context, installationID int64) ([]*github.Repository, error) {
-	client, err := s.ClientManager.ClientForInstallation(installationID)
+	client, err := getInstallationClient(s.ClientManager, installationID)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create github client: %w", err)
 	}
@@ -54,7 +89,7 @@ func (s *GithubService) ListRepositories(ctx context.Context, installationID int
 }
 
 func (s *GithubService) GetRepoTree(ctx context.Context, installationID int64, owner, repo string) ([]*github.RepositoryContent, error) {
-	client, err := s.ClientManager.ClientForInstallation(installationID)
+	client, err := getInstallationClient(s.ClientManager, installationID)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +121,7 @@ func (s *GithubService) GetRepoTree(ctx context.Context, installationID int64, o
 }
 
 func (s *GithubService) GetInstallationToken(installationID int64) (string, error) {
-	client, err := s.ClientManager.ClientForApp()
+	client, err := getAppClient(s.ClientManager)
 	if err != nil {
 		return "", err
 	}
@@ -100,7 +135,7 @@ func (s *GithubService) GetInstallationToken(installationID int64) (string, erro
 }
 
 func (s *GithubService) GetGithubUser(ctx context.Context, installationID int64) (*github.User, error) {
-	client, err := s.ClientManager.ClientForInstallation(installationID)
+	client, err := getInstallationClient(s.ClientManager, installationID)
 	if err != nil {
 		return nil, err
 	}
@@ -114,10 +149,13 @@ func (s *GithubService) GetGithubUser(ctx context.Context, installationID int64)
 }
 
 func (s *GithubService) GetGithubInstallation(ctx context.Context, installationID int64) (*github.Installation, error) {
+	if s.ClientManager == nil {
+		return nil, fmt.Errorf("ClientManager not initialized")
+	}
 	fmt.Printf("client ID = %d\n", s.ClientManager.AppID)
 	fmt.Printf("privateKeyPath = %s\n", s.ClientManager.PrivateKeyPath)
 
-	client, err := s.ClientManager.ClientForApp()
+	client, err := getAppClient(s.ClientManager)
 	if err != nil {
 		fmt.Printf("Error creating GitHub client: %v\n", err)
 		return nil, err
@@ -126,8 +164,9 @@ func (s *GithubService) GetGithubInstallation(ctx context.Context, installationI
 	inst, resp, err := client.Apps.GetInstallation(ctx, installationID)
 	if err != nil {
 		fmt.Printf("Error fetching GitHub installation %d: %v\n", installationID, err)
-		fmt.Printf("Response status: %d\n", resp.StatusCode)
-		fmt.Printf("Response body: %s\n", resp.Body)
+		if resp != nil {
+			fmt.Printf("Response status: %d\n", resp.StatusCode)
+		}
 		return nil, err
 	}
 
@@ -135,7 +174,7 @@ func (s *GithubService) GetGithubInstallation(ctx context.Context, installationI
 }
 
 func (s *GithubService) InstallationExists(ctx context.Context, installationID int64) (*github.Installation, error) {
-	client, err := s.ClientManager.ClientForApp()
+	client, err := getAppClient(s.ClientManager)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +201,7 @@ func (s *GithubService) DeleteInstallationByInstallationID(installationID int64)
 // Si l'appel GitHub renvoie 404, on continue et supprime uniquement l'enregistrement DB.
 func (s *GithubService) DeleteInstallation(ctx context.Context, installationID int64) error {
 	// tenter suppression côté GitHub avec le client App
-	client, err := s.ClientManager.ClientForApp()
+	client, err := getAppClient(s.ClientManager)
 	if err == nil {
 		resp, derr := client.Apps.DeleteInstallation(ctx, installationID)
 		if derr != nil && (resp == nil || resp.StatusCode != 404) {
@@ -196,7 +235,7 @@ func (s *GithubService) DeleteUserInstallation(ctx context.Context, userID uint,
 		return nil
 	}
 
-	client, err := s.ClientManager.ClientForApp()
+	client, err := getAppClient(s.ClientManager)
 	if err == nil {
 		resp, derr := client.Apps.DeleteInstallation(ctx, installationID)
 		if derr != nil && (resp == nil || resp.StatusCode != 404) {
@@ -223,7 +262,7 @@ func (s *GithubService) DeleteUserInstallationByID(ctx context.Context, userID u
 		return nil
 	}
 
-	client, err := s.ClientManager.ClientForApp()
+	client, err := getAppClient(s.ClientManager)
 	if err == nil {
 		resp, derr := client.Apps.DeleteInstallation(ctx, installationID)
 		if derr != nil && (resp == nil || resp.StatusCode != 404) {
@@ -235,7 +274,7 @@ func (s *GithubService) DeleteUserInstallationByID(ctx context.Context, userID u
 }
 
 func (s *GithubService) FindBuildPath(ctx context.Context, installationID int64, owner, repo string) (string, error) {
-	client, err := s.ClientManager.ClientForInstallation(installationID)
+	client, err := getInstallationClient(s.ClientManager, installationID)
 	if err != nil {
 		return "", fmt.Errorf("cannot create github client: %w", err)
 	}
@@ -285,7 +324,7 @@ func (s *GithubService) FindBuildPath(ctx context.Context, installationID int64,
 }
 
 func (s *GithubService) DetectFlutterProject(ctx context.Context, installationID int64, owner, repo string) (*githubModels.FlutterProjectDetection, error) {
-	client, err := s.ClientManager.ClientForInstallation(installationID)
+	client, err := getInstallationClient(s.ClientManager, installationID)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create github client: %w", err)
 	}
@@ -475,7 +514,7 @@ func (s *GithubService) FindInstallationForRepo(ctx context.Context, userID uint
 	// 2. Test access via GitHub client
 	if trimmedOwner != "" && trimmedRepo != "" {
 		for i := range insts {
-			client, err := s.ClientManager.ClientForInstallation(insts[i].InstallationID)
+			client, err := getInstallationClient(s.ClientManager, insts[i].InstallationID)
 			if err == nil {
 				_, resp, err := client.Repositories.Get(ctx, trimmedOwner, trimmedRepo)
 				if err == nil || (resp != nil && resp.StatusCode == 200) {

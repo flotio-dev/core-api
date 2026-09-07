@@ -93,4 +93,51 @@ func TestMissingKeyFailsClosed(t *testing.T) {
 	if _, err := Encrypt("x"); err != ErrNoKey {
 		t.Fatalf("expected ErrNoKey from Encrypt, got %v", err)
 	}
+	if _, err := Decrypt("enc:v1:someciphertext"); err != ErrNoKey {
+		t.Fatalf("expected ErrNoKey from Decrypt, got %v", err)
+	}
+}
+
+func TestInvalidKeyConfigurations(t *testing.T) {
+	// Not base64
+	os.Setenv(envKey, "not-valid-base64!!!")
+	resetGCM()
+	if err := Init(); err != ErrNoKey {
+		t.Fatalf("expected ErrNoKey for invalid base64, got %v", err)
+	}
+
+	// Base64 but wrong length (16 bytes instead of 32)
+	shortKey := make([]byte, 16)
+	os.Setenv(envKey, base64.StdEncoding.EncodeToString(shortKey))
+	resetGCM()
+	if err := Init(); err != ErrNoKey {
+		t.Fatalf("expected ErrNoKey for 16-byte key, got %v", err)
+	}
+}
+
+func TestDecryptErrors(t *testing.T) {
+	setKey(t)
+
+	// Invalid base64 after prefix
+	if _, err := Decrypt("enc:v1:???not-base-64???"); err == nil {
+		t.Fatal("expected error for invalid base64")
+	}
+
+	// Ciphertext too short (< NonceSize)
+	shortCipher := base64.StdEncoding.EncodeToString([]byte("short"))
+	if _, err := Decrypt("enc:v1:" + shortCipher); err == nil {
+		t.Fatal("expected error for too short ciphertext")
+	}
+
+	// Tampered ciphertext (fails authentication)
+	enc, err := Encrypt("secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rawCipher, _ := base64.StdEncoding.DecodeString(enc[len(prefix):])
+	rawCipher[len(rawCipher)-1] ^= 0xFF // tamper with last byte
+	tampered := prefix + base64.StdEncoding.EncodeToString(rawCipher)
+	if _, err := Decrypt(tampered); err == nil {
+		t.Fatal("expected error for tampered ciphertext")
+	}
 }

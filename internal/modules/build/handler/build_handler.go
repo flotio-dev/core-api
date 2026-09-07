@@ -28,8 +28,10 @@ type BuildController struct {
 	userService   *userServices.UserService
 }
 
-const waitingBuildSchedulerInterval = 5 * time.Second
-const enableBuildCapacityQueue = false
+var waitingBuildSchedulerInterval = 5 * time.Second
+var enableBuildCapacityQueue = false
+var syncPollingTimeout = 10 * time.Second
+var syncPollingInterval = 500 * time.Millisecond
 
 var buildSchedulingMutex sync.Mutex
 var waitingBuildSchedulerOnce sync.Once
@@ -98,6 +100,13 @@ func (c *BuildController) resolveGitCredentials(ctx context.Context, userID uint
 	projectUsername, projectToken, projectHasCredentials := hasProjectGitCredentials(projectConfig)
 
 	if !isGitHubHTTPSRepo(projectConfig.GitRepo) {
+		if projectHasCredentials {
+			return projectUsername, projectToken
+		}
+		return "", ""
+	}
+
+	if c.githubService == nil {
 		if projectHasCredentials {
 			return projectUsername, projectToken
 		}
@@ -771,9 +780,9 @@ func (bc *BuildController) BuildLogsSyncHandler(w http.ResponseWriter, r *http.R
 		LastAccess:     time.Now(),
 	})
 
-	// Long polling: wait up to 10 seconds for new logs
-	timeout := time.After(10 * time.Second)
-	ticker := time.NewTicker(500 * time.Millisecond) // Check every 500ms
+	// Long polling: wait for new logs
+	timeout := time.After(syncPollingTimeout)
+	ticker := time.NewTicker(syncPollingInterval)
 	defer ticker.Stop()
 
 	var newLogs []dbEngine.Log

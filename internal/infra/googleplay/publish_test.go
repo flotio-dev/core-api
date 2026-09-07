@@ -1,6 +1,9 @@
 package googleplay
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestResolveReleaseStatus(t *testing.T) {
 	cases := []struct {
@@ -83,4 +86,81 @@ func TestBuildTrackRelease(t *testing.T) {
 			t.Fatalf("expected no release notes, got %v", r.ReleaseNotes)
 		}
 	})
+}
+
+func TestBuildTrackRelease_CustomLang(t *testing.T) {
+	r := buildTrackRelease(TrackAssignment{
+		Track:            "internal",
+		VersionCode:      5,
+		ReleaseNotes:     "note",
+		ReleaseNotesLang: "fr-FR",
+	})
+	if len(r.ReleaseNotes) != 1 || r.ReleaseNotes[0].Language != "fr-FR" {
+		t.Errorf("expected language fr-FR, got %+v", r.ReleaseNotes)
+	}
+}
+
+func TestPublish_ValidationErrors(t *testing.T) {
+	c := &Client{}
+
+	// Empty track
+	_, err := c.Publish(nil, PublishInput{Track: ""})
+	if err == nil || err.Error() != "googleplay: empty track" {
+		t.Errorf("expected empty track error, got %v", err)
+	}
+
+	// Empty package name on insertEdit
+	_, err = c.insertEdit(nil, "")
+	if err == nil || err.Error() != "googleplay: empty package name" {
+		t.Errorf("expected empty package name error, got %v", err)
+	}
+
+	// Nil AAB on uploadBundle
+	_, err = c.uploadBundle(nil, "pkg", "edit", nil)
+	if err == nil || err.Error() != "googleplay: nil AAB reader" {
+		t.Errorf("expected nil AAB reader error, got %v", err)
+	}
+
+	// Empty track on assignTrack
+	err = c.assignTrack(nil, "pkg", "edit", TrackAssignment{Track: ""})
+	if err == nil || err.Error() != "googleplay: empty track" {
+		t.Errorf("expected empty track error, got %v", err)
+	}
+
+	// Service getter
+	if c.Service() != nil {
+		t.Errorf("expected nil service from empty client")
+	}
+
+	// NewClient empty
+	_, err = NewClient(nil, nil)
+	if err == nil {
+		t.Error("expected error for empty credentials")
+	}
+
+	// NewClientFromCredentials invalid/empty
+	_, err = NewClientFromCredentials(nil, "")
+	if err == nil {
+		t.Error("expected error for empty encrypted credentials")
+	}
+}
+
+func TestClient_EmptyPackageMethods(t *testing.T) {
+	c := &Client{}
+	ctx := context.Background()
+
+	// CheckAccess
+	if err := c.CheckAccess(ctx, ""); err == nil {
+		t.Error("expected error for empty package in CheckAccess")
+	}
+
+	// LatestVersionCode
+	if _, err := c.LatestVersionCode(ctx, ""); err == nil {
+		t.Error("expected error for empty package in LatestVersionCode")
+	}
+
+	// NextVersionCode
+	if _, err := c.NextVersionCode(ctx, "", 0); err == nil {
+		t.Error("expected error for empty package in NextVersionCode")
+	}
 }

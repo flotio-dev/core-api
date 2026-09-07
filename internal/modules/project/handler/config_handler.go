@@ -353,9 +353,17 @@ func (c *ConfigController) ConfigDeleteHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Verify project ownership and delete config
-	if err := dbEngine.DB.Joins("JOIN projects ON project_configs.project_id = projects.id").
-		Where("projects.id = ? AND projects.user_id = ?", projectID, userInfo.ID).
-		Delete(&dbEngine.ProjectConfig{}).Error; err != nil {
+	var project dbEngine.Project
+	if err := dbEngine.DB.Where("id = ? AND user_id = ?", projectID, userInfo.ID).First(&project).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			helpers.WriteErrorJSON(w, "Project not found", http.StatusNotFound)
+			return
+		}
+		helpers.WriteErrorJSON(w, "Failed to fetch project", http.StatusInternalServerError)
+		return
+	}
+
+	if err := dbEngine.DB.Where("project_id = ?", projectID).Delete(&dbEngine.ProjectConfig{}).Error; err != nil {
 		helpers.WriteErrorJSON(w, "Failed to delete config", http.StatusInternalServerError)
 		return
 	}
