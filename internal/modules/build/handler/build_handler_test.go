@@ -764,9 +764,9 @@ func TestBuildController_StatusReconciliationAndQueue(t *testing.T) {
 	}
 
 	// 3. Queue processing: enableBuildCapacityQueue = true
-	origQueue := enableBuildCapacityQueue
-	defer func() { enableBuildCapacityQueue = origQueue }()
-	enableBuildCapacityQueue = true
+	origQueue := isBuildCapacityQueueEnabled()
+	defer func() { setBuildCapacityQueueEnabled(origQueue) }()
+	setBuildCapacityQueueEnabled(true)
 
 	bQueue := dbEngine.Build{ProjectID: proj.ID}
 	dbEngine.DB.Create(&bQueue)
@@ -825,18 +825,32 @@ func TestBuildController_StatusReconciliationAndQueue(t *testing.T) {
 		t.Errorf("expected 200 on delete pending, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// 7. Test startWaitingBuildScheduler directly (when queue disabled returns immediately, when enabled runs tick)
-	origInt := waitingBuildSchedulerInterval
-	waitingBuildSchedulerInterval = 1 * time.Millisecond
-	defer func() { waitingBuildSchedulerInterval = origInt }()
+	// 7. Test startWaitingBuildScheduler directly
+	// When queue is disabled, it returns immediately
+	setBuildCapacityQueueEnabled(false)
+	ctrl.startWaitingBuildScheduler()
 
+	// When enabled, it runs until cancelled via stop channel
+	origInt := getWaitingBuildSchedulerInterval()
+	setWaitingBuildSchedulerInterval(5 * time.Millisecond)
+	defer func() {
+		setWaitingBuildSchedulerInterval(origInt)
+		setBuildCapacityQueueEnabled(false)
+	}()
+
+	stopCh := make(chan struct{})
+	queueConfigMutex.Lock()
+	waitingBuildSchedulerStop = stopCh
+	queueConfigMutex.Unlock()
+
+	setBuildCapacityQueueEnabled(true)
 	doneCh := make(chan struct{})
 	go func() {
 		ctrl.startWaitingBuildScheduler()
 		close(doneCh)
 	}()
-	time.Sleep(5 * time.Millisecond)
-	enableBuildCapacityQueue = false
-	// calling again when false returns immediately
-	ctrl.startWaitingBuildScheduler()
+
+	time.Sleep(15 * time.Millisecond)
+	close(stopCh)
+	<-doneCh
 }

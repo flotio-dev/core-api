@@ -33,6 +33,35 @@ var enableBuildCapacityQueue = false
 var syncPollingTimeout = 10 * time.Second
 var syncPollingInterval = 500 * time.Millisecond
 
+var (
+	queueConfigMutex          sync.RWMutex
+	waitingBuildSchedulerStop chan struct{}
+)
+
+func isBuildCapacityQueueEnabled() bool {
+	queueConfigMutex.RLock()
+	defer queueConfigMutex.RUnlock()
+	return enableBuildCapacityQueue
+}
+
+func setBuildCapacityQueueEnabled(val bool) {
+	queueConfigMutex.Lock()
+	defer queueConfigMutex.Unlock()
+	enableBuildCapacityQueue = val
+}
+
+func getWaitingBuildSchedulerInterval() time.Duration {
+	queueConfigMutex.RLock()
+	defer queueConfigMutex.RUnlock()
+	return waitingBuildSchedulerInterval
+}
+
+func setWaitingBuildSchedulerInterval(d time.Duration) {
+	queueConfigMutex.Lock()
+	defer queueConfigMutex.Unlock()
+	waitingBuildSchedulerInterval = d
+}
+
 var buildSchedulingMutex sync.Mutex
 var waitingBuildSchedulerOnce sync.Once
 
@@ -44,7 +73,7 @@ func NewBuildController(githubService *githubServices.GithubService, userService
 	}
 
 	waitingBuildSchedulerOnce.Do(func() {
-		if enableBuildCapacityQueue {
+		if isBuildCapacityQueueEnabled() {
 			go controller.startWaitingBuildScheduler()
 		}
 	})
@@ -222,7 +251,7 @@ func buildCacheNamespace(projectID uint, gitBranch string) string {
 }
 
 func buildHasMore(status string) bool {
-	if enableBuildCapacityQueue {
+	if isBuildCapacityQueueEnabled() {
 		return status == "running" || status == "pending" || status == "waiting"
 	}
 	return status == "running" || status == "pending"
@@ -270,7 +299,7 @@ func (c *BuildController) startBuildPod(ctx context.Context, build *dbEngine.Bui
 }
 
 func (c *BuildController) startBuildOrQueue(ctx context.Context, build *dbEngine.Build, project dbEngine.Project, userID uint) error {
-	if !enableBuildCapacityQueue {
+	if !isBuildCapacityQueueEnabled() {
 		return c.startBuildPod(ctx, build, project, userID)
 	}
 
@@ -291,29 +320,45 @@ func (c *BuildController) startBuildOrQueue(ctx context.Context, build *dbEngine
 }
 
 func (c *BuildController) startWaitingBuildScheduler() {
-	if !enableBuildCapacityQueue {
+	if !isBuildCapacityQueueEnabled() {
 		return
 	}
 
 	c.processWaitingBuildQueue()
 
-	ticker := time.NewTicker(waitingBuildSchedulerInterval)
+	interval := getWaitingBuildSchedulerInterval()
+	if interval <= 0 {
+		interval = 5 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.processWaitingBuildQueue()
+	for {
+		queueConfigMutex.RLock()
+		stopCh := waitingBuildSchedulerStop
+		queueConfigMutex.RUnlock()
+
+		select {
+		case <-stopCh:
+			return
+		case <-ticker.C:
+			if !isBuildCapacityQueueEnabled() {
+				return
+			}
+			c.processWaitingBuildQueue()
+		}
 	}
 }
 
 func (c *BuildController) triggerWaitingBuildProcessing() {
-	if !enableBuildCapacityQueue {
+	if !isBuildCapacityQueueEnabled() {
 		return
 	}
 	go c.processWaitingBuildQueue()
 }
 
 func (c *BuildController) processWaitingBuildQueue() {
-	if !enableBuildCapacityQueue {
+	if !isBuildCapacityQueueEnabled() {
 		return
 	}
 
