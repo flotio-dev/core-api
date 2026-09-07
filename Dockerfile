@@ -22,7 +22,8 @@ LABEL org.opencontainers.image.source=$OCI_SOURCE \
       org.opencontainers.image.version=$OCI_VERSION \
       org.opencontainers.image.created=$OCI_CREATED
 
-RUN apk add --no-cache ca-certificates tzdata \
+RUN apk upgrade --no-cache \
+    && apk add --no-cache ca-certificates tzdata \
     && addgroup -S -g 10001 app \
     && adduser -S -D -H -u 10001 -G app app
 
