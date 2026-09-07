@@ -79,6 +79,26 @@ func RespondWithSuccess[T any](w http.ResponseWriter, data *T, opts *ResponseOpt
 	json.NewEncoder(w).Encode(resp)
 }
 
+// httpForStatusType maps a StatusType vocabulary to an HTTP status code.
+func httpForStatusType(status StatusType) int {
+	switch status {
+	case StatusUnauthorized:
+		return http.StatusUnauthorized
+	case StatusNotFound:
+		return http.StatusNotFound
+	case StatusBadGateway:
+		return http.StatusBadGateway
+	case StatusInternalError:
+		return http.StatusInternalServerError
+	case StatusMethodNotAllowed:
+		return http.StatusMethodNotAllowed
+	case StatusBadRequest, StatusInvalidArgs:
+		return http.StatusBadRequest
+	default:
+		return http.StatusBadRequest
+	}
+}
+
 func RespondWithError(w http.ResponseWriter, opts *ResponseOptions) {
 	httpCode := http.StatusBadRequest
 	status := StatusInvalidArgs
@@ -87,6 +107,8 @@ func RespondWithError(w http.ResponseWriter, opts *ResponseOptions) {
 	if opts != nil {
 		if opts.HTTPCode != 0 {
 			httpCode = opts.HTTPCode
+		} else if opts.Status != "" {
+			httpCode = httpForStatusType(opts.Status)
 		}
 		if opts.Status != "" {
 			status = opts.Status

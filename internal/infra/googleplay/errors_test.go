@@ -1,6 +1,7 @@
 package googleplay
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -64,5 +65,56 @@ func TestIsRetryable(t *testing.T) {
 	}
 	if isRetryable(errors.New("local")) {
 		t.Fatal("local error should not be retryable")
+	}
+}
+
+func TestPublishErrorMethods(t *testing.T) {
+	inner := errors.New("underlying")
+	pe := &PublishError{
+		Reason: ReasonPermission,
+		Msg:    "permission denied",
+		Err:    inner,
+	}
+	if !errors.Is(pe, inner) {
+		t.Errorf("expected Unwrap to return inner error")
+	}
+	if pe.Error() == "" {
+		t.Errorf("expected non-empty Error()")
+	}
+}
+
+func TestWithRetry(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. Success first try
+	calls := 0
+	err := withRetry(ctx, 3, func() error {
+		calls++
+		return nil
+	})
+	if err != nil || calls != 1 {
+		t.Fatalf("expected success on call 1, got calls=%d, err=%v", calls, err)
+	}
+
+	// 2. Non-retryable error
+	calls = 0
+	nonRetryErr := errors.New("non-retryable")
+	err = withRetry(ctx, 3, func() error {
+		calls++
+		return nonRetryErr
+	})
+	if err != nonRetryErr || calls != 1 {
+		t.Fatalf("expected 1 call for non-retryable error, got calls=%d, err=%v", calls, err)
+	}
+
+	// 3. Context cancelled during retry
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel() // already cancelled
+	transientErr := fmt.Errorf("transient: %w", &googleapi.Error{Code: 503})
+	err = withRetry(cancelCtx, 3, func() error {
+		return transientErr
+	})
+	if err != context.Canceled {
+		t.Fatalf("expected context.Canceled, got %v", err)
 	}
 }

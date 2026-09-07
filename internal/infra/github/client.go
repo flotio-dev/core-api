@@ -58,7 +58,7 @@ func NewGitHubClientManager() (*GitHubClientManager, error) {
 }
 
 func (m *GitHubClientManager) ClientForInstallation(installationID int64) (*github.Client, error) {
-	if m.appTransport == nil {
+	if m == nil || m.appTransport == nil {
 		return nil, fmt.Errorf("appTransport not initialized")
 	}
 
@@ -68,7 +68,7 @@ func (m *GitHubClientManager) ClientForInstallation(installationID int64) (*gith
 }
 
 func (m *GitHubClientManager) ClientForApp() (*github.Client, error) {
-	if m.appTransport == nil {
+	if m == nil || m.appTransport == nil {
 		return nil, fmt.Errorf("appTransport not initialized")
 	}
 	client := github.NewClient(&http.Client{Transport: m.appTransport})

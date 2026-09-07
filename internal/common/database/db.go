@@ -17,6 +17,10 @@ import (
 var DB *gorm.DB
 var Redis *redis.Client
 
+var openDB = func(dsn string) (*gorm.DB, error) {
+	return gorm.Open(postgres.Open(dsn), &gorm.Config{})
+}
+
 func InitDB() {
 	dsn := os.Getenv("DATABASE_URL")
 	fmt.Printf("DB URL : %s", dsn)
@@ -25,7 +29,7 @@ func InitDB() {
 	}
 
 	var err error
-	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	DB, err = openDB(dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

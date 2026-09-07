@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
@@ -123,12 +125,35 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 //	@ID				RefreshTokenHandler
 //	@Router			/auth/refresh [post]
 func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
-	cookie, err := r.Cookie("refresh_token")
-	if err != nil {
-		helpers.WriteJSON(w, "Refresh token not provided")
+	var refreshToken string
+
+	// 1. Try reading from JSON body
+	if r.Body != nil {
+		var body authModel.RefreshTokenRequest
+		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			refreshToken = strings.TrimSpace(body.RefreshToken)
+		}
+	}
+
+	// 2. Try reading from cookie
+	if refreshToken == "" {
+		if cookie, err := r.Cookie("refresh_token"); err == nil {
+			refreshToken = strings.TrimSpace(cookie.Value)
+		}
+	}
+
+	// 3. Try reading from Authorization header (Bearer <refresh_token>)
+	if refreshToken == "" {
+		auth := r.Header.Get("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			refreshToken = strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+		}
+	}
+
+	if refreshToken == "" {
+		helpers.WriteErrorJSON(w, "Refresh token not provided", http.StatusBadRequest)
 		return
 	}
-	refreshToken := cookie.Value
 
 	token, err := jwt.ParseWithClaims(
 		refreshToken,
@@ -138,24 +163,33 @@ func RefreshTokenHandler(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil || !token.Valid {
-		helpers.WriteJSON(w, "Invalid refresh token")
+		helpers.WriteErrorJSON(w, "Invalid refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	claims := token.Claims.(*authModel.RefreshClaims)
+	claims, ok := token.Claims.(*authModel.RefreshClaims)
+	if !ok || claims.TokenID == "" {
+		helpers.WriteErrorJSON(w, "Invalid refresh token", http.StatusUnauthorized)
+		return
+	}
 
 	key := "refresh:" + claims.TokenID
-	if _, err := dbEngine.Redis.Get(r.Context(), key).Result(); err != nil {
-		helpers.WriteErrorJSON(w, "Refresh token revoked", http.StatusUnauthorized)
-		return
-	}
+	if dbEngine.Redis != nil {
+		if _, err := dbEngine.Redis.Get(r.Context(), key).Result(); err != nil {
+			helpers.WriteErrorJSON(w, "Refresh token revoked", http.StatusUnauthorized)
+			return
+		}
 
-	// rotation
-	authServices.RevokeRefreshToken(r.Context(), claims.TokenID)
+		// Rotation grace window: grant the old token a 30s expiration instead of instant
+		// deletion, preventing race-condition lockouts between parallel requests.
+		_ = dbEngine.Redis.Expire(r.Context(), key, 30*time.Second)
+	}
 
 	access, _ := authServices.GenerateAccessToken(claims.UserID)
 	refresh, tid, _ := authServices.GenerateRefreshToken(claims.UserID)
-	authServices.StoreRefreshToken(r.Context(), tid, claims.UserID)
+	if dbEngine.Redis != nil {
+		authServices.StoreRefreshToken(r.Context(), tid, claims.UserID)
+	}
 
 	authServices.SetRefreshTokenCookie(w, refresh, 7*24*3600)
 
