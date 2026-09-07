@@ -4,6 +4,8 @@ go 1.26.0
 
 require (
 	github.com/Nerzal/gocloak/v13 v13.9.0
+	github.com/alicebob/miniredis/v2 v2.39.0
+	github.com/glebarez/sqlite v1.11.0
 	github.com/google/go-github/v79 v79.0.0
 	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
@@ -24,14 +26,11 @@ require (
 	cloud.google.com/go/auth v0.23.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
-	github.com/DATA-DOG/go-sqlmock v1.5.2 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
-	github.com/alicebob/miniredis/v2 v2.39.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
-	github.com/glebarez/sqlite v1.11.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/spec v0.22.1 // indirect
 	github.com/go-openapi/swag/cmdutils v0.25.3 // indirect
@@ -72,7 +71,7 @@ require (
 	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260807164820-c8921c73eeea // indirect
-	google.golang.org/grpc v1.83.0 // indirect
+	google.golang.org/grpc v1.83.1 // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
 	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
