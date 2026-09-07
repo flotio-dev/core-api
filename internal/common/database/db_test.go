@@ -268,4 +268,3 @@ func TestInitDB_Success(t *testing.T) {
 		t.Fatal("expected DB to be initialized")
 	}
 }
-

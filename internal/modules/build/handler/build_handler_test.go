@@ -840,6 +840,3 @@ func TestBuildController_StatusReconciliationAndQueue(t *testing.T) {
 	// calling again when false returns immediately
 	ctrl.startWaitingBuildScheduler()
 }
-
-
-

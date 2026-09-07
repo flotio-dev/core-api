@@ -750,4 +750,3 @@ func TestAllControllers_UnauthorizedAndEdgeCases(t *testing.T) {
 		t.Errorf("expected 200, got %d", w.Code)
 	}
 }
-

@@ -57,7 +57,6 @@ type ReleaseController struct {
 	userService *userServices.UserService
 }
 
-
 func NewReleaseController(userService *userServices.UserService) *ReleaseController {
 	return &ReleaseController{userService: userService}
 }
@@ -205,7 +204,6 @@ func runPublish(userID, projectID, releaseID, buildID uint, encryptedCredentials
 		fail("publish", err)
 		return
 	}
-
 
 	status := mapPublishStatus(result.Status)
 	setReleaseStatus(releaseID, status, result.VersionCode)
@@ -445,7 +443,6 @@ func accessError(ctx context.Context, encryptedCredentials, packageName string) 
 	}
 	return 0, ""
 }
-
 
 // parsePublishRequest decodes the optional request body, tolerating an empty body.
 func parsePublishRequest(r *http.Request) models.PublishRequest {

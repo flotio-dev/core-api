@@ -187,8 +187,7 @@ func TestUpdateBuildStatusFromPod_And_Artifacts(t *testing.T) {
 			return
 		}
 		if strings.Contains(r.URL.Path, "pod-fail") {
-			_ = json.NewEncoder(w).Encode(map[string]string{"phase": "Failed"},
-			)
+			_ = json.NewEncoder(w).Encode(map[string]string{"phase": "Failed"})
 			return
 		}
 		http.NotFound(w, r)
@@ -269,11 +268,11 @@ func TestPodOperations_WithMock(t *testing.T) {
 	db.Create(&proj)
 
 	bConfig := BuildConfig{
-		BuildID:       1,
-		Project:       proj,
-		Platform:      "android",
-		ProjectConfig: &pConfig,
-		BuildMode:     "release",
+		BuildID:        1,
+		Project:        proj,
+		Platform:       "android",
+		ProjectConfig:  &pConfig,
+		BuildMode:      "release",
 		FlutterChannel: "stable",
 	}
 
@@ -325,4 +324,3 @@ func TestPodOperations_WithMock(t *testing.T) {
 	ScheduleBuildPodCleanup(1)
 	ScheduleBuildPodCleanup(1) // Duplicate call should be ignored immediately
 }
-
